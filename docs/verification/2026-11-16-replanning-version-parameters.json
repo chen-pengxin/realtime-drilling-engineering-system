@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-16",
+  "python": {
+    "passed": 231,
+    "warnings": 1,
+    "compileall": "passed"
+  },
+  "java_build": "passed",
+  "vue_production_build": "passed",
+  "isolated_api": {
+    "passed": 19,
+    "success": true
+  },
+  "browser": {
+    "success": true,
+    "checks": [
+      "已确认的参数状态正确恢复",
+      "同井场切换业务页及配置页无重复弹窗，忽略旧井场428事件",
+      "不可达规划返回工程约束原因并结束等待",
+      "刷新期间的空值不会导致同一风险重复弹窗",
+      "风险解除后再次发生能够重新报警",
+      "版本详情显示基准与工具预算，修订入口可用且取消不写入数据",
+      "浏览器未出现脚本异常"
+    ],
+    "script_errors": []
+  },
+  "temporary_database_removed": true,
+  "temporary_test_account_removed": true
+}

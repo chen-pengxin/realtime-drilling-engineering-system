@@ -1,0 +1,103 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="database-category-4" id="database-category-4">
+    <mxGraphModel dx="1600" dy="1185" grid="1" gridSize="10" page="1" pageWidth="1600" pageHeight="1185">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s0" target="t0">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s1" target="t1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s2" target="t2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s3" target="t3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s4" target="t4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s5" target="t5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="N:1" style="exitX=1.0;exitY=0.5066666666666667;entryX=0.0;entryY=0.5066666666666667;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="s6" target="t6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="s0" value="drilling_alarm&#10;result_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="35" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t0" value="anti_collision_result&#10;result_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="35" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s1" value="drilling_alarm&#10;task_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="160" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t1" value="anti_collision_task&#10;task_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="160" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="drilling_alarm&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="285" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t2" value="drilling_well&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="285" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="drilling_connector_run&#10;connector_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="410" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t3" value="drilling_realtime_connector&#10;connector_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="410" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="drilling_realtime_connector&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="535" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t4" value="drilling_well&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="535" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s5" value="drilling_realtime_ingest_event&#10;survey_version_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="660" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t5" value="drilling_survey_version&#10;survey_version_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="660" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="s6" value="drilling_realtime_ingest_event&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="35" y="785" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="t6" value="drilling_well&#10;well_id" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="925" y="785" width="640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="extra0" value="drilling_task_event" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="910" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extra1" value="drilling_center_execution" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="910" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extra2" value="drilling_center_origin" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="910" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extra3" value="drilling_center_snapshot" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1020" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="extra4" value="drilling_center_report" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="1020" width="450" height="70" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

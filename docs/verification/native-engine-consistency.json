@@ -1,0 +1,240 @@
+{
+  "passed": true,
+  "python": "3.12.10 (main, Apr  8 2025, 11:35:47) [Clang 17.0.0 (clang-1700.0.13.3)]",
+  "runtime_package": "/Users/ermoon/study/bupt/项目/项目demo/algorithm-server/.venv/lib/python3.12/site-packages/wellpath",
+  "wheel_sha256": {
+    "supplied": "bc5714be2b35582e416ece95329b71677fff47e6d70f836f3198f6e58dbb550f",
+    "vendored": "bc5714be2b35582e416ece95329b71677fff47e6d70f836f3198f6e58dbb550f"
+  },
+  "file_checks": {
+    "source": {
+      "files_checked": 106,
+      "differences": []
+    },
+    "runtime": {
+      "files_checked": 106,
+      "differences": []
+    }
+  },
+  "case_count": 24,
+  "checks": [
+    {
+      "case": "uncertainty:iscwsa",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:constant_covariance",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:constant_isotropic",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:linear_std",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:random_walk",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:tabulated_covariance",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:md_scalar_radius",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:simplified_mwd",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:iscwsa_rev0",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "uncertainty:wdw",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "radius_m": 0.0,
+        "covariance_nev_m2": 0.0
+      }
+    },
+    {
+      "case": "collision:iscwsa_rev0:major_axis_sum",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "collision:iscwsa_rev0:directional_sum",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "collision:iscwsa_rev0:project_rss",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "collision:md_scalar_radius:major_axis_sum",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "collision:md_scalar_radius:directional_sum",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "collision:md_scalar_radius:project_rss",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "sf": 0.0,
+        "min_distance": 0.0
+      }
+    },
+    {
+      "case": "plan:arc:SLSQP",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      }
+    },
+    {
+      "case": "plan:arc:trust-constr",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      }
+    },
+    {
+      "case": "plan:arc:COBYLA",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      }
+    },
+    {
+      "case": "plan:arc:COBYQA",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      }
+    },
+    {
+      "case": "plan:arc-straight:SLSQP",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      },
+      "matched_unavailable_values": {
+        "points": 41
+      }
+    },
+    {
+      "case": "plan:arc-straight:trust-constr",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      },
+      "matched_unavailable_values": {
+        "points": 19
+      }
+    },
+    {
+      "case": "plan:arc-straight:COBYLA",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      },
+      "matched_unavailable_values": {
+        "points": 42
+      }
+    },
+    {
+      "case": "plan:arc-straight:COBYQA",
+      "passed": true,
+      "maximum_absolute_differences": {
+        "controls": 0.0,
+        "total_length": 0.0,
+        "points": 0.0
+      },
+      "matched_unavailable_values": {
+        "points": 20
+      }
+    }
+  ],
+  "scope": "Core source identity and same-final-input consistency; no accuracy claim or A/B/C full-scenario acceptance.",
+  "application_extensions": [
+    "straight-arc mode using native straight/arc segment kernels",
+    "business input/version adapters",
+    "whole-well screening and incremental cache",
+    "task timeout and status handling"
+  ]
+}

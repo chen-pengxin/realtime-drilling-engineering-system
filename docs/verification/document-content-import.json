@@ -1,0 +1,276 @@
+{
+  "generated_at": "2026-11-16",
+  "parser_version": "source-content-2026.11.16.1",
+  "database": "ry",
+  "originals_unchanged": true,
+  "approved_trajectory_versions_unchanged": true,
+  "parse_snapshots": 375,
+  "content_sections": 13649,
+  "source_extractions": 380,
+  "parse_status": [
+    {
+      "parse_status": "PARSED",
+      "n": 355
+    },
+    {
+      "parse_status": "FAILED",
+      "n": 14
+    },
+    {
+      "parse_status": "UNSUPPORTED",
+      "n": 6
+    }
+  ],
+  "source_formats": [
+    {
+      "source_format": "CSV",
+      "n": 60
+    },
+    {
+      "source_format": "doc",
+      "n": 73
+    },
+    {
+      "source_format": "docx",
+      "n": 21
+    },
+    {
+      "source_format": "jpg",
+      "n": 1
+    },
+    {
+      "source_format": "md",
+      "n": 1
+    },
+    {
+      "source_format": "pdf",
+      "n": 78
+    },
+    {
+      "source_format": "text",
+      "n": 104
+    },
+    {
+      "source_format": "tif",
+      "n": 1
+    },
+    {
+      "source_format": "txt",
+      "n": 4
+    },
+    {
+      "source_format": "wps",
+      "n": 1
+    },
+    {
+      "source_format": "xls",
+      "n": 21
+    },
+    {
+      "source_format": "xlsx",
+      "n": 3
+    },
+    {
+      "source_format": "zip",
+      "n": 3
+    }
+  ],
+  "batch_audit": {
+    "PARSED": 352,
+    "FAILED": 20
+  },
+  "batch_totals": {
+    "sections": 13645,
+    "tables": 5733,
+    "figures": 506,
+    "table_rows": 356864,
+    "trajectories": 314,
+    "stations": 250743
+  },
+  "targeted_image_markdown_audit": {
+    "PARSED": 3
+  },
+  "failed_files_are_retained_with_diagnostics": true,
+  "failed_or_unsupported_examples": [
+    {
+      "source_id": 3,
+      "reference_id": null,
+      "name": "米45-30YH5井钻井井史.doc",
+      "format": "doc",
+      "parse_id": 3,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"原文件的OLE复合文档结构不完整，无法可靠读取表格；请重新提供可正常打开的原件\"}]"
+    },
+    {
+      "source_id": 11,
+      "reference_id": null,
+      "name": "双48-45YH4井钻井工程班报表..doc",
+      "format": "doc",
+      "parse_id": 11,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 51,
+      "reference_id": null,
+      "name": "麒35H井_钻井液班报表.doc",
+      "format": "doc",
+      "parse_id": 51,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 56,
+      "reference_id": null,
+      "name": "米41-37YH3井钻井工程班报表.doc",
+      "format": "doc",
+      "parse_id": 56,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 80,
+      "reference_id": null,
+      "name": "地质设计审批页.tif",
+      "format": "tif",
+      "parse_id": 80,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 92,
+      "reference_id": null,
+      "name": "Production_data.zip",
+      "format": "zip",
+      "parse_id": 92,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"压缩文件不属于Word或Excel文档\"}]"
+    },
+    {
+      "source_id": 93,
+      "reference_id": null,
+      "name": "米41-37YH5工程班报表.doc",
+      "format": "doc",
+      "parse_id": 93,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 99,
+      "reference_id": null,
+      "name": "米45-30YH3井工程班报表.doc",
+      "format": "doc",
+      "parse_id": 99,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 100,
+      "reference_id": null,
+      "name": "双47-62YH4井钻井井史.doc",
+      "format": "doc",
+      "parse_id": 100,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 101,
+      "reference_id": null,
+      "name": "米125H井钻井工程班报表.doc",
+      "format": "doc",
+      "parse_id": 101,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 195,
+      "reference_id": null,
+      "name": "米45-30YH3井钻井井史.doc",
+      "format": "doc",
+      "parse_id": 195,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 198,
+      "reference_id": null,
+      "name": "Reports.zip",
+      "format": "zip",
+      "parse_id": 198,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"压缩文件不属于Word或Excel文档\"}]"
+    },
+    {
+      "source_id": 224,
+      "reference_id": null,
+      "name": "双47-62YH4钻井液班报表.docx",
+      "format": "docx",
+      "parse_id": 224,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 232,
+      "reference_id": null,
+      "name": "麒35井钻井井史.doc",
+      "format": "doc",
+      "parse_id": 232,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    },
+    {
+      "source_id": 252,
+      "reference_id": null,
+      "name": "双47-62YH4井钻井工程班报表.docx",
+      "format": "docx",
+      "parse_id": 252,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 279,
+      "reference_id": null,
+      "name": "WellWellbore.zip",
+      "format": "zip",
+      "parse_id": 279,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"压缩文件不属于Word或Excel文档\"}]"
+    },
+    {
+      "source_id": 280,
+      "reference_id": null,
+      "name": "公开数据集.md",
+      "format": "md",
+      "parse_id": 280,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 281,
+      "reference_id": null,
+      "name": "工程设计审批页.jpg",
+      "format": "jpg",
+      "parse_id": 281,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 292,
+      "reference_id": null,
+      "name": "双47-62YH4井钻井液完井总结.docx",
+      "format": "docx",
+      "parse_id": 292,
+      "status": "FAILED",
+      "error": "[{\"code\":\"ATTACHMENT_ONLY\",\"message\":\"原件归档；此文件类型未提取正文或表格\"}]"
+    },
+    {
+      "source_id": 305,
+      "reference_id": null,
+      "name": "双48-45YH4井钻井井史.doc",
+      "format": "doc",
+      "parse_id": 305,
+      "status": "FAILED",
+      "error": "[{\"code\":\"PARSE_ERROR\",\"message\":\"Office文档转换失败，请检查文件是否损坏或加密\"}]"
+    }
+  ]
+}

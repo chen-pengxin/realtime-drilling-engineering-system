@@ -1,0 +1,582 @@
+package com.ruoyi.web.controller.drilling;
+
+import com.alibaba.fastjson.JSON;
+import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.framework.security.DrillingDataScope;
+import jakarta.annotation.PostConstruct;
+import java.util.*;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+/** Source hierarchy, document representations and explicit business revisions. */
+@Service
+public class EngineeringLibraryService {
+  // Catalog entities are shown in the same library as documents. Negative
+  // ids are synthetic tree ids and cannot collide with AUTO_INCREMENT nodes.
+  private static final long BLOCK_SCOPE = -1_000_000_000_000L;
+  private static final long FIELD_SCOPE = -2_000_000_000_000L;
+  private static final String FILE_KIND_SQL="(CASE WHEN d.document_role IN ('TRAJECTORY_DATA','TRAJECTORY_REPORT') THEN COALESCE(NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(df.properties_json,'$.trajectory_kind')),'null'),''),CASE n.node_type WHEN 'PLAN' THEN 'DESIGN' WHEN 'SURVEY' THEN 'ACTUAL' END,CASE r.phase WHEN 'PLAN' THEN 'DESIGN' WHEN 'ACTUAL' THEN 'ACTUAL' END) END)";
+  final JdbcTemplate db;
+  private final TrajectoryVersionSupport trajectories;
+  public EngineeringLibraryService(SourceRegistrySupport schema, TrajectoryVersionSupport trajectories) {
+    this.db=schema.jdbc; this.trajectories=trajectories;
+  }
+  @PostConstruct public void initialize() {
+    db.execute((org.springframework.jdbc.core.ConnectionCallback<Void>)c->{
+      ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/engineering-library.sql"));return null;
+    });
+  }
+  static Long id(Object v){return SourceRegistryController.id(v);}
+  static Map<String,Object> obj(Object v){return SourceRegistryController.obj(v);}
+  static String str(Map<String,Object>b,String k,String fallback){return Objects.toString(b.get(k),fallback).trim();}
+  static String required(Map<String,Object>b,String k,int max){return SourceRegistryController.required(b,k,max);}
+  private static long scopeId(long base,long id){return base-id;}
+  private static boolean isScope(Long id){return id!=null&&id<0;}
+  private static String scopeType(long id){
+    if(id<=BLOCK_SCOPE-1 && id>FIELD_SCOPE) return "BLOCK";
+    if(id<=FIELD_SCOPE-1) return "FIELD";
+    return "";
+  }
+  private static long scopeValue(long id,long base){return -(id-base);}
+  private Map<String,Object> scopeNode(Long fieldId,Long id){
+    String type=scopeType(id); if(type.isEmpty()) return null;
+    Map<String,Object> row=new LinkedHashMap<>();
+    row.put("node_id",id); row.put("field_id",fieldId); row.put("status","ACTIVE");
+    row.put("row_version",1); row.put("scope_type",type); row.put("node_type",type);
+    row.put("parent_id",null); row.put("entity_kind","UNKNOWN");
+    if("BLOCK".equals(type)){
+      var rows=db.queryForList("SELECT block_id,block_code,block_name,basin,description FROM drilling_block WHERE block_id=? AND status='0'",scopeValue(id,BLOCK_SCOPE));
+      if(rows.isEmpty()) throw new IllegalArgumentException("区块不存在"); var b=rows.get(0);
+      row.put("block_id",b.get("block_id")); row.put("node_code",b.get("block_code")); row.put("node_name",b.get("block_name"));
+      row.put("basin",b.get("basin")); row.put("description",b.get("description"));
+    } else if("FIELD".equals(type)){
+      var rows=db.queryForList("SELECT field_id,block_id,field_code,field_name,operator_name,description FROM drilling_field WHERE field_id=? AND status='0'",scopeValue(id,FIELD_SCOPE));
+      if(rows.isEmpty()) throw new IllegalArgumentException("井场不存在"); var f=rows.get(0);
+      row.put("field_id",f.get("field_id")); row.put("block_id",f.get("block_id")); row.put("node_code",f.get("field_code")); row.put("node_name",f.get("field_name"));
+      row.put("operator_name",f.get("operator_name")); row.put("description",f.get("description"));
+      row.put("parent_id",scopeId(BLOCK_SCOPE,((Number)f.get("block_id")).longValue()));
+    } else return null;
+    row.put("file_count",db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE n.field_id=?",Integer.class,fieldId));
+    return row;
+  }
+  void access(Long fieldId,boolean write){
+    if(write)DrillingDataScope.current().requireRole(fieldId,"OWNER","ENGINEER");
+    else DrillingDataScope.current().requireAccess(fieldId);
+  }
+  public Map<String,Object> node(Long id,boolean write){
+    if(isScope(id)){
+      var n=scopeNode(null,id); if(n==null)throw new IllegalArgumentException("工程节点不存在");
+      return n;
+    }
+    var rows=db.queryForList("SELECT * FROM drilling_engineering_node WHERE node_id=?",id);
+    if(rows.isEmpty())throw new IllegalArgumentException("工程节点不存在");
+    var n=rows.get(0);access(id(n.get("field_id")),write);return n;
+  }
+  public Map<String,Object> nodeInField(Long fieldId,Long nodeId,boolean write){
+    if(!isScope(nodeId)){
+      var n=node(nodeId,write);
+      if(!fieldId.equals(id(n.get("field_id"))))throw new IllegalArgumentException("节点不属于所选井场");
+      return n;
+    }
+    access(fieldId,write);
+    var n=scopeNode(fieldId,nodeId);
+    if(n==null)throw new IllegalArgumentException("工程节点不存在");
+    var field=db.queryForMap("SELECT f.field_id,f.block_id FROM drilling_field f WHERE f.field_id=?",fieldId);
+    boolean belongs=switch(scopeType(nodeId)){
+      case "BLOCK" -> Objects.equals(id(field.get("block_id")),id(n.get("block_id")));
+      case "FIELD" -> fieldId.equals(id(n.get("field_id")));
+      default -> false;
+    };
+    if(!belongs)throw new IllegalArgumentException("目录节点不属于所选井场的工程层级");
+    return n;
+  }
+  Map<String,Object> revision(Long id,boolean write){
+    var rows=db.queryForList("SELECT * FROM drilling_engineering_revision WHERE revision_id=?",id);
+    if(rows.isEmpty())throw new IllegalArgumentException("业务版本不存在");
+    var r=rows.get(0);node(id(r.get("node_id")),write);return r;
+  }
+  void audit(Long p,String action,Object detail){
+    db.update("INSERT INTO drilling_audit_log(field_id,user_id,action,resource_type,detail_json) VALUES(?,?,?,'ENGINEERING_LIBRARY',?)",p,ShiroUtils.getUserId(),action,JSON.toJSONString(detail));
+  }
+  public List<Map<String,Object>> tree(Long fieldId){
+    access(fieldId,false);
+    var context=db.queryForMap("SELECT f.field_id,f.block_id FROM drilling_field f WHERE f.field_id=?",fieldId);
+    long blockId=((Number)context.get("block_id")).longValue();
+    var rows=new ArrayList<Map<String,Object>>();
+    rows.add(scopeNode(fieldId,scopeId(BLOCK_SCOPE,blockId)));
+    rows.add(scopeNode(fieldId,scopeId(FIELD_SCOPE,fieldId)));
+    var library=db.queryForList("SELECT n.*,(SELECT COUNT(*) FROM drilling_engineering_document d JOIN drilling_engineering_document_file f ON f.document_id=d.document_id WHERE d.node_id=n.node_id) file_count FROM drilling_engineering_node n WHERE n.status='ACTIVE' AND n.field_id=? ORDER BY n.node_id",fieldId);
+    for(var row:library){
+      row.put("properties",obj(row.remove("properties_json")));
+      String type=Objects.toString(row.get("node_type"),"");
+      if(Set.of("BLOCK","FIELD").contains(type))continue;
+      Object parent=row.get("parent_id");
+      if(parent==null || (parent instanceof Number n && n.longValue()<0))row.put("parent_id",scopeId(FIELD_SCOPE,fieldId));
+      rows.add(row);
+    }
+    return rows;
+  }
+  public List<Map<String,Object>> catalogTree(){
+    String allowed=DrillingDataScope.current().predicate("f.field_id");
+    var allowedFields=db.queryForList("SELECT f.field_id,f.block_id FROM drilling_field f WHERE f.status='0' AND ("+allowed+") ORDER BY f.field_name");
+    var rows=new ArrayList<Map<String,Object>>();
+    boolean administrator=ShiroUtils.isAdmin(ShiroUtils.getUserId());
+    if(allowedFields.isEmpty()&&!administrator)return rows;
+    Set<Long> fieldIds=new LinkedHashSet<>(),blockIds=new LinkedHashSet<>();
+    for(var f:allowedFields){fieldIds.add(id(f.get("field_id")));blockIds.add(id(f.get("block_id")));}
+    if(administrator){
+      db.queryForList("SELECT block_id FROM drilling_block WHERE status='0'",Long.class).forEach(blockIds::add);
+      db.queryForList("SELECT field_id FROM drilling_field WHERE status='0'",Long.class).forEach(fieldIds::add);
+    }
+    Map<Long,Map<String,Object>> blocks=new LinkedHashMap<>(),fields=new LinkedHashMap<>();
+    if(blockIds.isEmpty())return rows;
+    String blockMarks=String.join(",",Collections.nCopies(blockIds.size(),"?"));
+    for(var b:db.queryForList("SELECT block_id,block_code,block_name,basin,description FROM drilling_block WHERE status='0' AND block_id IN ("+blockMarks+") ORDER BY block_name",blockIds.toArray())){
+      Long id=id(b.get("block_id"));var n=new LinkedHashMap<String,Object>();n.put("node_id",scopeId(BLOCK_SCOPE,id));n.put("field_id",null);n.put("parent_id",null);n.put("scope_type","BLOCK");n.put("node_type","BLOCK");n.put("node_code",b.get("block_code"));n.put("node_name",b.get("block_name"));n.put("block_id",id);n.put("basin",b.get("basin"));n.put("description",b.get("description"));n.put("status","ACTIVE");blocks.put(id,n);rows.add(n);
+    }
+    String allowedFieldMarks=fieldIds.isEmpty()?"NULL":String.join(",",Collections.nCopies(fieldIds.size(),"?"));
+    for(var f:db.queryForList("SELECT f.field_id,f.block_id,f.field_code,f.field_name,f.operator_name,f.description FROM drilling_field f WHERE f.status='0' AND f.field_id IN ("+allowedFieldMarks+") ORDER BY f.field_name",fieldIds.toArray())){
+      Long id=id(f.get("field_id")),block=id(f.get("block_id"));var n=new LinkedHashMap<String,Object>();n.put("node_id",scopeId(FIELD_SCOPE,id));n.put("field_id",null);n.put("parent_id",scopeId(BLOCK_SCOPE,block));n.put("scope_type","FIELD");n.put("node_type","FIELD");n.put("node_code",f.get("field_code"));n.put("node_name",f.get("field_name"));n.put("field_id",id);n.put("block_id",block);n.put("operator_name",f.get("operator_name"));n.put("description",f.get("description"));n.put("status","ACTIVE");fields.put(id,n);rows.add(n);
+    }
+    if(fieldIds.isEmpty())return rows;
+    String fieldMarks=String.join(",",Collections.nCopies(fieldIds.size(),"?"));
+    var library=db.queryForList("SELECT n.* FROM drilling_engineering_node n WHERE n.status='ACTIVE' AND n.field_id IN ("+fieldMarks+") ORDER BY n.field_id,n.node_id",fieldIds.toArray());
+    Map<Long,Long> canonicalNodes=new HashMap<>();
+    Map<String,Long> canonicalAssets=new HashMap<>();
+    for(var item:library){
+      String type=Objects.toString(item.get("node_type"),"");
+      Object identity="WELL".equals(type)?item.get("well_id"):"WELLBORE".equals(type)?item.get("wellbore_id"):null;
+      if(identity!=null){
+        String key=type+":"+identity;
+        canonicalNodes.put(id(item.get("node_id")),canonicalAssets.computeIfAbsent(key,k->id(item.get("node_id"))));
+      }else canonicalNodes.put(id(item.get("node_id")),id(item.get("node_id")));
+    }
+    Set<Long> emitted=new HashSet<>();
+    for(var row:library){
+      row.put("properties",obj(row.remove("properties_json")));
+      Long ownerField=id(row.get("field_id"));
+      String type=Objects.toString(row.get("node_type"),"");
+      if(Set.of("BLOCK","FIELD").contains(type))continue;
+      if("WELL".equals(row.get("node_type"))){
+        Long canonical=canonicalNodes.get(id(row.get("node_id")));
+        if(!emitted.add(canonical)) continue;
+        row.put("parent_id",scopeId(FIELD_SCOPE,ownerField));
+      } else if("WELLBORE".equals(row.get("node_type"))){
+        Long canonical=canonicalNodes.get(id(row.get("node_id")));
+        if(!emitted.add(canonical)) continue;
+        Long parent=id(row.get("parent_id"));
+        row.put("parent_id",canonicalNodes.getOrDefault(parent,parent));
+      } else if(row.get("parent_id")==null || (row.get("parent_id") instanceof Number n && n.longValue()<0)) {
+        row.put("parent_id",scopeId(FIELD_SCOPE,ownerField));
+      } else if(canonicalNodes.containsKey(id(row.get("parent_id")))) {
+        row.put("parent_id",canonicalNodes.get(id(row.get("parent_id"))));
+      } else if("INBOX".equals(type)) {
+        row.put("parent_id",scopeId(FIELD_SCOPE,ownerField));
+      }
+      rows.add(row);
+    }
+    return rows;
+  }
+  public Map<String,Object> engineeringNode(Long nodeId){ return node(nodeId,false); }
+  String descendants(){return "WITH RECURSIVE scope AS (SELECT node_id FROM drilling_engineering_node WHERE node_id=? UNION ALL SELECT n.node_id FROM drilling_engineering_node n JOIN scope s ON n.parent_id=s.node_id WHERE n.status='ACTIVE') ";}
+  /** Resolve paths in one query for a whole page, including uploaded files. */
+  private void decorateDocumentPaths(List<Map<String,Object>> rows){
+    var ids=rows.stream().map(row->id(row.get("node_id"))).filter(Objects::nonNull).filter(x->x>0).distinct().toList();
+    if(ids.isEmpty())return;
+    String marks=String.join(",",Collections.nCopies(ids.size(),"?"));
+    var ancestors=db.queryForList("WITH RECURSIVE lineage AS ("
+        + "SELECT node_id AS root_id,node_id,parent_id,field_id,node_name,0 AS depth FROM drilling_engineering_node WHERE node_id IN ("+marks+") "
+        + "UNION ALL SELECT l.root_id,n.node_id,n.parent_id,n.field_id,n.node_name,l.depth+1 FROM drilling_engineering_node n JOIN lineage l ON n.node_id=l.parent_id WHERE l.depth<20) "
+        + "SELECT l.*,f.field_name,b.block_name FROM lineage l JOIN drilling_field f ON f.field_id=l.field_id LEFT JOIN drilling_block b ON b.block_id=f.block_id ORDER BY l.root_id,l.depth DESC",ids.toArray());
+    var paths=new HashMap<Long,List<String>>();
+    for(var ancestor:ancestors){
+      var path=paths.computeIfAbsent(id(ancestor.get("root_id")),ignored->{
+        var names=new ArrayList<String>();
+        for(String key:List.of("block_name","field_name")){String name=Objects.toString(ancestor.get(key),"").trim();if(!name.isBlank())names.add(name);}
+        return names;
+      });
+      String name=Objects.toString(ancestor.get("node_name"),"").trim();
+      if(!name.isBlank())path.add(name);
+    }
+    for(var row:rows)row.put("engineering_path",String.join(" / ",paths.getOrDefault(id(row.get("node_id")),List.of())));
+  }
+
+  public List<Map<String,Object>> sourceAssociations(Long sourceId){
+    var rows=db.queryForList("SELECT DISTINCT n.node_id,n.node_type,n.node_name,n.field_id,n.well_id,n.wellbore_id,"
+        + "w.well_code,w.well_name,b.wellbore_code,b.wellbore_name,d.document_role,"
+        + "JSON_UNQUOTE(JSON_EXTRACT(df.properties_json,'$.trajectory_kind')) AS trajectory_kind "
+        + "FROM drilling_engineering_document_file df JOIN drilling_engineering_document d ON d.document_id=df.document_id "
+        + "JOIN drilling_engineering_node n ON n.node_id=d.node_id LEFT JOIN drilling_well w ON w.well_id=n.well_id "
+        + "LEFT JOIN drilling_wellbore b ON b.wellbore_id=n.wellbore_id "
+        + "WHERE df.source_id=? AND n.status='ACTIVE' AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL AND ("
+        + DrillingDataScope.current().predicate("n.field_id")+") ORDER BY n.node_id,d.document_role",sourceId);
+    decorateDocumentPaths(rows);
+    return rows;
+  }
+
+  /** Validate explicit upload ownership before parsing or storing file bytes. */
+  public Map<String,Object> uploadTarget(Long fieldId,Long nodeId,Long wellboreId,String role,String kind){
+    return uploadTarget(fieldId,nodeId,wellboreId,role,kind,null,null);
+  }
+  public Map<String,Object> uploadTarget(Long fieldId,Long nodeId,Long wellboreId,String role,String kind,Long documentId,Integer expectedEditionNo){
+    access(fieldId,true);
+    if(!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT","WELL_SUMMARY","ENGINEERING_REPORT","PRODUCTION_DATA","ARCHIVE","REFERENCE").contains(role))throw new IllegalArgumentException("文件用途无效");
+    Map<String,Object> document=null;
+    if(documentId!=null){
+      document=documentContext(fieldId,documentId,true);
+      if(expectedEditionNo==null||expectedEditionNo<1)throw new IllegalArgumentException("更新文件必须提供原文件的当前版次");
+      if(nodeId!=null&&!nodeId.equals(id(document.get("node_id"))))throw new IllegalArgumentException("文件新版本必须保留原工程归属");
+      nodeId=id(document.get("node_id"));
+      if(!role.equals(document.get("document_role")))throw new IllegalArgumentException("文件新版本不能更改资料用途");
+      String originalKind=Objects.toString(document.get("trajectory_kind"),"");
+      if(!originalKind.isBlank()&&!originalKind.equals(kind))throw new IllegalArgumentException("文件新版本不能更改设计或实钻类别");
+    }
+    if(nodeId==null&&wellboreId==null)return null; // Legacy staging imports remain supported.
+    if(nodeId==null){
+      var bore=db.queryForList("SELECT b.well_id,w.field_id FROM drilling_wellbore b JOIN drilling_well w ON w.well_id=b.well_id JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id WHERE x.field_id=? AND b.wellbore_id=? AND w.status<>'ARCHIVED'",fieldId,wellboreId);
+      if(bore.isEmpty())throw new IllegalArgumentException("井眼不属于当前井场");
+      access(id(bore.get(0).get("field_id")),true);
+      registerWellboreReference(fieldId,wellboreId);
+      nodeId=db.queryForObject("SELECT MIN(node_id) FROM drilling_engineering_node WHERE field_id=? AND wellbore_id=? AND node_type='WELLBORE' AND status='ACTIVE'",Long.class,fieldId,wellboreId);
+    }
+    var n=nodeInField(fieldId,nodeId,true);
+    if(nodeId<0||!"ACTIVE".equals(n.get("status")))throw new IllegalArgumentException("请选择有效的井、井眼或成果节点");
+    if(wellboreId!=null&&!wellboreId.equals(id(n.get("wellbore_id"))))throw new IllegalArgumentException("上传节点与所选井眼不一致");
+    if("TRAJECTORY_DATA".equals(role)&&n.get("wellbore_id")==null)throw new IllegalArgumentException("轨迹数据必须关联到具体井眼，请展开工程树选择井眼");
+    if(kind!=null&&!kind.isBlank()){
+      if(!Set.of("DESIGN","ACTUAL").contains(kind))throw new IllegalArgumentException("轨迹用途必须是设计或实钻");
+      if(n.get("wellbore_id")==null)throw new IllegalArgumentException("设计或实钻资料必须关联到具体井眼");
+      if("PLAN".equals(n.get("node_type"))&&!"DESIGN".equals(kind)||"SURVEY".equals(n.get("node_type"))&&!"ACTUAL".equals(kind))throw new IllegalArgumentException("文件用途与所选成果节点不一致");
+    }
+    if(n.get("well_id")!=null)access(db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,n.get("well_id")),true);
+    if(document!=null){n.put("upload_document_id",documentId);n.put("upload_expected_edition_no",expectedEditionNo);n.put("upload_revision_id",document.get("revision_id"));}
+    return n;
+  }
+
+  public Map<String,Object> documentContext(Long fieldId,Long documentId,boolean write){
+    var documents=db.queryForList("SELECT d.*,n.field_id,n.node_type,n.wellbore_id,r.phase FROM drilling_engineering_document d JOIN drilling_engineering_node n ON n.node_id=d.node_id LEFT JOIN drilling_engineering_revision r ON r.revision_id=d.revision_id WHERE d.document_id=?",documentId);
+    if(documents.isEmpty())throw new IllegalArgumentException("资料文件不存在");
+    var result=new LinkedHashMap<String,Object>(documents.get(0));
+    nodeInField(fieldId,id(result.get("node_id")),write);
+    var kinds=new LinkedHashSet<String>();
+    if(Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(result.get("document_role"))){
+      if("PLAN".equals(result.get("node_type")))kinds.add("DESIGN");
+      if("SURVEY".equals(result.get("node_type")))kinds.add("ACTUAL");
+      for(var row:db.queryForList("SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(properties_json,'$.trajectory_kind')) AS kind FROM drilling_engineering_document_file WHERE document_id=?",documentId)){
+        String value=Objects.toString(row.get("kind"),"");if(Set.of("DESIGN","ACTUAL").contains(value))kinds.add(value);
+      }
+      if(kinds.isEmpty()&&"PLAN".equals(result.get("phase")))kinds.add("DESIGN");
+      if(kinds.isEmpty()&&"ACTUAL".equals(result.get("phase")))kinds.add("ACTUAL");
+    }
+    if(kinds.size()>1)throw new IllegalArgumentException("该资料的设计与实钻类别冲突，请先核对资料归属");
+    result.put("trajectory_kind",kinds.isEmpty()?null:kinds.iterator().next());
+    result.put("latest_edition_no",db.queryForObject("SELECT COALESCE(MAX(edition_no),0) FROM drilling_engineering_document_file WHERE document_id=?",Integer.class,documentId));
+    var latestFile=db.queryForList("SELECT f.original_name,f.display_name,df.file_label FROM drilling_engineering_document_file df JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id WHERE df.document_id=? ORDER BY df.edition_no DESC LIMIT 1",documentId);
+    if(!latestFile.isEmpty())result.putAll(latestFile.get(0));
+    decorateDocumentPaths(List.of(result));return result;
+  }
+
+  /** Run before parsing/storing bytes. Hold the document lock until upload commits. */
+  public void validateFileEdition(Map<String,Object> target,String sha256){
+    if(target==null||target.get("upload_document_id")==null)return;
+    Long document=id(target.get("upload_document_id"));
+    db.queryForList("SELECT document_id FROM drilling_engineering_document WHERE document_id=? FOR UPDATE",document);
+    var duplicate=db.queryForList("SELECT df.edition_no FROM drilling_engineering_document_file df JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id WHERE df.document_id=? AND f.sha256=?",document,sha256);
+    if(!duplicate.isEmpty())return;
+    var latest=db.queryForList("SELECT edition_no FROM drilling_engineering_document_file WHERE document_id=? ORDER BY edition_no DESC LIMIT 1 FOR UPDATE",document);
+    int current=latest.isEmpty()?0:((Number)latest.get(0).get("edition_no")).intValue();
+    if(current!=((Number)target.get("upload_expected_edition_no")).intValue())throw new ResponseStatusException(HttpStatus.CONFLICT,"该文件已有新版本，请刷新文件版次后重新上传");
+  }
+  public Map<String,Object> contents(Long nodeId,String keyword,String role,String trajectoryKind,int page,int size,String sort,String order){
+    var n=node(nodeId,false);size=Math.max(1,Math.min(size,100));page=Math.max(1,page);
+    String where=" FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id LEFT JOIN drilling_engineering_revision r ON r.revision_id=d.revision_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE df.edition_no=(SELECT MAX(current_file.edition_no) FROM drilling_engineering_document_file current_file WHERE current_file.document_id=d.document_id) AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL AND d.node_id IN(SELECT node_id FROM scope) AND (?='' OR f.original_name LIKE ? OR d.document_title LIKE ? OR f.display_name LIKE ?) AND (?='' OR d.document_role=?) AND (?='' OR "+FILE_KIND_SQL+"=?)";
+    Object[] args={nodeId,keyword,"%"+keyword+"%","%"+keyword+"%","%"+keyword+"%",role,role,trajectoryKind,trajectoryKind};
+    long total=db.queryForObject(descendants()+"SELECT COUNT(*)"+where,Long.class,args);
+    String column=Map.of("name","f.original_name","date","df.create_time","role","d.document_role").getOrDefault(sort,"df.create_time");
+    var params=new ArrayList<Object>(Arrays.asList(args));params.add(size);params.add((page-1)*size);
+    var files=db.queryForList(descendants()+"SELECT d.*,df.document_file_id,df.edition_no,df.representation_format,df.usage_state AS file_usage_state,df.file_label,df.properties_json AS file_properties,s.source_id,s.field_id AS source_field_id,s.source_path,s.parse_status,f.file_id,f.original_name,f.display_name,f.sha256,f.file_size,df.create_time,r.business_revision,r.outcome_name,r.phase,n.wellbore_id,n.node_type,"+FILE_KIND_SQL+" AS trajectory_kind,(SELECT MAX(history.edition_no) FROM drilling_engineering_document_file history WHERE history.document_id=d.document_id) AS latest_edition_no"+where+" ORDER BY "+column+("asc".equalsIgnoreCase(order)?" ASC":" DESC")+",df.document_file_id DESC LIMIT ? OFFSET ?",params.toArray());
+    decorateDocumentPaths(files);
+    var revisions=db.queryForList(descendants()+"SELECT r.*,n.node_name,n.node_type,n.wellbore_id,h.revision_id AS published_revision_id,h.survey_version_id AS published_data_id,(SELECT COUNT(*) FROM drilling_engineering_revision_data rd WHERE rd.revision_id=r.revision_id) dataset_count,EXISTS(SELECT 1 FROM drilling_engineering_revision_data rd JOIN drilling_trajectory_head th ON th.survey_version_id=rd.survey_version_id WHERE rd.revision_id=r.revision_id) selected_for_calculation FROM drilling_engineering_revision r JOIN drilling_engineering_node n ON n.node_id=r.node_id LEFT JOIN drilling_engineering_head h ON h.node_id=r.node_id AND h.revision_id=r.revision_id WHERE r.node_id IN(SELECT node_id FROM scope) AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL ORDER BY r.source_date DESC,r.revision_id DESC",nodeId);
+    return Map.of("node",n,"files",files,"total",total,"revisions",revisions,"trajectoryVersions",trajectoryVersions(id(n.get("field_id")),nodeId,false),"children",db.queryForList("SELECT * FROM drilling_engineering_node WHERE parent_id=? AND status='ACTIVE' ORDER BY node_type,node_name",nodeId));
+  }
+  private List<Map<String,Object>> trajectoryVersions(Long fieldId,Long nodeId,boolean fieldScope){
+    Collection<?> boreIds;
+    if(fieldScope){
+      boreIds=db.queryForList("SELECT DISTINCT b.wellbore_id FROM drilling_field_wellbore x JOIN drilling_wellbore b ON b.wellbore_id=x.wellbore_id WHERE x.field_id=?",Long.class,fieldId);
+    }else{
+      boreIds=db.queryForList("WITH RECURSIVE scope AS (SELECT node_id FROM drilling_engineering_node WHERE node_id=? UNION ALL SELECT n.node_id FROM drilling_engineering_node n JOIN scope s ON n.parent_id=s.node_id WHERE n.status='ACTIVE') SELECT DISTINCT n.wellbore_id FROM drilling_engineering_node n JOIN scope s ON s.node_id=n.node_id WHERE n.wellbore_id IS NOT NULL",Long.class,nodeId);
+      if(boreIds.isEmpty()){
+        var row=db.queryForList("SELECT well_id,node_type FROM drilling_engineering_node WHERE node_id=?",nodeId);
+        if(!row.isEmpty()&&"WELL".equals(row.get(0).get("node_type")))boreIds=db.queryForList("SELECT wellbore_id FROM drilling_wellbore WHERE well_id=?",Long.class,row.get(0).get("well_id"));
+      }
+    }
+    if(boreIds.isEmpty())return List.of();
+    String marks=String.join(",",Collections.nCopies(boreIds.size(),"?"));
+    var args=new ArrayList<Object>();args.add(fieldId);args.addAll(boreIds);
+    String kindFilter="";
+    if(!fieldScope){
+      var selected=node(nodeId,false);
+      if(Set.of("PLAN","SURVEY").contains(selected.get("node_type"))){
+        kindFilter=" AND t.trajectory_kind=?";
+        args.add("PLAN".equals(selected.get("node_type"))?"DESIGN":"ACTUAL");
+      }
+    }
+    return db.queryForList("SELECT t.survey_version_id,t.wellbore_id,t.trajectory_kind,t.source_locator,t.content_sha256,t.label,t.revision_note,t.create_time,t.trajectory_version_no AS version_no,s.parent_version_id,(SELECT pv.trajectory_version_no FROM drilling_trajectory_version pv WHERE pv.survey_version_id=s.parent_version_id) AS parent_version_no,s.import_mode,s.source_format,s.max_md,COALESCE(h.survey_version_id=t.survey_version_id,0) is_current,(SELECT COUNT(*) FROM drilling_survey_station st WHERE st.survey_version_id=t.survey_version_id) station_count,w.well_id,w.well_code,w.well_name,b.wellbore_code,b.wellbore_name,k.block_name,fld.field_name,f.original_name,f.display_name FROM drilling_trajectory_version t JOIN drilling_survey_version s ON s.survey_version_id=t.survey_version_id JOIN drilling_wellbore b ON b.wellbore_id=t.wellbore_id JOIN drilling_well w ON w.well_id=b.well_id LEFT JOIN drilling_well_catalog wc ON wc.well_id=w.well_id LEFT JOIN drilling_field fld ON fld.field_id=wc.field_id LEFT JOIN drilling_block k ON k.block_id=fld.block_id LEFT JOIN drilling_trajectory_head h ON h.wellbore_id=t.wellbore_id AND h.trajectory_kind=t.trajectory_kind LEFT JOIN data_file f ON f.file_id=s.source_file_id WHERE EXISTS(SELECT 1 FROM drilling_field_wellbore x WHERE x.field_id=? AND x.wellbore_id=t.wellbore_id) AND t.wellbore_id IN ("+marks+")"+kindFilter+" ORDER BY k.block_name,fld.field_name,w.well_name,b.wellbore_name,t.trajectory_kind,t.trajectory_version_no DESC",args.toArray());
+  }
+  public Map<String,Object> scopedContents(Long fieldId,Long nodeId,String keyword,String role,String trajectoryKind,int page,int size,String sort,String order){
+    if(!isScope(nodeId))return contents(nodeId,keyword,role,trajectoryKind,page,size,sort,order);
+    var n=nodeInField(fieldId,nodeId,false);size=Math.max(1,Math.min(size,100));page=Math.max(1,page);
+    String where=" FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id LEFT JOIN drilling_engineering_revision r ON r.revision_id=d.revision_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE df.edition_no=(SELECT MAX(current_file.edition_no) FROM drilling_engineering_document_file current_file WHERE current_file.document_id=d.document_id) AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL AND n.field_id=? AND (?='' OR f.original_name LIKE ? OR d.document_title LIKE ? OR f.display_name LIKE ?) AND (?='' OR d.document_role=?) AND (?='' OR "+FILE_KIND_SQL+"=?)";
+    Object[] args={fieldId,keyword,"%"+keyword+"%","%"+keyword+"%","%"+keyword+"%",role,role,trajectoryKind,trajectoryKind};
+    long total=db.queryForObject("SELECT COUNT(*)"+where,Long.class,args);
+    String column=Map.of("name","f.original_name","date","df.create_time","role","d.document_role").getOrDefault(sort,"df.create_time");
+    var params=new ArrayList<Object>(Arrays.asList(args));params.add(size);params.add((page-1)*size);
+    var files=db.queryForList("SELECT d.*,df.document_file_id,df.edition_no,df.representation_format,df.usage_state AS file_usage_state,df.file_label,df.properties_json AS file_properties,s.source_id,s.field_id AS source_field_id,s.source_path,s.parse_status,f.file_id,f.original_name,f.display_name,f.sha256,f.file_size,df.create_time,r.business_revision,r.outcome_name,r.phase,n.wellbore_id,n.node_type,"+FILE_KIND_SQL+" AS trajectory_kind,(SELECT MAX(history.edition_no) FROM drilling_engineering_document_file history WHERE history.document_id=d.document_id) AS latest_edition_no"+where+" ORDER BY "+column+("asc".equalsIgnoreCase(order)?" ASC":" DESC")+",df.document_file_id DESC LIMIT ? OFFSET ?",params.toArray());
+    decorateDocumentPaths(files);
+    var revisions=db.queryForList("SELECT r.*,n.node_name,n.node_type,n.wellbore_id,h.revision_id AS published_revision_id,h.survey_version_id AS published_data_id,(SELECT COUNT(*) FROM drilling_engineering_revision_data rd WHERE rd.revision_id=r.revision_id) dataset_count,EXISTS(SELECT 1 FROM drilling_engineering_revision_data rd JOIN drilling_trajectory_head th ON th.survey_version_id=rd.survey_version_id WHERE rd.revision_id=r.revision_id) selected_for_calculation FROM drilling_engineering_revision r JOIN drilling_engineering_node n ON n.node_id=r.node_id LEFT JOIN drilling_engineering_head h ON h.node_id=n.node_id AND h.revision_id=r.revision_id WHERE n.field_id=? AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL ORDER BY r.source_date DESC,r.revision_id DESC",fieldId);
+    var children=tree(fieldId).stream().filter(x->Objects.equals(x.get("parent_id"),nodeId)).toList();
+    return Map.of("node",n,"files",files,"total",total,"revisions",revisions,"trajectoryVersions",trajectoryVersions(fieldId,nodeId,true),"children",children);
+  }
+  public Map<String,Object> detail(Long revisionId){
+    var r=revision(revisionId,false);
+    r.put("datasets",db.queryForList("SELECT rd.*,t.wellbore_id,t.trajectory_kind,t.trajectory_version_no AS version_no,s.max_md,s.parent_version_id,f.original_name,f.display_name,COALESCE(h.survey_version_id=t.survey_version_id,0) is_current FROM drilling_engineering_revision_data rd JOIN drilling_trajectory_version t ON t.survey_version_id=rd.survey_version_id JOIN drilling_survey_version s ON s.survey_version_id=t.survey_version_id LEFT JOIN data_file f ON f.file_id=s.source_file_id LEFT JOIN drilling_trajectory_head h ON h.wellbore_id=t.wellbore_id AND h.trajectory_kind=t.trajectory_kind WHERE rd.revision_id=? ORDER BY s.survey_version_id",revisionId));
+    r.put("files",db.queryForList("SELECT d.document_role,df.*,s.source_path,f.original_name,f.display_name,f.sha256 FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id WHERE d.revision_id=? ORDER BY d.document_role,df.edition_no",revisionId));
+    r.put("properties",obj(r.remove("properties_json")));return r;
+  }
+  @Transactional public Map<String,Object> createNode(Map<String,Object>b){
+    Long fieldId=id(b.get("fieldId")),parentId=id(b.get("parentId"));access(fieldId,true);
+    String type=required(b,"nodeType",16),name=required(b,"name",255),code=str(b,"code","");
+    if(code.isBlank())code=name;
+    if(code.length()>128)throw new IllegalArgumentException("节点编码最长128字");
+    Map<String,Object> parent=parentId==null?null:nodeInField(fieldId,parentId,true);
+    boolean fieldParent=parent!=null&&"FIELD".equals(parent.get("node_type"));
+    Long storedParent=parentId!=null&&!isScope(parentId)?parentId:null;
+    if("INBOX".equals(type)){
+      if(parentId!=null&&!fieldParent)throw new IllegalArgumentException("工程资料只能挂在井场或井场下级节点");
+    }else if("WELL".equals(type)){
+      if(!fieldParent)throw new IllegalArgumentException("井必须挂在井场下");
+    }else{
+      String expected=Map.of("WELLBORE","WELL","PLAN","WELLBORE","SURVEY","WELLBORE").get(type);
+      if(expected==null||parent==null||!expected.equals(parent.get("node_type")))throw new IllegalArgumentException("工程层级必须为区块→井场→井→井眼→成果");
+    }
+    Long well=null,bore=null;
+    if("WELL".equals(type)){
+      well=id(b.get("wellId"));
+      if(well==null){
+        var registered=db.queryForList("SELECT c.well_id FROM drilling_well_catalog c WHERE c.field_id=? AND c.identity_key=?",fieldId,code);
+        if(!registered.isEmpty())throw new IllegalArgumentException("同一井场已有该井，请引用已有井和井眼，不能重复创建");
+        db.update("INSERT INTO drilling_well(field_id,well_code,well_name,status,metadata_json,create_by) VALUES(?,?,?,'UNKNOWN',?,?)",fieldId,code,name,JSON.toJSONString(Map.of("source","ENGINEERING_LIBRARY")),ShiroUtils.getLoginName());
+        well=db.queryForObject("SELECT well_id FROM drilling_well WHERE field_id=? AND well_code=?",Long.class,fieldId,code);
+        db.update("INSERT INTO drilling_well_catalog(well_id,field_id,identity_key) VALUES(?,?,?)",well,fieldId,code);
+      }else access(db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,well),false);
+    }else if("WELLBORE".equals(type)){
+      well=id(parent.get("well_id"));Long parentBore=id(b.get("parentWellboreId"));
+      if(db.queryForObject("SELECT COUNT(*) FROM drilling_wellbore WHERE well_id=? AND wellbore_code=?",Integer.class,well,code)>0)throw new IllegalArgumentException("该井下已有同编码井眼，请使用已有井眼");
+      if(parentBore!=null&&db.queryForObject("SELECT COUNT(*) FROM drilling_wellbore WHERE wellbore_id=? AND well_id=?",Integer.class,parentBore,well)!=1)throw new IllegalArgumentException("父井眼必须属于同一口井");
+      db.update("INSERT INTO drilling_wellbore(well_id,parent_wellbore_id,wellbore_code,wellbore_name,engineering_status) VALUES(?,?,?,?,'UNKNOWN')",well,parentBore,code,name);
+      bore=db.queryForObject("SELECT wellbore_id FROM drilling_wellbore WHERE well_id=? AND wellbore_code=?",Long.class,well,code);
+      db.update("INSERT IGNORE INTO drilling_field_wellbore(field_id,wellbore_id) VALUES(?,?)",fieldId,bore);
+    }else if(parent!=null){well=id(parent.get("well_id"));bore=id(parent.get("wellbore_id"));}
+    String key=NativeEngineSupport.hash(fieldId+":"+storedParent+":"+type+":"+code);
+    db.update("INSERT INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)",key,fieldId,storedParent,type,name,code,well,bore,str(b,"entityKind","UNKNOWN"),JSON.toJSONString(obj(b.get("properties"))),ShiroUtils.getLoginName());
+    Long result=db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,key);audit(fieldId,"CREATE_ENGINEERING_NODE",Map.of("nodeId",result,"request",b));return node(result,false);
+  }
+  @Transactional public Map<String,Object> updateNode(Long nodeId,Map<String,Object>b){
+    var old=node(nodeId,true);db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE node_id=? FOR UPDATE",nodeId);
+    Long parent=b.containsKey("parentId")?id(b.get("parentId")):id(old.get("parent_id"));
+    if(parent!=null){
+      var p=node(parent,true);if(!Objects.equals(p.get("field_id"),old.get("field_id")))throw new IllegalArgumentException("跨权限工程请使用资料引用，不能直接移动");
+      Long cursor=parent;Set<Long> visited=new HashSet<>();
+      while(cursor!=null){if(cursor.equals(nodeId)||!visited.add(cursor))throw new IllegalArgumentException("不能移入自身或子节点");cursor=id(node(cursor,false).get("parent_id"));}
+      String expected=Map.of("WELL","FIELD","WELLBORE","WELL","PLAN","WELLBORE","SURVEY","WELLBORE").get(old.get("node_type"));
+      if(!Objects.equals(expected,p.get("node_type")))throw new IllegalArgumentException("目标层级不匹配");
+    }else if(!Set.of("INBOX").contains(old.get("node_type")))throw new IllegalArgumentException("该节点必须保留所属工程层级");
+    if("ARCHIVED".equals(b.get("status"))&&db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_node WHERE parent_id=? AND status='ACTIVE'",Integer.class,nodeId)>0)throw new IllegalArgumentException("请先归档下级节点");
+    var props=obj(old.get("properties_json"));props.putAll(obj(b.get("properties")));
+    int changed=db.update("UPDATE drilling_engineering_node SET parent_id=?,node_name=?,properties_json=?,status=?,row_version=row_version+1,update_time=NOW() WHERE node_id=? AND row_version=?",parent,str(b,"name",old.get("node_name").toString()),JSON.toJSONString(props),str(b,"status",old.get("status").toString()),nodeId,id(b.get("expectedVersion")));
+    if(changed!=1)throw new ResponseStatusException(HttpStatus.CONFLICT,"节点已被他人修改，请刷新");
+    if("WELL".equals(old.get("node_type"))){
+      Long owner=db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,old.get("well_id"));access(owner,true);
+      db.update("UPDATE drilling_well SET well_name=?,update_time=NOW() WHERE well_id=?",str(b,"name",old.get("node_name").toString()),old.get("well_id"));
+    }else if("WELLBORE".equals(old.get("node_type"))){
+      Long owner=db.queryForObject("SELECT w.field_id FROM drilling_well w JOIN drilling_wellbore wb ON wb.well_id=w.well_id WHERE wb.wellbore_id=?",Long.class,old.get("wellbore_id"));access(owner,true);
+      db.update("UPDATE drilling_wellbore SET wellbore_name=?,update_time=NOW() WHERE wellbore_id=?",str(b,"name",old.get("node_name").toString()),old.get("wellbore_id"));
+    }
+    audit(id(old.get("field_id")),"UPDATE_ENGINEERING_NODE",Map.of("before",old,"request",b));return node(nodeId,false);
+  }
+  @Transactional public Map<String,Object> createRevision(Long nodeId,Map<String,Object>b){
+    var n=node(nodeId,true);if(!Set.of("PLAN","SURVEY").contains(n.get("node_type")))throw new IllegalArgumentException("请先选择具体方案或测斜成果");
+    String label=required(b,"businessRevision",128),note=required(b,"note",1000);
+    String phase=str(b,"phase","SURVEY".equals(n.get("node_type"))?"ACTUAL":"PLAN");
+    if(!Set.of("ACTUAL","PLAN","PROTOTYPE").contains(phase)||("SURVEY".equals(n.get("node_type"))!=phase.equals("ACTUAL")))throw new IllegalArgumentException("来源阶段与成果用途不一致");
+    Long parent=id(b.get("parentRevisionId"));
+    if(parent!=null&&!nodeId.equals(id(revision(parent,false).get("node_id"))))throw new IllegalArgumentException("父修订必须属于同一方案或测斜成果");
+    String key=NativeEngineSupport.hash("MANUAL:"+label);
+    db.update("INSERT INTO drilling_engineering_revision(node_id,revision_key,business_revision,outcome_name,phase,usage_state,parent_revision_id,revision_note,source_date,properties_json,create_by) VALUES(?,?,?,?,?,'DRAFT',?,?,?,?,?)",nodeId,key,label,str(b,"outcomeName",n.get("node_name").toString()),phase,parent,note,b.get("sourceDate"),JSON.toJSONString(Map.of("source","MANUAL")),ShiroUtils.getLoginName());
+    Long rid=db.queryForObject("SELECT revision_id FROM drilling_engineering_revision WHERE node_id=? AND revision_key=?",Long.class,nodeId,key);audit(id(n.get("field_id")),"CREATE_BUSINESS_REVISION",Map.of("revisionId",rid,"request",b));return detail(rid);
+  }
+  @Transactional public void attachData(Long revisionId,Long version,String label){
+    var r=revision(revisionId,true);var n=node(id(r.get("node_id")),true);
+    var rows=db.queryForList("SELECT t.*,w.field_id owner_field FROM drilling_trajectory_version t JOIN drilling_survey_version s ON s.survey_version_id=t.survey_version_id JOIN drilling_well w ON w.well_id=s.well_id WHERE t.survey_version_id=?",version);
+    if(rows.isEmpty())throw new IllegalArgumentException("数据快照不存在");var t=rows.get(0);access(id(t.get("owner_field")),false);
+    String kind="PLAN".equals(n.get("node_type"))?"DESIGN":"ACTUAL";
+    if(!Objects.equals(n.get("wellbore_id"),t.get("wellbore_id"))||!kind.equals(t.get("trajectory_kind")))throw new IllegalArgumentException("数据井眼或用途与业务版本不一致");
+    db.update("INSERT IGNORE INTO drilling_engineering_revision_data(revision_id,survey_version_id,data_label) VALUES(?,?,?)",revisionId,version,label==null?"轨迹数据":label);
+    audit(id(n.get("field_id")),"LINK_REVISION_DATA",Map.of("revisionId",revisionId,"versionId",version));
+  }
+  @Transactional public void registerImportedTrajectory(Long fieldId,Long wellId,Long wellboreId,Long versionId,Long sourceId,String kind,String sourceLabel,String businessRevision,String sourceRole){
+    access(fieldId,true);
+    var asset=db.queryForMap("SELECT w.well_id,w.well_code,w.well_name,b.wellbore_id,b.wellbore_code,b.wellbore_name FROM drilling_well w JOIN drilling_wellbore b ON b.well_id=w.well_id JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id WHERE x.field_id=? AND w.well_id=? AND b.wellbore_id=?",fieldId,wellId,wellboreId);
+    String nodeType="DESIGN".equals(kind)?"PLAN":"SURVEY";
+    String boreKey=NativeEngineSupport.hash(fieldId+":WELLBORE:"+wellboreId);
+    String wellKey=NativeEngineSupport.hash(fieldId+":WELL:"+wellId);
+    // Importers and interactive management resolve the same registry entity,
+    // irrespective of the key format used by an earlier importer.
+    var existingWells=db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND node_type='WELL' AND well_id=? AND status='ACTIVE' ORDER BY node_id",fieldId,wellId);
+    if(existingWells.isEmpty())db.update("INSERT IGNORE INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,NULL,'WELL',?,?,?,NULL,'WELL','{}',?)",wellKey,fieldId,asset.get("well_name"),asset.get("well_code"),wellId,ShiroUtils.getLoginName());
+    Long wellNode=existingWells.isEmpty()?db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,wellKey):id(existingWells.get(0).get("node_id"));
+    var existingBores=db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND node_type='WELLBORE' AND wellbore_id=? AND status='ACTIVE' ORDER BY node_id",fieldId,wellboreId);
+    if(existingBores.isEmpty())db.update("INSERT IGNORE INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,'WELLBORE',?,?,?,?, 'WELL','{}',?)",boreKey,fieldId,wellNode,asset.get("wellbore_name"),asset.get("wellbore_code"),wellId,wellboreId,ShiroUtils.getLoginName());
+    Long boreNode=existingBores.isEmpty()?db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,boreKey):id(existingBores.get(0).get("node_id"));
+    var version=db.queryForMap("SELECT t.trajectory_version_no AS version_no,s.parent_version_id,t.label,t.trajectory_kind FROM drilling_survey_version s JOIN drilling_trajectory_version t ON t.survey_version_id=s.survey_version_id WHERE s.survey_version_id=? AND t.wellbore_id=? AND t.trajectory_kind=?",versionId,wellboreId,kind);
+    String title=sourceLabel==null||sourceLabel.isBlank()?Objects.toString(version.get("label"),asset.get("wellbore_name").toString()):sourceLabel;
+    // A file label is not a new engineering result. Explicit separate plans
+    // use createRevision/createNode; ordinary re-surveys stay in one series.
+    String outcome="DESIGN".equals(kind)?"设计轨迹":"实钻测斜";
+    String nodeKey=NativeEngineSupport.hash(fieldId+":"+wellboreId+":"+nodeType+":"+outcome);
+    var existingResults=db.queryForList("SELECT DISTINCT n.node_id FROM drilling_engineering_node n LEFT JOIN drilling_engineering_revision r ON r.node_id=n.node_id LEFT JOIN drilling_engineering_revision_data rd ON rd.revision_id=r.revision_id WHERE n.field_id=? AND n.wellbore_id=? AND n.node_type=? AND n.status='ACTIVE' AND (rd.survey_version_id=? OR n.node_name=?) ORDER BY n.node_id",fieldId,wellboreId,nodeType,versionId,outcome);
+    if(existingResults.isEmpty())db.update("INSERT IGNORE INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,?,?,?,?,?, 'WELL',?,?)",nodeKey,fieldId,boreNode,nodeType,outcome,outcome,wellId,wellboreId,JSON.toJSONString(Map.of("source","SURVEY_IMPORT")),ShiroUtils.getLoginName());
+    Long resultNode=existingResults.isEmpty()?db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,nodeKey):id(existingResults.get(0).get("node_id"));
+    // Reuse the business revision for a repeated snapshot, while retaining
+    // an additional original representation when a different source is supplied.
+    var registered=db.queryForList("SELECT r.revision_id FROM drilling_engineering_revision_data rd JOIN drilling_engineering_revision r ON r.revision_id=rd.revision_id WHERE r.node_id=? AND rd.survey_version_id=? AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL ORDER BY r.revision_id",resultNode,versionId);
+    if(!registered.isEmpty()){
+      if(sourceId!=null){var body=new LinkedHashMap<String,Object>();body.put("documentRole",sourceRole==null?"TRAJECTORY_DATA":sourceRole);body.put("revisionId",id(registered.get(0).get("revision_id")));body.put("title",title);body.put("fileLabel",title);attachFile(resultNode,sourceId,body);}
+      return;
+    }
+    String business=businessRevision==null||businessRevision.isBlank()?"DATA-v"+version.get("version_no"):businessRevision;
+    String revisionKey=NativeEngineSupport.hash("SURVEY_VERSION:"+versionId);
+    Long parentRevision=null;Long parentVersion=id(version.get("parent_version_id"));
+    if(parentVersion!=null){var prior=db.queryForList("SELECT rd.revision_id FROM drilling_engineering_revision_data rd JOIN drilling_engineering_revision r ON r.revision_id=rd.revision_id WHERE r.node_id=? AND rd.survey_version_id=?",resultNode,parentVersion);if(!prior.isEmpty())parentRevision=id(prior.get(0).get("revision_id"));}
+    db.update("INSERT IGNORE INTO drilling_engineering_revision(node_id,revision_key,business_revision,outcome_name,phase,usage_state,parent_revision_id,properties_json,create_by) VALUES(?,?,?,?,?,'HISTORICAL',?,?,?)",resultNode,revisionKey,business,title,"DESIGN".equals(kind)?"PLAN":"ACTUAL",parentRevision,JSON.toJSONString(Map.of("survey_version_id",versionId,"trajectory_kind",kind)),ShiroUtils.getLoginName());
+    Long revisionId=db.queryForObject("SELECT revision_id FROM drilling_engineering_revision WHERE node_id=? AND revision_key=?",Long.class,resultNode,revisionKey);
+    db.update("INSERT IGNORE INTO drilling_engineering_revision_data(revision_id,survey_version_id,data_label) VALUES(?,?,?)",revisionId,versionId,title);
+    if(sourceId!=null){var body=new LinkedHashMap<String,Object>();body.put("documentRole",sourceRole==null?"TRAJECTORY_DATA":sourceRole);body.put("revisionId",revisionId);body.put("title",title);body.put("fileLabel",title);attachFile(resultNode,sourceId,body);}
+  }
+  @Transactional public void registerWellboreReference(Long fieldId,Long wellboreId){
+    access(fieldId,true);
+    var asset=db.queryForMap("SELECT w.well_id,w.field_id,w.well_code,w.well_name,b.wellbore_code,b.wellbore_name FROM drilling_wellbore b JOIN drilling_well w ON w.well_id=b.well_id JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id WHERE x.field_id=? AND b.wellbore_id=?",fieldId,wellboreId);
+    access(id(asset.get("field_id")),false);
+    Long wellId=id(asset.get("well_id"));
+    var wellNodes=db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND well_id=? AND node_type='WELL' AND status='ACTIVE' ORDER BY node_id",fieldId,wellId);
+    String wellKey=NativeEngineSupport.hash(fieldId+":WELL:"+wellId),boreKey=NativeEngineSupport.hash(fieldId+":WELLBORE:"+wellboreId);
+    String properties=JSON.toJSONString(Map.of("reference_only",!fieldId.equals(id(asset.get("field_id"))),"source_field_id",asset.get("field_id")));
+    if(wellNodes.isEmpty())db.update("INSERT INTO drilling_engineering_node(node_key,field_id,node_type,node_name,node_code,well_id,entity_kind,properties_json,create_by) VALUES(?,?,'WELL',?,?,?,'WELL',?,?) ON DUPLICATE KEY UPDATE status='ACTIVE'",wellKey,fieldId,asset.get("well_name"),asset.get("well_code"),wellId,properties,ShiroUtils.getLoginName());
+    Long parent=wellNodes.isEmpty()?db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,wellKey):id(wellNodes.get(0).get("node_id"));
+    if(db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_node WHERE field_id=? AND wellbore_id=? AND node_type='WELLBORE' AND status='ACTIVE'",Integer.class,fieldId,wellboreId)==0)db.update("INSERT INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,'WELLBORE',?,?,?,?,'WELL',?,?) ON DUPLICATE KEY UPDATE status='ACTIVE'",boreKey,fieldId,parent,asset.get("wellbore_name"),asset.get("wellbore_code"),wellId,wellboreId,properties,ShiroUtils.getLoginName());
+  }
+  @Transactional public Map<String,Object> activate(Long revisionId,Map<String,Object>b){
+    var r=revision(revisionId,true);var n=node(id(r.get("node_id")),true);Long nid=id(n.get("node_id"));
+    db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE node_id=? FOR UPDATE",nid);
+    if(Set.of("FORBIDDEN","UNASSIGNED").contains(r.get("usage_state")))throw new IllegalArgumentException("禁止使用或归属冲突的资料不能发布");
+    Long expected=id(b.get("expectedRevisionId"));
+    var heads=db.queryForList("SELECT * FROM drilling_engineering_head WHERE node_id=?",nid);
+    Long current=heads.isEmpty()?null:id(heads.get(0).get("revision_id"));
+    if(!b.containsKey("expectedRevisionId")||!Objects.equals(current,expected))throw new ResponseStatusException(HttpStatus.CONFLICT,"当前业务版本已变化，请刷新后重新选择");
+    String note=required(b,"note",1000);Long version=id(b.get("surveyVersionId"));
+    if(version!=null){
+      if(db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_revision_data WHERE revision_id=? AND survey_version_id=?",Integer.class,revisionId,version)!=1)throw new IllegalArgumentException("所选数据不属于该业务版本");
+      var t=db.queryForMap("SELECT t.*,b.well_id FROM drilling_trajectory_version t JOIN drilling_wellbore b ON b.wellbore_id=t.wellbore_id WHERE t.survey_version_id=?",version);
+      if(!Objects.equals(n.get("wellbore_id"),t.get("wellbore_id")))throw new IllegalArgumentException("井眼归属未确认，不能用于计算");
+      trajectories.lockWell(id(t.get("well_id")));
+      trajectories.setHead(id(t.get("wellbore_id")),t.get("trajectory_kind").toString(),version,id(t.get("well_id")));
+    }
+    if(current!=null)db.update("UPDATE drilling_engineering_revision SET usage_state='HISTORICAL',row_version=row_version+1 WHERE revision_id=?",current);
+    db.update("INSERT INTO drilling_engineering_head(node_id,revision_id,survey_version_id,activated_by) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE revision_id=VALUES(revision_id),survey_version_id=VALUES(survey_version_id),activated_by=VALUES(activated_by),activated_at=NOW()",nid,revisionId,version,ShiroUtils.getLoginName());
+    db.update("UPDATE drilling_engineering_revision SET usage_state='ACTIVE',row_version=row_version+1,update_time=NOW() WHERE revision_id=?",revisionId);
+    audit(id(n.get("field_id")),"PUBLISH_BUSINESS_REVISION",Map.of("revisionId",revisionId,"previous",current==null?0:current,"dataVersionId",version==null?0:version,"note",note));return detail(revisionId);
+  }
+  @Transactional public Map<String,Object> attachFile(Long nodeId,Long sourceId,Map<String,Object>b){
+    var n=node(nodeId,true);Long p=id(n.get("field_id"));
+    var sources=db.queryForList("SELECT s.*,f.original_name,f.display_name,f.sha256 FROM drilling_source_document s JOIN data_file f ON f.file_id=s.file_id WHERE s.source_id=?",sourceId);
+    if(sources.isEmpty())throw new IllegalArgumentException("来源文件不存在");var s=sources.get(0);access(id(s.get("field_id")),false);
+    // Linking an accessible original is read-only with respect to its owner;
+    // shared multiwell reports do not need another upload or another source.
+    boolean referenceOnly=!p.equals(id(s.get("field_id")));
+    String role=required(b,"documentRole",32);
+    if(!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT","WELL_SUMMARY","ENGINEERING_REPORT","PRODUCTION_DATA","ARCHIVE","REFERENCE").contains(role))throw new IllegalArgumentException("文件用途无效");
+    String trajectoryKind=str(b,"trajectoryKind","");
+    if(trajectoryKind.isBlank()&&Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(role)){
+      if("PLAN".equals(n.get("node_type")))trajectoryKind="DESIGN";
+      if("SURVEY".equals(n.get("node_type")))trajectoryKind="ACTUAL";
+    }
+    if(!trajectoryKind.isBlank()){
+      if(!Set.of("DESIGN","ACTUAL").contains(trajectoryKind)||n.get("wellbore_id")==null)throw new IllegalArgumentException("轨迹用途必须对应具体井眼的设计或实钻资料");
+      if("PLAN".equals(n.get("node_type"))&&!"DESIGN".equals(trajectoryKind)||"SURVEY".equals(n.get("node_type"))&&!"ACTUAL".equals(trajectoryKind))throw new IllegalArgumentException("文件用途与成果节点不一致");
+    }
+    Long rid=id(b.get("revisionId"));
+    if(rid!=null&&!nodeId.equals(id(revision(rid,true).get("node_id"))))throw new IllegalArgumentException("文件版本与所选成果不属于同一节点");
+    String title=str(b,"title",s.get("original_name").toString());if(title.length()>255)throw new IllegalArgumentException("资料名称过长");
+    Long document=id(b.get("documentId"));
+    if(document!=null){
+      db.queryForList("SELECT document_id FROM drilling_engineering_document WHERE document_id=? FOR UPDATE",document);
+      var d=documentContext(p,document,true);
+      if(!nodeId.equals(id(d.get("node_id")))||b.containsKey("revisionId")&&!Objects.equals(rid,id(d.get("revision_id"))))throw new IllegalArgumentException("文件历史必须属于同一节点和业务修订");
+      if(!role.equals(d.get("document_role")))throw new IllegalArgumentException("文件新版本不能更改资料用途");
+      String originalKind=Objects.toString(d.get("trajectory_kind"),"");
+      if(!originalKind.isBlank()&&!originalKind.equals(trajectoryKind))throw new IllegalArgumentException("文件新版本不能更改设计或实钻类别");
+      rid=id(d.get("revision_id"));
+    }
+    else{
+      var linked=db.queryForList("SELECT d.document_id FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id WHERE d.node_id=? AND d.revision_id <=> ? AND d.document_role=? AND df.source_id=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(df.properties_json,'$.trajectory_kind')),'')=? AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL ORDER BY d.document_id",nodeId,rid,role,sourceId,trajectoryKind);
+      if(!linked.isEmpty())document=id(linked.get(0).get("document_id"));
+      else{
+        String key=NativeEngineSupport.hash(nodeId+":"+rid+":"+role+":"+title+(trajectoryKind.isBlank()?"":":"+trajectoryKind));
+        db.update("INSERT IGNORE INTO drilling_engineering_document(document_key,node_id,revision_id,document_role,document_title) VALUES(?,?,?,?,?)",key,nodeId,rid,role,title);
+        document=db.queryForObject("SELECT document_id FROM drilling_engineering_document WHERE document_key=?",Long.class,key);
+      }
+    }
+    db.queryForList("SELECT document_id FROM drilling_engineering_document WHERE document_id=? FOR UPDATE",document);
+    var existing=db.queryForList("SELECT df.document_file_id,df.edition_no FROM drilling_engineering_document_file df JOIN drilling_source_document sd ON sd.source_id=df.source_id JOIN data_file original ON original.file_id=sd.file_id WHERE df.document_id=? AND original.sha256=?",document,s.get("sha256"));
+    if(!existing.isEmpty())return Map.of("documentId",document,"sourceId",sourceId,"editionNo",existing.get(0).get("edition_no"),"alreadyLinked",true);
+    var latest=db.queryForList("SELECT edition_no FROM drilling_engineering_document_file WHERE document_id=? ORDER BY edition_no DESC LIMIT 1 FOR UPDATE",document);
+    int current=latest.isEmpty()?0:((Number)latest.get(0).get("edition_no")).intValue();
+    if(b.containsKey("documentId")&&(!b.containsKey("expectedEditionNo")||id(b.get("expectedEditionNo"))==null||id(b.get("expectedEditionNo")).intValue()!=current))throw new ResponseStatusException(HttpStatus.CONFLICT,"该文件已有新版本，请刷新文件版次后重新上传");
+    int edition=current+1;
+    var properties=new LinkedHashMap<String,Object>();properties.put("assignedBy",ShiroUtils.getLoginName());properties.put("note",str(b,"note",""));properties.put("reference_only",referenceOnly);
+    if(!trajectoryKind.isBlank())properties.put("trajectory_kind",trajectoryKind);
+    db.update("INSERT IGNORE INTO drilling_engineering_document_file(document_id,source_id,edition_no,representation_format,file_label,properties_json) VALUES(?,?,?,?,?,?)",document,sourceId,edition,s.get("source_format"),str(b,"fileLabel",s.get("original_name").toString()),JSON.toJSONString(properties));
+    audit(p,"ATTACH_ENGINEERING_FILE",Map.of("nodeId",nodeId,"documentId",document,"sourceId",sourceId,"editionNo",edition));return Map.of("documentId",document,"sourceId",sourceId,"editionNo",edition,"alreadyLinked",false);
+  }
+  public List<Map<String,Object>> documentHistory(Long docId){
+    var d=db.queryForMap("SELECT * FROM drilling_engineering_document WHERE document_id=?",docId);node(id(d.get("node_id")),false);
+    return db.queryForList("SELECT df.*,s.field_id AS source_field_id,s.source_path,f.original_name,f.display_name,f.sha256 FROM drilling_engineering_document_file df JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id WHERE document_id=? ORDER BY edition_no DESC",docId);
+  }
+
+  /** Return each distinct immutable source object below an engineering node. */
+  public List<Map<String,Object>> sourceFilesForExport(Long fieldId, Long nodeId) {
+    nodeInField(fieldId, nodeId, false);
+    if (isScope(nodeId)) {
+      return db.queryForList(
+          "SELECT DISTINCT s.source_id,s.field_id AS storage_field_id,f.file_id,f.original_name,f.content_type,f.file_size,f.sha256,s.source_path "
+              + "FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id "
+              + "JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id "
+              + "JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE n.field_id=? "
+              + "AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL ORDER BY s.source_id",
+          fieldId);
+    }
+    return db.queryForList(
+        descendants()
+            + "SELECT DISTINCT s.source_id,s.field_id AS storage_field_id,f.file_id,f.original_name,f.content_type,f.file_size,f.sha256,s.source_path "
+            + "FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id "
+            + "JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id "
+            + "WHERE d.node_id IN (SELECT node_id FROM scope) "
+            + "AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL ORDER BY s.source_id",
+        nodeId);
+  }
+}

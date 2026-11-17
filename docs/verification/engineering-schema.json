@@ -1,0 +1,34 @@
+{
+  "table_count": 86,
+  "retired_scope_columns": [],
+  "retired_scope_tables": [],
+  "retired_scope_menus": [],
+  "cases": [
+    {
+      "field_code": "TEST-A",
+      "wells": 10,
+      "wellbores": 10,
+      "active_versions": 20
+    },
+    {
+      "field_code": "TEST-B",
+      "wells": 10,
+      "wellbores": 10,
+      "active_versions": 20
+    },
+    {
+      "field_code": "TEST-C",
+      "wells": 10,
+      "wellbores": 10,
+      "active_versions": 20
+    }
+  ],
+  "verified_source_files": 60,
+  "scope_order": [
+    "区块",
+    "井场",
+    "井",
+    "井眼"
+  ],
+  "success": true
+}

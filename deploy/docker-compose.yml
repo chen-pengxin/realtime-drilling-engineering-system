@@ -1,0 +1,172 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ry
+      MYSQL_USER: ${MYSQL_APP_USER:?Set MYSQL_APP_USER in deploy/.env}
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in deploy/.env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ../ruoyi-java/sql/ry_20260319.sql:/docker-entrypoint-initdb.d/01-ruoyi.sql:ro
+      - ../database/migrations/V1__drilling_domain.sql:/docker-entrypoint-initdb.d/02-drilling-domain.sql:ro
+      - ../database/migrations/V2__drilling_operations.sql:/docker-entrypoint-initdb.d/03-drilling-operations.sql:ro
+      - ../database/migrations/V3__ruoyi_drilling_menu.sql:/docker-entrypoint-initdb.d/04-ruoyi-drilling-menu.sql:ro
+      - ../database/migrations/V4__drilling_contracts.sql:/docker-entrypoint-initdb.d/05-drilling-contracts.sql:ro
+      - ../database/migrations/V5__drilling_catalog_files.sql:/docker-entrypoint-initdb.d/06-drilling-catalog-files.sql:ro
+      - ../database/migrations/V6__drilling_training_import_snapshots.sql:/docker-entrypoint-initdb.d/07-drilling-training-import-snapshots.sql:ro
+      - ../database/migrations/V7__drilling_training_callbacks.sql:/docker-entrypoint-initdb.d/08-drilling-training-callbacks.sql:ro
+      - ../database/migrations/V8__collision_mode_upgrade.sql:/docker-entrypoint-initdb.d/09-collision-mode-upgrade.sql:ro
+      - ../database/migrations/V9__drilling_migration_history.sql:/docker-entrypoint-initdb.d/10-drilling-migration-history.sql:ro
+      - ../database/migrations/V10__realtime_ingest_events.sql:/docker-entrypoint-initdb.d/11-realtime-ingest-events.sql:ro
+      - ../database/migrations/V11__collision_alarm_workflow.sql:/docker-entrypoint-initdb.d/12-collision-alarm-workflow.sql:ro
+      - ../database/migrations/V12__commercial_benchmark_runs.sql:/docker-entrypoint-initdb.d/13-commercial-benchmark-runs.sql:ro
+      - ../database/migrations/V13__iscwsa_project_defaults.sql:/docker-entrypoint-initdb.d/14-iscwsa-project-defaults.sql:ro
+      - ../database/migrations/V14__remove_benchmark_and_require_both.sql:/docker-entrypoint-initdb.d/15-remove-benchmark-and-require-both.sql:ro
+      - ../database/migrations/V15__collision_mode_both_only.sql:/docker-entrypoint-initdb.d/16-collision-mode-both-only.sql:ro
+      - ../database/migrations/V16__prediction_incremental_learning.sql:/docker-entrypoint-initdb.d/17-prediction-incremental-learning.sql:ro
+      - ../database/migrations/V17__drilling_account_security.sql:/docker-entrypoint-initdb.d/18-drilling-account-security.sql:ro
+      - ../database/migrations/V18__drilling_operations_console.sql:/docker-entrypoint-initdb.d/19-drilling-operations-console.sql:ro
+      - ../database/migrations/V19__organization_data_scope_menu.sql:/docker-entrypoint-initdb.d/20-organization-data-scope-menu.sql:ro
+      - ../database/migrations/V20__drilling_business_centers.sql:/docker-entrypoint-initdb.d/21-drilling-business-centers.sql:ro
+      - ../database/migrations/V21__source_wellbore_registry.sql:/docker-entrypoint-initdb.d/22-source-wellbore-registry.sql:ro
+      - ../database/migrations/V22__engineering_library.sql:/docker-entrypoint-initdb.d/23-engineering-library.sql:ro
+      - ../database/migrations/V23__remove_quality_management_menu.sql:/docker-entrypoint-initdb.d/24-remove-quality-management-menu.sql:ro
+      - ../database/migrations/V24__canonical_well_alias.sql:/docker-entrypoint-initdb.d/25-canonical-well-alias.sql:ro
+      - ../database/migrations/V25__engineering_library_navigation.sql:/docker-entrypoint-initdb.d/26-engineering-library-navigation.sql:ro
+      - ../database/migrations/V26__source_review_confirmation.sql:/docker-entrypoint-initdb.d/27-source-review-confirmation.sql:ro
+      - ../database/migrations/V27__confirm_existing_trajectory_archive.sql:/docker-entrypoint-initdb.d/28-confirm-existing-trajectory-archive.sql:ro
+      - ../database/migrations/V28__canonicalize_confirmed_engineering_names.sql:/docker-entrypoint-initdb.d/29-canonicalize-confirmed-engineering-names.sql:ro
+      - ../database/migrations/V29__use_native_replanning_profile.sql:/docker-entrypoint-initdb.d/30-use-native-replanning-profile.sql:ro
+      - ../database/migrations/V30__fix_anticollision_menu_icon.sql:/docker-entrypoint-initdb.d/31-fix-anticollision-menu-icon.sql:ro
+      - ../database/migrations/V31__drilling_demo_menu_and_remove_project_label.sql:/docker-entrypoint-initdb.d/32-drilling-demo-menu-and-remove-project-label.sql:ro
+      - ../database/migrations/V32__field_scope_without_project.sql:/docker-entrypoint-initdb.d/33-field-scope-without-project.sql:ro
+      - ../database/migrations/V33__remove_engineering_project_scope.sql:/docker-entrypoint-initdb.d/34-remove-engineering-project-scope.sql:ro
+      - ../database/migrations/V34__remove_project_menus_and_scope_labels.sql:/docker-entrypoint-initdb.d/35-remove-project-menus-and-scope-labels.sql:ro
+      - ../database/migrations/V35__field_scope_indexes.sql:/docker-entrypoint-initdb.d/36-field-scope-indexes.sql:ro
+      - ../database/migrations/V36__remove_benchmark_artifacts.sql:/docker-entrypoint-initdb.d/37-remove-benchmark-artifacts.sql:ro
+      - ../database/migrations/V37__hide_legacy_drilling_navigation.sql:/docker-entrypoint-initdb.d/38-hide-legacy-drilling-navigation.sql:ro
+      - ../database/migrations/V38__remove_empty_block_seed.sql:/docker-entrypoint-initdb.d/39-remove-empty-block-seed.sql:ro
+      - ../database/migrations/V39__rename_algorithm_test_menu.sql:/docker-entrypoint-initdb.d/40-rename-algorithm-test-menu.sql:ro
+      - ../database/migrations/V40__remove_empty_orphan_field.sql:/docker-entrypoint-initdb.d/41-remove-empty-orphan-field.sql:ro
+      - ../database/migrations/V41__rehome_archived_alias_fields.sql:/docker-entrypoint-initdb.d/42-rehome-archived-alias-fields.sql:ro
+      - ../database/migrations/V42__training_task_field_scope.sql:/docker-entrypoint-initdb.d/43-training-task-field-scope.sql:ro
+      - ../database/migrations/V43__reference_material_registry.sql:/docker-entrypoint-initdb.d/44-reference-material-registry.sql:ro
+      - ../database/migrations/V44__reference_appendix_source_labels.sql:/docker-entrypoint-initdb.d/45-reference-appendix-source-labels.sql:ro
+      - ../database/migrations/V45__integrate_test_cases_into_engineering.sql:/docker-entrypoint-initdb.d/46-integrate-test-cases.sql:ro
+      - ../database/migrations/V46__remove_retired_scope_snapshot_keys.sql:/docker-entrypoint-initdb.d/47-remove-retired-scope-snapshots.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in deploy/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in deploy/.env}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  algorithm-server:
+    build: ../algorithm-server
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in deploy/.env}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in deploy/.env}
+      TASK_CALLBACK_URL: http://ruoyi-admin/api/train/task/callback
+      TASK_CALLBACK_TOKEN: ${DRILLING_CALLBACK_TOKEN:?Set DRILLING_CALLBACK_TOKEN in deploy/.env}
+      PREDICTION_STATE_FILE: /app/data/prediction-tasks.json
+      TRAINING_STATE_FILE: /app/data/training-tasks.json
+      TRAIN_DATA_ROOT: /data/ruoyi/uploadPath
+      TRAIN_TEMPLATE_ROOT: /data/ruoyi/uploadPath
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - training-data:/app/data
+      - training-models:/app/models
+      - ruoyi-upload:/data/ruoyi/uploadPath:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
+      retries: 12
+  ruoyi-admin:
+    build: ../ruoyi-java
+    environment:
+      SPRING_DATASOURCE_DRUID_MASTER_URL: jdbc:mysql://mysql:3306/ry?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8
+      SPRING_DATASOURCE_DRUID_MASTER_USERNAME: ${MYSQL_APP_USER:?Set MYSQL_APP_USER in deploy/.env}
+      SPRING_DATASOURCE_DRUID_MASTER_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in deploy/.env}
+      DRILLING_ALGORITHM_URL: http://algorithm-server:8000
+      DRILLING_CALLBACK_TOKEN: ${DRILLING_CALLBACK_TOKEN:?Set DRILLING_CALLBACK_TOKEN in deploy/.env}
+      DRILLING_STORAGE_ENDPOINT: http://minio:9000
+      DRILLING_STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in deploy/.env}
+      DRILLING_STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in deploy/.env}
+      DRILLING_STORAGE_BUCKET: drilling-files
+      RUOYI_PROFILE: /data/ruoyi/uploadPath
+    depends_on:
+      mysql:
+        condition: service_healthy
+      algorithm-server:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ruoyi-upload:/data/ruoyi/uploadPath
+  test-case-import:
+    build: ../algorithm-server
+    command: ["python", "tools/import_test_cases.py", "--wait-url", "http://ruoyi-admin/captcha/captchaImage?type=math"]
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_DATABASE: ry
+      MYSQL_USER: ${MYSQL_APP_USER:?Set MYSQL_APP_USER in deploy/.env}
+      MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:?Set MYSQL_APP_PASSWORD in deploy/.env}
+      RUOYI_PROFILE: /data/ruoyi/uploadPath
+      DRILLING_NATIVE_DEFAULTS: /opt/native-defaults.json
+    volumes:
+      - ruoyi-upload:/data/ruoyi/uploadPath
+      - ../ruoyi-java/ruoyi-admin/src/main/resources/drilling/native-defaults.json:/opt/native-defaults.json:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      ruoyi-admin:
+        condition: service_started
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ../ruoyi-vue3/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      algorithm-server:
+        condition: service_healthy
+      ruoyi-admin:
+        condition: service_started
+      test-case-import:
+        condition: service_completed_successfully
+    ports:
+      - "80:80"
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:
+  training-data:
+  training-models:
+  ruoyi-upload:

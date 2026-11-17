@@ -1,0 +1,9 @@
+{
+  "passed": true,
+  "checks": [
+    "空表结构首次初始化成功",
+    "重复初始化成功",
+    "新编号字段和索引可自动创建"
+  ],
+  "temporary_schema_removed": true
+}

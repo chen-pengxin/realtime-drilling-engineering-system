@@ -1,0 +1,1689 @@
+{
+  "cases": [
+    {
+      "case": "A",
+      "field_id": 13,
+      "wellbores": 10,
+      "confirmed_neighbors": 9,
+      "actual_version": 271,
+      "design_version": 272,
+      "start_md": 1232.257111,
+      "source_exports": [
+        {
+          "kind": "ACTUAL",
+          "rows": 1235,
+          "original_sha256": "f1ee69c978515247d68f6e6b96651586a4fdb18c669e5abb20fff969bfead197"
+        },
+        {
+          "kind": "DESIGN",
+          "rows": 3145,
+          "original_sha256": "4ebb14b5f5f4310d8392945e2b3b4f8f82c30f56b3bd04f99df374e70dcaa706"
+        }
+      ],
+      "scan_status": "COMPLETED",
+      "scan_and_repeat_seconds": 23.54,
+      "repeat_scan_incremental": {
+        "dependency_checked": true,
+        "reused_blocks": 117,
+        "recomputed_blocks": 0
+      },
+      "planning_status": "SUCCESS",
+      "planning_seconds": 251.52,
+      "total_length": 1918.6414221254936,
+      "solver_budget": {
+        "maxiter": 350,
+        "random_seed": 20261112,
+        "algorithm_options": {
+          "COBYLA": {
+            "tol": 1e-07,
+            "rhobeg": 0.04,
+            "maxiter": 3000
+          },
+          "COBYQA": {
+            "maxiter": 1500
+          },
+          "trust-constr": {
+            "gtol": 1e-07,
+            "maxiter": 300
+          }
+        },
+        "max_seconds_per_run": 75.0,
+        "optimization_starts": 1,
+        "feasibility_max_nfev": 600,
+        "initial_search_attempts": 12,
+        "max_function_evaluations": 3000,
+        "retain_feasible_iterates": true
+      },
+      "feasible": true,
+      "segments": 3,
+      "plan_id": 1,
+      "actual_solver": "SLSQP",
+      "constraint_audit": {
+        "feasible": true,
+        "sf_margin": 15.015847399680812,
+        "minimum_sf": 16.515847399680812,
+        "sf_threshold": 1.5,
+        "verification": "fine grid + continuous local refinement",
+        "position_error_m": 0.4996316368418516,
+        "azimuth_error_deg": 0.36362867107069974,
+        "centerline_details": [
+          {
+            "neighbor": "neighbor-1",
+            "box_tests": 690,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              145.05980727549957,
+              -75.79745735070577,
+              1005.90620055074
+            ],
+            "segment_a": 0,
+            "segment_b": 1044,
+            "distance_m": 344.07834418359005,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3715244,
+            "refined_segment_pairs": 29,
+            "distance_lower_bound_m": 344.05834418359007,
+            "distance_upper_bound_m": 344.09834418359003,
+            "screened_segment_pairs": 3715215,
+            "candidate_segment_pairs": 29,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-2",
+            "box_tests": 485,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              81.34185568811246,
+              65.78214503029422,
+              1137.2840965120415
+            ],
+            "segment_a": 0,
+            "segment_b": 1157,
+            "distance_m": 173.12289482801194,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3058198,
+            "refined_segment_pairs": 22,
+            "distance_lower_bound_m": 173.10289482801193,
+            "distance_upper_bound_m": 173.14289482801195,
+            "screened_segment_pairs": 3058176,
+            "candidate_segment_pairs": 22,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-3",
+            "box_tests": 691,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              -75.29134566446095,
+              45.590376942389796,
+              1225.2100322517551
+            ],
+            "segment_a": 0,
+            "segment_b": 1237,
+            "distance_m": 41.82318548070928,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3568058,
+            "refined_segment_pairs": 25,
+            "distance_lower_bound_m": 41.803185480709274,
+            "distance_upper_bound_m": 41.84318548070928,
+            "screened_segment_pairs": 3568033,
+            "candidate_segment_pairs": 25,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-4",
+            "box_tests": 541,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              122.43183490721202,
+              47.828432210088685,
+              1055.0646973017092
+            ],
+            "segment_a": 0,
+            "segment_b": 1090,
+            "distance_m": 256.1255641257564,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3139006,
+            "refined_segment_pairs": 26,
+            "distance_lower_bound_m": 256.1055641257564,
+            "distance_upper_bound_m": 256.1455641257564,
+            "screened_segment_pairs": 3138980,
+            "candidate_segment_pairs": 26,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-5",
+            "box_tests": 330,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              27.637877393909296,
+              -0.2980572453844961,
+              1184.1911549142555
+            ],
+            "segment_a": 0,
+            "segment_b": 1188,
+            "distance_m": 134.93891725334635,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 5235204,
+            "refined_segment_pairs": 15,
+            "distance_lower_bound_m": 134.91891725334636,
+            "distance_upper_bound_m": 134.9589172533464,
+            "screened_segment_pairs": 5235189,
+            "candidate_segment_pairs": 15,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-6",
+            "box_tests": 619,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              130.3495092966366,
+              1.975853213718548,
+              1093.3953940979277
+            ],
+            "segment_a": 0,
+            "segment_b": 1120,
+            "distance_m": 251.19576845388255,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3962478,
+            "refined_segment_pairs": 26,
+            "distance_lower_bound_m": 251.17576845388257,
+            "distance_upper_bound_m": 251.2157684538826,
+            "screened_segment_pairs": 3962452,
+            "candidate_segment_pairs": 26,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-7",
+            "box_tests": 539,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              -133.4658400592184,
+              -26.972663993769984,
+              1115.3547538797618
+            ],
+            "segment_a": 0,
+            "segment_b": 1157,
+            "distance_m": 168.17997647279418,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3792204,
+            "refined_segment_pairs": 24,
+            "distance_lower_bound_m": 168.15997647279417,
+            "distance_upper_bound_m": 168.1999764727942,
+            "screened_segment_pairs": 3792180,
+            "candidate_segment_pairs": 24,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-8",
+            "box_tests": 555,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              115.96956727242768,
+              -22.88221121495146,
+              1105.5686395687685
+            ],
+            "segment_a": 0,
+            "segment_b": 1128,
+            "distance_m": 243.824483299407,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3571906,
+            "refined_segment_pairs": 25,
+            "distance_lower_bound_m": 243.804483299407,
+            "distance_upper_bound_m": 243.84448329940705,
+            "screened_segment_pairs": 3571881,
+            "candidate_segment_pairs": 25,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-9",
+            "box_tests": 346,
+            "point_a_m": [
+              -68.712146,
+              86.68384,
+              1221.060301
+            ],
+            "point_b_m": [
+              -83.4784962464796,
+              -49.09565250135804,
+              1190.529117676006
+            ],
+            "segment_a": 0,
+            "segment_b": 1204,
+            "distance_m": 139.95095154621632,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3765268,
+            "refined_segment_pairs": 16,
+            "distance_lower_bound_m": 139.9309515462163,
+            "distance_upper_bound_m": 139.97095154621633,
+            "screened_segment_pairs": 3765252,
+            "candidate_segment_pairs": 16,
+            "horizontal_aabb_screening": true
+          }
+        ],
+        "separation_details": [
+          {
+            "neighbor": "neighbor-1",
+            "minimum_sf": 93.47887948734356,
+            "offset_md_m": 2200.526078708778,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 941169,
+              "horizontal_box_tests": 7381,
+              "screened_point_pairs": 203287,
+              "evaluated_point_pairs": 737882
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              506.7608154564932,
+              -216.2339964921344,
+              2077.6035194145925
+            ],
+            "reference_position_m": [
+              -1332.8586261012488,
+              999.8669472047646,
+              2200.4603719785587
+            ],
+            "centerline_distance_m": 344.07834418359005,
+            "reference_relative_md_m": 1918.641421560828,
+            "combined_error_boundary_m": 23.627407982339868,
+            "separation_point_distance_m": 2208.6636233794475
+          },
+          {
+            "neighbor": "neighbor-2",
+            "minimum_sf": 65.96801998589702,
+            "offset_md_m": 1197.2178745501562,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 774517,
+              "horizontal_box_tests": 6100,
+              "screened_point_pairs": 163189,
+              "evaluated_point_pairs": 611328
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              102.9048366075107,
+              76.33906982057225,
+              1170.6368792257304
+            ],
+            "reference_position_m": [
+              -68.71214615926348,
+              86.68384013950497,
+              1221.0603015712347
+            ],
+            "centerline_distance_m": 173.12289482801194,
+            "reference_relative_md_m": 6.092090616028062e-07,
+            "combined_error_boundary_m": 2.7160145108933973,
+            "separation_point_distance_m": 179.17009953660195
+          },
+          {
+            "neighbor": "neighbor-3",
+            "minimum_sf": 16.515847399680812,
+            "offset_md_m": 2165.4999999999454,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 903837,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 684957,
+              "evaluated_point_pairs": 218880
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -734.9535546919694,
+              276.1897769428399,
+              1811.1039336186889
+            ],
+            "reference_position_m": [
+              -604.2476250109883,
+              487.4928503044845,
+              1861.837099793123
+            ],
+            "centerline_distance_m": 41.82318548070928,
+            "reference_relative_md_m": 951.390620108202,
+            "combined_error_boundary_m": 15.3542238641889,
+            "separation_point_distance_m": 253.5880182814813
+          },
+          {
+            "neighbor": "neighbor-4",
+            "minimum_sf": 85.6365003056548,
+            "offset_md_m": 1226.4840488449515,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 795135,
+              "horizontal_box_tests": 6222,
+              "screened_point_pairs": 217215,
+              "evaluated_point_pairs": 577920
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              223.1991003544838,
+              76.38400321366852,
+              1143.68133316953
+            ],
+            "reference_position_m": [
+              -68.71214615926348,
+              86.68384013950497,
+              1221.0603015712347
+            ],
+            "centerline_distance_m": 256.1255641257564,
+            "reference_relative_md_m": 6.09209061602806e-07,
+            "combined_error_boundary_m": 3.5285005896197985,
+            "separation_point_distance_m": 302.16844182147906
+          },
+          {
+            "neighbor": "neighbor-5",
+            "minimum_sf": 28.536485162217183,
+            "offset_md_m": 4623.927903332752,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1326689,
+              "horizontal_box_tests": 10370,
+              "screened_point_pairs": 884270,
+              "evaluated_point_pairs": 442419
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1691.2290177806583,
+              110.51567076713204,
+              2468.3785339186725
+            ],
+            "reference_position_m": [
+              -1332.8586261013056,
+              999.8669472048026,
+              2200.4603719785596
+            ],
+            "centerline_distance_m": 134.93891725334635,
+            "reference_relative_md_m": 1918.6414215608963,
+            "combined_error_boundary_m": 34.88753986332531,
+            "separation_point_distance_m": 995.5677636560432
+          },
+          {
+            "neighbor": "neighbor-6",
+            "minimum_sf": 86.28847624318833,
+            "offset_md_m": 1210.438852476253,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1003816,
+              "horizontal_box_tests": 7869,
+              "screened_point_pairs": 434984,
+              "evaluated_point_pairs": 568832
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              183.77423831885983,
+              2.7615608667955343,
+              1167.1225506293038
+            ],
+            "reference_position_m": [
+              -68.71214615926348,
+              86.68384013950497,
+              1221.0603015712347
+            ],
+            "centerline_distance_m": 251.19576845388255,
+            "reference_relative_md_m": 6.092090616028062e-07,
+            "combined_error_boundary_m": 3.146195248051586,
+            "separation_point_distance_m": 271.4803939179313
+          },
+          {
+            "neighbor": "neighbor-7",
+            "minimum_sf": 37.75672138663505,
+            "offset_md_m": 2990.349934314059,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 960689,
+              "horizontal_box_tests": 7564,
+              "screened_point_pairs": 359089,
+              "evaluated_point_pairs": 601600
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1435.0210941658768,
+              -161.7082695839193,
+              2330.815214887694
+            ],
+            "reference_position_m": [
+              -1285.843462820771,
+              968.3626723521244,
+              2198.607250059081
+            ],
+            "centerline_distance_m": 168.17997647279418,
+            "reference_relative_md_m": 1862.0110628063271,
+            "combined_error_boundary_m": 30.392366650822577,
+            "separation_point_distance_m": 1147.5161199155666
+          },
+          {
+            "neighbor": "neighbor-8",
+            "minimum_sf": 86.81870641234794,
+            "offset_md_m": 1209.2401898752055,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 904813,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 331117,
+              "evaluated_point_pairs": 573696
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              160.99231107910725,
+              -26.966139390968884,
+              1173.8135277436056
+            ],
+            "reference_position_m": [
+              -68.71214615926348,
+              86.68384013950497,
+              1221.0603015712347
+            ],
+            "centerline_distance_m": 243.824483299407,
+            "reference_relative_md_m": 6.09209061602806e-07,
+            "combined_error_boundary_m": 3.001665059955416,
+            "separation_point_distance_m": 260.600677588472
+          },
+          {
+            "neighbor": "neighbor-9",
+            "minimum_sf": 46.148669758939185,
+            "offset_md_m": 3443.312300008761,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 953857,
+              "horizontal_box_tests": 7503,
+              "screened_point_pairs": 289281,
+              "evaluated_point_pairs": 664576
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1654.121749938301,
+              -495.3787138719629,
+              2549.1886614087625
+            ],
+            "reference_position_m": [
+              -1332.8586261012488,
+              999.8669472047646,
+              2200.4603719785587
+            ],
+            "centerline_distance_m": 139.95095154621632,
+            "reference_relative_md_m": 1918.641421560828,
+            "combined_error_boundary_m": 33.990663824672964,
+            "separation_point_distance_m": 1568.6239197319533
+          }
+        ],
+        "centerline_margin_m": 36.82318548070928,
+        "centerline_minimum_m": 5.0,
+        "inclination_error_deg": 0.4999940006434116,
+        "minimum_scaled_constraint": 1.99967367622575e-07,
+        "position_error_components_m": [
+          0.14137342919229923,
+          -0.13305248164749628,
+          0.46037198348631136
+        ],
+        "tangent_direction_error_deg": 0.6182202812957646,
+        "minimum_centerline_distance_m": 41.82318548070928
+      },
+      "trajectory_points": 1922
+    },
+    {
+      "case": "B",
+      "field_id": 14,
+      "wellbores": 10,
+      "confirmed_neighbors": 9,
+      "actual_version": 291,
+      "design_version": 292,
+      "start_md": 1177.100957,
+      "source_exports": [
+        {
+          "kind": "ACTUAL",
+          "rows": 1180,
+          "original_sha256": "7a3cf9d2f64faf75ef3e0a5b0de42d88c83e6da0dfe4d77b95d04f30233a8838"
+        },
+        {
+          "kind": "DESIGN",
+          "rows": 3145,
+          "original_sha256": "4ebb14b5f5f4310d8392945e2b3b4f8f82c30f56b3bd04f99df374e70dcaa706"
+        }
+      ],
+      "scan_status": "COMPLETED",
+      "scan_and_repeat_seconds": 29.62,
+      "repeat_scan_incremental": {
+        "dependency_checked": true,
+        "reused_blocks": 108,
+        "recomputed_blocks": 0
+      },
+      "planning_status": "SUCCESS",
+      "planning_seconds": 133.32,
+      "total_length": 1915.0343885948414,
+      "solver_budget": {
+        "maxiter": 350,
+        "random_seed": 20261112,
+        "algorithm_options": {
+          "COBYLA": {
+            "tol": 1e-07,
+            "rhobeg": 0.04,
+            "maxiter": 3000
+          },
+          "COBYQA": {
+            "maxiter": 1500
+          },
+          "trust-constr": {
+            "gtol": 1e-07,
+            "maxiter": 300
+          }
+        },
+        "max_seconds_per_run": 75.0,
+        "optimization_starts": 1,
+        "feasibility_max_nfev": 600,
+        "initial_search_attempts": 12,
+        "max_function_evaluations": 3000,
+        "retain_feasible_iterates": true
+      },
+      "feasible": true,
+      "segments": 3,
+      "plan_id": 2,
+      "actual_solver": "SLSQP",
+      "constraint_audit": {
+        "feasible": true,
+        "sf_margin": 14.116154498464065,
+        "minimum_sf": 15.616154498464065,
+        "sf_threshold": 1.5,
+        "verification": "fine grid + continuous local refinement",
+        "position_error_m": 0.49963124505394096,
+        "azimuth_error_deg": 0.047992485144959574,
+        "centerline_details": [
+          {
+            "neighbor": "neighbor-1",
+            "box_tests": 642,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              123.65531717066273,
+              -68.35951555894952,
+              977.4812571885084
+            ],
+            "segment_a": 0,
+            "segment_b": 1007,
+            "distance_m": 312.55141276659367,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3703658,
+            "refined_segment_pairs": 28,
+            "distance_lower_bound_m": 312.5314127665937,
+            "distance_upper_bound_m": 312.57141276659365,
+            "screened_segment_pairs": 3703630,
+            "candidate_segment_pairs": 28,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-2",
+            "box_tests": 423,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              60.49981315613227,
+              55.578180915917045,
+              1099.2918863963582
+            ],
+            "segment_a": 0,
+            "segment_b": 1112,
+            "distance_m": 151.89159122911732,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3048661,
+            "refined_segment_pairs": 19,
+            "distance_lower_bound_m": 151.8715912291173,
+            "distance_upper_bound_m": 151.9115912291173,
+            "screened_segment_pairs": 3048642,
+            "candidate_segment_pairs": 19,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-3",
+            "box_tests": 550,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              -54.29502021990197,
+              37.46461426806477,
+              1173.312384616436
+            ],
+            "segment_a": 0,
+            "segment_b": 1181,
+            "distance_m": 60.14277258771854,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3556931,
+            "refined_segment_pairs": 22,
+            "distance_lower_bound_m": 60.122772587718536,
+            "distance_upper_bound_m": 60.16277258771854,
+            "screened_segment_pairs": 3556909,
+            "candidate_segment_pairs": 22,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-4",
+            "box_tests": 534,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              100.65534195332596,
+              41.65737914175154,
+              1029.629389375796
+            ],
+            "segment_a": 0,
+            "segment_b": 1056,
+            "distance_m": 223.1595332921543,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3129217,
+            "refined_segment_pairs": 24,
+            "distance_lower_bound_m": 223.13953329215428,
+            "distance_upper_bound_m": 223.1795332921543,
+            "screened_segment_pairs": 3129193,
+            "candidate_segment_pairs": 24,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-5",
+            "box_tests": 256,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              13.350404384492704,
+              2.5461068293699674,
+              1133.1327639909964
+            ],
+            "segment_a": 0,
+            "segment_b": 1135,
+            "distance_m": 127.96893542923952,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 5218878,
+            "refined_segment_pairs": 13,
+            "distance_lower_bound_m": 127.94893542923953,
+            "distance_upper_bound_m": 127.9889354292395,
+            "screened_segment_pairs": 5218865,
+            "candidate_segment_pairs": 13,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-6",
+            "box_tests": 607,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              106.97369369485284,
+              1.6320691219879573,
+              1054.939455727524
+            ],
+            "segment_a": 0,
+            "segment_b": 1075,
+            "distance_m": 227.64163862231288,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3950121,
+            "refined_segment_pairs": 24,
+            "distance_lower_bound_m": 227.62163862231287,
+            "distance_upper_bound_m": 227.6616386223129,
+            "screened_segment_pairs": 3950097,
+            "candidate_segment_pairs": 24,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-7",
+            "box_tests": 534,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              -112.50085417826092,
+              -23.576465840959017,
+              1097.393314220405
+            ],
+            "segment_a": 0,
+            "segment_b": 1129,
+            "distance_m": 135.87605648999573,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3780378,
+            "refined_segment_pairs": 22,
+            "distance_lower_bound_m": 135.85605648999572,
+            "distance_upper_bound_m": 135.89605648999574,
+            "screened_segment_pairs": 3780356,
+            "candidate_segment_pairs": 22,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-8",
+            "box_tests": 487,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              93.41853243626764,
+              -20.836649532399047,
+              1065.0944995472237
+            ],
+            "segment_a": 0,
+            "segment_b": 1081,
+            "distance_m": 222.821730415228,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3560767,
+            "refined_segment_pairs": 23,
+            "distance_lower_bound_m": 222.801730415228,
+            "distance_upper_bound_m": 222.84173041522803,
+            "screened_segment_pairs": 3560744,
+            "candidate_segment_pairs": 23,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-9",
+            "box_tests": 276,
+            "point_a_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "point_b_m": [
+              -63.56056904594189,
+              -41.30284092613059,
+              1142.526568097433
+            ],
+            "segment_a": 0,
+            "segment_b": 1151,
+            "distance_m": 134.62991571131843,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3753526,
+            "refined_segment_pairs": 12,
+            "distance_lower_bound_m": 134.60991571131842,
+            "distance_upper_bound_m": 134.64991571131844,
+            "screened_segment_pairs": 3753514,
+            "candidate_segment_pairs": 12,
+            "horizontal_aabb_screening": true
+          }
+        ],
+        "separation_details": [
+          {
+            "neighbor": "neighbor-1",
+            "minimum_sf": 94.0144375831399,
+            "offset_md_m": 2203.483483558749,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 941169,
+              "horizontal_box_tests": 7381,
+              "screened_point_pairs": 228671,
+              "evaluated_point_pairs": 712498
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              507.9512754655988,
+              -216.7284384619725,
+              2080.2652034865464
+            ],
+            "reference_position_m": [
+              -1333.3007700796195,
+              1000.2085689885848,
+              2199.6599010743817
+            ],
+            "centerline_distance_m": 312.55141276659367,
+            "reference_relative_md_m": 1915.0343879812735,
+            "combined_error_boundary_m": 23.510155730295764,
+            "separation_point_distance_m": 2210.29406847579
+          },
+          {
+            "neighbor": "neighbor-2",
+            "minimum_sf": 59.90345189091598,
+            "offset_md_m": 1137.25,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 774517,
+              "horizontal_box_tests": 6100,
+              "screened_point_pairs": 196981,
+              "evaluated_point_pairs": 577536
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              72.1856577216561,
+              61.299401424375525,
+              1121.4136227522145
+            ],
+            "reference_position_m": [
+              -74.727857,
+              91.953231,
+              1158.125452
+            ],
+            "centerline_distance_m": 151.89159122911732,
+            "reference_relative_md_m": 0.0,
+            "combined_error_boundary_m": 2.5791905291633617,
+            "separation_point_distance_m": 154.50241578124357
+          },
+          {
+            "neighbor": "neighbor-3",
+            "minimum_sf": 15.616154498464065,
+            "offset_md_m": 1958.9999999999775,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 903837,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 673821,
+              "evaluated_point_pairs": 230016
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -575.6235627774186,
+              236.6418821474964,
+              1685.9234286011956
+            ],
+            "reference_position_m": [
+              -503.6762082626842,
+              417.9136213252924,
+              1667.9573289812022
+            ],
+            "centerline_distance_m": 60.14277258771854,
+            "reference_relative_md_m": 744.9259498066571,
+            "combined_error_boundary_m": 12.541732607588813,
+            "separation_point_distance_m": 195.85363407853143
+          },
+          {
+            "neighbor": "neighbor-4",
+            "minimum_sf": 79.6883232521367,
+            "offset_md_m": 1135.6170262806122,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 795135,
+              "horizontal_box_tests": 6222,
+              "screened_point_pairs": 251135,
+              "evaluated_point_pairs": 544000
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              154.8619249799655,
+              57.01851726832241,
+              1087.0154585046075
+            ],
+            "reference_position_m": [
+              -74.72785720409296,
+              91.9532311787728,
+              1158.12545236522
+            ],
+            "centerline_distance_m": 223.1595332921543,
+            "reference_relative_md_m": 4.549717329894128e-07,
+            "combined_error_boundary_m": 3.0478185717723028,
+            "separation_point_distance_m": 242.87555156125688
+          },
+          {
+            "neighbor": "neighbor-5",
+            "minimum_sf": 28.652905925442713,
+            "offset_md_m": 4625.697508374648,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1326689,
+              "horizontal_box_tests": 10370,
+              "screened_point_pairs": 845391,
+              "evaluated_point_pairs": 481298
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1692.9873283702868,
+              110.71288525696131,
+              2468.34764984904
+            ],
+            "reference_position_m": [
+              -1333.3007700796195,
+              1000.2085689885848,
+              2199.6599010743817
+            ],
+            "centerline_distance_m": 127.96893542923952,
+            "reference_relative_md_m": 1915.0343879812735,
+            "combined_error_boundary_m": 34.7740816898966,
+            "separation_point_distance_m": 996.3784913042672
+          },
+          {
+            "neighbor": "neighbor-6",
+            "minimum_sf": 82.00133766122916,
+            "offset_md_m": 1141.7687070574616,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1003816,
+              "horizontal_box_tests": 7869,
+              "screened_point_pairs": 470696,
+              "evaluated_point_pairs": 533120
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              142.75604133106037,
+              2.1583140438776316,
+              1112.0760713894583
+            ],
+            "reference_position_m": [
+              -74.72785720409296,
+              91.9532311787728,
+              1158.12545236522
+            ],
+            "centerline_distance_m": 227.64163862231288,
+            "reference_relative_md_m": 4.549717329894128e-07,
+            "combined_error_boundary_m": 2.92380543412216,
+            "separation_point_distance_m": 239.75595665918792
+          },
+          {
+            "neighbor": "neighbor-7",
+            "minimum_sf": 37.92542132176848,
+            "offset_md_m": 2986.7499999999777,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 960689,
+              "horizontal_box_tests": 7564,
+              "screened_point_pairs": 454193,
+              "evaluated_point_pairs": 506496
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1432.9009496805445,
+              -161.60448345208675,
+              2327.9076830137915
+            ],
+            "reference_position_m": [
+              -1283.3724960932727,
+              966.3906716568512,
+              2196.3305519006294
+            ],
+            "centerline_distance_m": 135.87605648999573,
+            "reference_relative_md_m": 1854.6308328964053,
+            "combined_error_boundary_m": 30.202566332587697,
+            "separation_point_distance_m": 1145.4450531620485
+          },
+          {
+            "neighbor": "neighbor-8",
+            "minimum_sf": 82.8007434546481,
+            "offset_md_m": 1141.281350800113,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 904813,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 369901,
+              "evaluated_point_pairs": 534912
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              123.16676075119608,
+              -23.53505565402611,
+              1117.4803253319428
+            ],
+            "reference_position_m": [
+              -74.72785720409296,
+              91.9532311787728,
+              1158.12545236522
+            ],
+            "centerline_distance_m": 222.821730415228,
+            "reference_relative_md_m": 4.549717329894128e-07,
+            "combined_error_boundary_m": 2.810427685547272,
+            "separation_point_distance_m": 232.7055017888401
+          },
+          {
+            "neighbor": "neighbor-9",
+            "minimum_sf": 46.33681215723944,
+            "offset_md_m": 3447.284163389165,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 953857,
+              "horizontal_box_tests": 7503,
+              "screened_point_pairs": 305793,
+              "evaluated_point_pairs": 648064
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1657.9849490953732,
+              -496.2990571703379,
+              2549.2546866896164
+            ],
+            "reference_position_m": [
+              -1333.3007700796195,
+              1000.2085689885848,
+              2199.6599010743817
+            ],
+            "centerline_distance_m": 134.62991571131843,
+            "reference_relative_md_m": 1915.0343879812735,
+            "combined_error_boundary_m": 33.89795581123434,
+            "separation_point_distance_m": 1570.7232109395688
+          }
+        ],
+        "centerline_margin_m": 55.14277258771854,
+        "centerline_minimum_m": 5.0,
+        "inclination_error_deg": -0.4999940257072239,
+        "minimum_scaled_constraint": 1.9722397886016094e-07,
+        "position_error_components_m": [
+          -0.3007705878044362,
+          0.20856933203128847,
+          -0.3400989095571276
+        ],
+        "tangent_direction_error_deg": 0.5022909452124301,
+        "minimum_centerline_distance_m": 60.14277258771854
+      },
+      "trajectory_points": 1917
+    },
+    {
+      "case": "C",
+      "field_id": 15,
+      "wellbores": 10,
+      "confirmed_neighbors": 9,
+      "actual_version": 311,
+      "design_version": 312,
+      "start_md": 1184.466146,
+      "source_exports": [
+        {
+          "kind": "ACTUAL",
+          "rows": 1187,
+          "original_sha256": "77010c05dd0860a197cbc60b55986f8c44189dea41db45c9a4c181046972671d"
+        },
+        {
+          "kind": "DESIGN",
+          "rows": 3145,
+          "original_sha256": "4ebb14b5f5f4310d8392945e2b3b4f8f82c30f56b3bd04f99df374e70dcaa706"
+        }
+      ],
+      "scan_status": "COMPLETED",
+      "scan_and_repeat_seconds": 60.92,
+      "repeat_scan_incremental": {
+        "dependency_checked": true,
+        "reused_blocks": 108,
+        "recomputed_blocks": 0
+      },
+      "planning_status": "SUCCESS",
+      "planning_seconds": 400.2,
+      "total_length": 1945.9444574862578,
+      "solver_budget": {
+        "maxiter": 350,
+        "random_seed": 20261112,
+        "algorithm_options": {
+          "COBYLA": {
+            "tol": 1e-07,
+            "rhobeg": 0.04,
+            "maxiter": 3000
+          },
+          "COBYQA": {
+            "maxiter": 1500
+          },
+          "trust-constr": {
+            "gtol": 1e-07,
+            "maxiter": 300
+          }
+        },
+        "max_seconds_per_run": 75.0,
+        "optimization_starts": 1,
+        "feasibility_max_nfev": 600,
+        "initial_search_attempts": 12,
+        "max_function_evaluations": 3000,
+        "retain_feasible_iterates": true
+      },
+      "feasible": true,
+      "segments": 3,
+      "plan_id": 3,
+      "actual_solver": "SLSQP",
+      "constraint_audit": {
+        "feasible": true,
+        "sf_margin": 4.994904726073509,
+        "minimum_sf": 6.494904726073509,
+        "sf_threshold": 1.5,
+        "verification": "fine grid + continuous local refinement",
+        "position_error_m": 0.4994546254269385,
+        "azimuth_error_deg": -0.49999400000052674,
+        "centerline_details": [
+          {
+            "neighbor": "neighbor-1",
+            "box_tests": 628,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              130.52079502536006,
+              -70.7452307811199,
+              986.9470281461818
+            ],
+            "segment_a": 0,
+            "segment_b": 1019,
+            "distance_m": 307.97441454509556,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3765450,
+            "refined_segment_pairs": 28,
+            "distance_lower_bound_m": 307.9544145450956,
+            "distance_upper_bound_m": 307.99441454509554,
+            "screened_segment_pairs": 3765422,
+            "candidate_segment_pairs": 28,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-2",
+            "box_tests": 427,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              63.12709120597063,
+              56.86445830653645,
+              1104.4694771616896
+            ],
+            "segment_a": 0,
+            "segment_b": 1118,
+            "distance_m": 153.3281554886381,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3099525,
+            "refined_segment_pairs": 20,
+            "distance_lower_bound_m": 153.30815548863808,
+            "distance_upper_bound_m": 153.3481554886381,
+            "screened_segment_pairs": 3099505,
+            "candidate_segment_pairs": 20,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-3",
+            "box_tests": 8733,
+            "point_a_m": [
+              -210.3428510842119,
+              122.11279738305382,
+              1411.2545155976964
+            ],
+            "point_b_m": [
+              -203.8866416418736,
+              95.35788544123552,
+              1426.0943103239836
+            ],
+            "segment_a": 140,
+            "segment_b": 1482,
+            "distance_m": 31.268633818830825,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3616275,
+            "refined_segment_pairs": 898,
+            "distance_lower_bound_m": 31.248633818830825,
+            "distance_upper_bound_m": 31.288633818830824,
+            "screened_segment_pairs": 3615377,
+            "candidate_segment_pairs": 898,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-4",
+            "box_tests": 545,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              103.679694,
+              42.514424,
+              1033.38877
+            ],
+            "segment_a": 0,
+            "segment_b": 1061,
+            "distance_m": 226.8767138169676,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3181425,
+            "refined_segment_pairs": 24,
+            "distance_lower_bound_m": 226.8567138169676,
+            "distance_upper_bound_m": 226.89671381696763,
+            "screened_segment_pairs": 3181401,
+            "candidate_segment_pairs": 24,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-5",
+            "box_tests": 276,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              16.567389175685,
+              1.9057111625205192,
+              1146.1541021407215
+            ],
+            "segment_a": 0,
+            "segment_b": 1148,
+            "distance_m": 113.7130435427868,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 5305950,
+            "refined_segment_pairs": 13,
+            "distance_lower_bound_m": 113.6930435427868,
+            "distance_upper_bound_m": 113.7330435427868,
+            "screened_segment_pairs": 5305937,
+            "candidate_segment_pairs": 13,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-6",
+            "box_tests": 553,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              112.14253544062692,
+              1.7080864479762137,
+              1063.8518721963858
+            ],
+            "segment_a": 0,
+            "segment_b": 1085,
+            "distance_m": 224.78623488718756,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 4016025,
+            "refined_segment_pairs": 25,
+            "distance_lower_bound_m": 224.76623488718755,
+            "distance_upper_bound_m": 224.80623488718757,
+            "screened_segment_pairs": 4016000,
+            "candidate_segment_pairs": 25,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-7",
+            "box_tests": 528,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              -119.6491486760169,
+              -24.73444526513401,
+              1103.8566135253127
+            ],
+            "segment_a": 0,
+            "segment_b": 1139,
+            "distance_m": 122.33096463220906,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3843450,
+            "refined_segment_pairs": 23,
+            "distance_lower_bound_m": 122.31096463220906,
+            "distance_upper_bound_m": 122.35096463220906,
+            "screened_segment_pairs": 3843427,
+            "candidate_segment_pairs": 23,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-8",
+            "box_tests": 536,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              98.81594206400756,
+              -21.3262385151777,
+              1075.262391002335
+            ],
+            "segment_a": 0,
+            "segment_b": 1093,
+            "distance_m": 216.47430277424417,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3620175,
+            "refined_segment_pairs": 23,
+            "distance_lower_bound_m": 216.45430277424413,
+            "distance_upper_bound_m": 216.49430277424415,
+            "screened_segment_pairs": 3620152,
+            "candidate_segment_pairs": 23,
+            "horizontal_aabb_screening": true
+          },
+          {
+            "neighbor": "neighbor-9",
+            "box_tests": 208,
+            "point_a_m": [
+              -73.916557,
+              65.458022,
+              1172.69493
+            ],
+            "point_b_m": [
+              -69.38254601788798,
+              -43.58066706493942,
+              1157.3991503946272
+            ],
+            "segment_a": 0,
+            "segment_b": 1167,
+            "distance_m": 110.19960908425487,
+            "classification": "blue",
+            "curve_error_bound_m": 0.02,
+            "total_segment_pairs": 3816150,
+            "refined_segment_pairs": 11,
+            "distance_lower_bound_m": 110.17960908425488,
+            "distance_upper_bound_m": 110.21960908425488,
+            "screened_segment_pairs": 3816139,
+            "candidate_segment_pairs": 11,
+            "horizontal_aabb_screening": true
+          }
+        ],
+        "separation_details": [
+          {
+            "neighbor": "neighbor-1",
+            "minimum_sf": 92.8420634938267,
+            "offset_md_m": 2196.4113681913964,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 941169,
+              "horizontal_box_tests": 7381,
+              "screened_point_pairs": 185918,
+              "evaluated_point_pairs": 755251
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              505.1213891369772,
+              -215.55308278559195,
+              2073.8914537071723
+            ],
+            "reference_position_m": [
+              -1333.2789238664443,
+              999.5957426849156,
+              2199.9092672882107
+            ],
+            "centerline_distance_m": 307.97441454509556,
+            "reference_relative_md_m": 1945.9444569040472,
+            "combined_error_boundary_m": 23.77480730830066,
+            "separation_point_distance_m": 2207.3021696707447
+          },
+          {
+            "neighbor": "neighbor-2",
+            "minimum_sf": 64.5945390548637,
+            "offset_md_m": 1146.1644859163437,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 774517,
+              "horizontal_box_tests": 6100,
+              "screened_point_pairs": 162933,
+              "evaluated_point_pairs": 611584
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              76.45345523419222,
+              63.388854473214785,
+              1128.9559373570737
+            ],
+            "reference_position_m": [
+              -73.91655725683229,
+              65.4580220591939,
+              1172.694930549755
+            ],
+            "centerline_distance_m": 153.3281554886381,
+            "reference_relative_md_m": 6.09669956909323e-07,
+            "combined_error_boundary_m": 2.424598785622482,
+            "separation_point_distance_m": 156.61584095026652
+          },
+          {
+            "neighbor": "neighbor-3",
+            "minimum_sf": 6.494904726073509,
+            "offset_md_m": 1597.250000000003,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 903837,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 670621,
+              "evaluated_point_pairs": 233216
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -283.74345304928147,
+              126.26317242656556,
+              1504.141396398826
+            ],
+            "reference_position_m": [
+              -273.9535671940008,
+              160.83896434232508,
+              1496.3816165440944
+            ],
+            "centerline_distance_m": 31.268633818830825,
+            "reference_relative_md_m": 394.5906480281497,
+            "combined_error_boundary_m": 5.66033190357466,
+            "separation_point_distance_m": 36.76331643167172
+          },
+          {
+            "neighbor": "neighbor-4",
+            "minimum_sf": 85.23908012647044,
+            "offset_md_m": 1151.661831182424,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 795135,
+              "horizontal_box_tests": 6222,
+              "screened_point_pairs": 222079,
+              "evaluated_point_pairs": 573056
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              166.74049324191907,
+              60.3846824255498,
+              1097.2614202810364
+            ],
+            "reference_position_m": [
+              -73.91655725683229,
+              65.4580220591939,
+              1172.694930549755
+            ],
+            "centerline_distance_m": 226.8767138169676,
+            "reference_relative_md_m": 6.09669956909323e-07,
+            "combined_error_boundary_m": 2.95936303581592,
+            "separation_point_distance_m": 252.25338293322804
+          },
+          {
+            "neighbor": "neighbor-5",
+            "minimum_sf": 28.39610252128744,
+            "offset_md_m": 4623.079914270651,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1326689,
+              "horizontal_box_tests": 10370,
+              "screened_point_pairs": 880964,
+              "evaluated_point_pairs": 445725
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1690.3864411998125,
+              110.42116609586272,
+              2468.393333309247
+            ],
+            "reference_position_m": [
+              -1333.2789238664443,
+              999.5957426849156,
+              2199.9092672882107
+            ],
+            "centerline_distance_m": 113.7130435427868,
+            "reference_relative_md_m": 1945.9444569040472,
+            "combined_error_boundary_m": 35.04384046897151,
+            "separation_point_distance_m": 995.1084866965568
+          },
+          {
+            "neighbor": "neighbor-6",
+            "minimum_sf": 85.19356713655387,
+            "offset_md_m": 1156.439435839253,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 1003816,
+              "horizontal_box_tests": 7869,
+              "screened_point_pairs": 440488,
+              "evaluated_point_pairs": 563328
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              151.13959118709087,
+              2.281608858831782,
+              1124.1145808956308
+            ],
+            "reference_position_m": [
+              -73.91655725683229,
+              65.4580220591939,
+              1172.694930549755
+            ],
+            "centerline_distance_m": 224.78623488718756,
+            "reference_relative_md_m": 6.09669956909323e-07,
+            "combined_error_boundary_m": 2.802442058094789,
+            "separation_point_distance_m": 238.75003562260065
+          },
+          {
+            "neighbor": "neighbor-7",
+            "minimum_sf": 37.52142052029608,
+            "offset_md_m": 2966.749999999731,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 960689,
+              "horizontal_box_tests": 7564,
+              "screened_point_pairs": 421553,
+              "evaluated_point_pairs": 539136
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1421.122158680399,
+              -161.02788445207963,
+              2311.754429013592
+            ],
+            "reference_position_m": [
+              -1257.393457985688,
+              946.5299915735836,
+              2194.180286074802
+            ],
+            "centerline_distance_m": 122.33096463220906,
+            "reference_relative_md_m": 1853.142331577997,
+            "combined_error_boundary_m": 30.00288743167026,
+            "separation_point_distance_m": 1125.7509561468055
+          },
+          {
+            "neighbor": "neighbor-8",
+            "minimum_sf": 84.86826548457336,
+            "offset_md_m": 1154.773956019409,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 904813,
+              "horizontal_box_tests": 7076,
+              "screened_point_pairs": 335597,
+              "evaluated_point_pairs": 569216
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              130.32005523734207,
+              -24.183917120799087,
+              1128.9020577882009
+            ],
+            "reference_position_m": [
+              -73.91655725683229,
+              65.4580220591939,
+              1172.694930549755
+            ],
+            "centerline_distance_m": 216.47430277424417,
+            "reference_relative_md_m": 6.09669956909323e-07,
+            "combined_error_boundary_m": 2.678289129041719,
+            "separation_point_distance_m": 227.30175284795936
+          },
+          {
+            "neighbor": "neighbor-9",
+            "minimum_sf": 45.920703560483005,
+            "offset_md_m": 3439.604711812706,
+            "sf_screening": {
+              "enabled": true,
+              "total_point_pairs": 953857,
+              "horizontal_box_tests": 7503,
+              "screened_point_pairs": 314113,
+              "evaluated_point_pairs": 639744
+            },
+            "classification": "blue",
+            "offset_position_m": [
+              -1650.5155957839163,
+              -494.5196063310062,
+              2549.1270292129852
+            ],
+            "reference_position_m": [
+              -1333.2789238664443,
+              999.5957426849156,
+              2199.9092672882107
+            ],
+            "centerline_distance_m": 110.19960908425487,
+            "reference_relative_md_m": 1945.9444569040472,
+            "combined_error_boundary_m": 34.120454805144306,
+            "separation_point_distance_m": 1566.8352904558897
+          }
+        ],
+        "centerline_margin_m": 26.268633818830825,
+        "centerline_minimum_m": 5.0,
+        "inclination_error_deg": -0.21694970177294692,
+        "minimum_scaled_constraint": 1.999999824420229e-07,
+        "position_error_components_m": [
+          -0.27892434557497836,
+          -0.40425698455442216,
+          -0.09073269942473416
+        ],
+        "tangent_direction_error_deg": 0.5449470758111479,
+        "minimum_centerline_distance_m": 31.268633818830825
+      },
+      "trajectory_points": 1949
+    }
+  ],
+  "success": true,
+  "verification_date": "2026-11-16"
+}

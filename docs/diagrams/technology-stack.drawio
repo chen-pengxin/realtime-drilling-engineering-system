@@ -1,0 +1,38 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="technology-stack" id="technology-stack">
+    <mxGraphModel dx="1100" dy="560" grid="1" gridSize="10" page="1" pageWidth="1100" pageHeight="560">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="ui" target="java">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="java" target="py">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="py" target="store">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ui" value="交互层&#10;Vue 3 · Element Plus · Vue Router" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="130" y="35" width="840" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="java" value="业务层&#10;Java 17 · Spring Boot · Apache Shiro" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="130" y="160" width="840" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="py" value="计算层&#10;Python 3.12 · FastAPI · SciPy · wellpath" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="130" y="285" width="840" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="store" value="存储与部署&#10;MySQL · 文件目录 · Maven · Vite" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="130" y="410" width="840" height="80" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

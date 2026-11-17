@@ -1,0 +1,54 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="system-architecture" id="system-architecture">
+    <mxGraphModel dx="1100" dy="650" grid="1" gridSize="10" page="1" pageWidth="1100" pageHeight="650">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0" value="业务请求" style="exitX=0.22395833333333334;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="ui" target="java">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="版本绑定后计算" style="exitX=1.0;exitY=0.47368421052631576;entryX=0.0;entryY=0.47368421052631576;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="java" target="python">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="事务读写" style="exitX=0.37209302325581395;exitY=1.0;entryX=0.37209302325581395;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="java" target="db">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="文件索引" style="exitX=0.8837209302325582;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="java" target="files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="450" y="380" />
+              <mxPoint x="815" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="计算输入输出" style="exitX=0.813953488372093;exitY=1.0;entryX=0.813953488372093;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="python" target="files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ui" value="表现层：浏览器&#10;工程目录 / 任务工作区 / 实时大屏" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="70" y="35" width="960" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="java" value="业务服务层：Java&#10;认证权限 / 文件版本 / 任务审计" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="70" y="200" width="430" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="python" value="计算服务层：Python&#10;原生轨迹引擎 / 模型适配器 / 报告" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="600" y="200" width="430" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="MySQL&#10;工程数据、版本、结果与权限" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="70" y="450" width="430" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="files" value="文件存储&#10;来源原件、模型与输出报告" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="600" y="450" width="430" height="95" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

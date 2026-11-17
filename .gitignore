@@ -1,0 +1,51 @@
+# Generated files and local runtime data
+.DS_Store
+**/node_modules/
+**/target/
+**/dist/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/coverage/
+**/*.log
+**/logs/
+**/uploadPath/
+**/drilling-files/
+**/.idea/
+**/.vscode/
+**/*.iml
+/artifacts/
+/参考文献.zip
+# Private input/reference materials and supplied datasets. Keep only sanitized
+# source code and Markdown documentation in the repository.
+/参考文献/
+/参考readme/
+/项目要求.docx
+/ruoyi-java/sql/ry_20260319.sql
+/data/*
+!/data/.gitkeep
+/algorithm-server/data/*
+!/algorithm-server/data/.gitkeep
+/algorithm-server/models/*
+!/algorithm-server/models/.gitkeep
+/tmp/
+# Database exports and local backups are never source files.
+**/*.sql.gz
+**/*.dump
+**/*.bak
+# Deployment credentials are machine-specific
+**/.env
+**/.env.local
+**/.env.*.local
+/deploy/.env.*
+!/deploy/.env.example
+
+# Persisted numerical cache is local runtime state, never a source artifact
+/algorithm-server/data/native_scan_cache.sqlite3*
+
+/.local-runtime/
+/.local-backups/

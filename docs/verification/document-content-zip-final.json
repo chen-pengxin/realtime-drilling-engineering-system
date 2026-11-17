@@ -1,0 +1,83 @@
+{
+  "parser_version": "source-content-2026.11.17.1",
+  "applied": true,
+  "elapsed_seconds": 25.88,
+  "summary": {
+    "PARSED": 3
+  },
+  "formats": {
+    "zip": 3
+  },
+  "totals": {
+    "sections": 1672,
+    "tables": 1033,
+    "figures": 0,
+    "table_rows": 42492,
+    "trajectories": 44,
+    "stations": 3414
+  },
+  "invariants_preserved": true,
+  "before": {
+    "data_file": 370,
+    "drilling_survey_version": 237,
+    "drilling_survey_station": 244496,
+    "drilling_trajectory_version": 237,
+    "trajectory_heads_sha256": "26ed0d941fc03d656e2fd5c2604be7d9c3ad2ac4691ee68e9703564d2f7bde2c",
+    "original_registry_sha256": "f0110b3a6ed32b67a535c8341c405762b476697c7b1c77d91075131ccae97079"
+  },
+  "after": {
+    "data_file": 370,
+    "drilling_survey_version": 237,
+    "drilling_survey_station": 244496,
+    "drilling_trajectory_version": 237,
+    "trajectory_heads_sha256": "26ed0d941fc03d656e2fd5c2604be7d9c3ad2ac4691ee68e9703564d2f7bde2c",
+    "original_registry_sha256": "f0110b3a6ed32b67a535c8341c405762b476697c7b1c77d91075131ccae97079"
+  },
+  "rows": [
+    {
+      "source_id": 92,
+      "reference_id": null,
+      "name": "Production_data.zip",
+      "format": "zip",
+      "status": "PARSED",
+      "sections": 2,
+      "tables": 2,
+      "figures": 0,
+      "table_rows": 16163,
+      "trajectories": 0,
+      "stations": 0,
+      "warnings": [],
+      "parse_id": 748
+    },
+    {
+      "source_id": 198,
+      "reference_id": null,
+      "name": "Reports.zip",
+      "format": "zip",
+      "status": "PARSED",
+      "sections": 290,
+      "tables": 43,
+      "figures": 0,
+      "table_rows": 263,
+      "trajectories": 0,
+      "stations": 0,
+      "warnings": [],
+      "parse_id": 749
+    },
+    {
+      "source_id": 279,
+      "reference_id": null,
+      "name": "WellWellbore.zip",
+      "format": "zip",
+      "status": "PARSED",
+      "sections": 1380,
+      "tables": 988,
+      "figures": 0,
+      "table_rows": 26066,
+      "trajectories": 44,
+      "stations": 3414,
+      "warnings": [],
+      "parse_id": 750
+    }
+  ]
+}

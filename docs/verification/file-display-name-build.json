@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "java": {
+    "command": "mvn -pl ruoyi-admin -am package -DskipTests",
+    "result": "SUCCESS",
+    "jar_sha256": "53dc8372b0deda422b8b32c9b70e0bd3dcbdf5cf1dba1f159c531bcd69f5174f"
+  },
+  "vue": {
+    "command": "npm run build:prod",
+    "result": "SUCCESS",
+    "warnings": [
+      "既有混合导入提示",
+      "既有分块体积提示"
+    ]
+  },
+  "validation": {
+    "file_name_api_checks": 46,
+    "file_version_api_checks": 43,
+    "source_association_api_checks": 25,
+    "file_name_browser_flows": 7,
+    "file_version_browser_flows": 7,
+    "schema_repeated_migration": true
+  },
+  "recorded_at": "2026-11-16 14:26:07"
+}

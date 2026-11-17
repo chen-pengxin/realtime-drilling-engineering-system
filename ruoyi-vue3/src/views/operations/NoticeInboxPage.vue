@@ -1,0 +1,17 @@
+<template><OperationsFrame title="通知公告"><template #actions><el-badge :value="unreadCount" :hidden="!unreadCount"><el-tag>未读公告</el-tag></el-badge></template>
+ <el-form :inline="true"><el-form-item label="标题"><el-input v-model="query.keyword" placeholder="公告标题" clearable @keyup.enter="search" /></el-form-item><el-form-item><el-checkbox v-model="query.unreadOnly" @change="search">仅看未读</el-checkbox></el-form-item><el-form-item><el-button type="primary" icon="Search" @click="search">搜索</el-button><el-button icon="Refresh" @click="load">刷新</el-button><el-button @click="markAll">全部标为已读</el-button></el-form-item></el-form>
+ <el-table :data="rows" v-loading="loading"><el-table-column label="状态" width="85"><template #default="{row}"><el-tag :type="row.isRead?'info':'warning'">{{row.isRead?'已读':'未读'}}</el-tag></template></el-table-column><el-table-column label="标题" min-width="280"><template #default="{row}"><el-button link type="primary" class="notice-title" @click="openNotice(row.noticeId)">{{row.noticeTitle}}</el-button></template></el-table-column><el-table-column label="类型" width="90"><template #default="{row}">{{row.noticeType==='1'?'通知':'公告'}}</template></el-table-column><el-table-column prop="createBy" label="发布账号" min-width="130" /><el-table-column prop="createTime" label="发布时间" width="180" /></el-table>
+ <pagination v-show="total>0" :total="total" v-model:page="query.pageNum" v-model:limit="query.pageSize" @pagination="load" />
+ <el-dialog v-model="open" :title="detail?.noticeTitle||'公告详情'" width="760px" class="operations-dialog"><template v-if="detail"><p class="operations-caption">{{detail.createBy}} · {{detail.createTime}}</p><article class="notice-content">{{content}}</article></template><template #footer><el-button type="primary" @click="open=false">关 闭</el-button></template></el-dialog>
+</OperationsFrame></template>
+<script setup>
+import {ref,reactive,computed,onMounted,watch} from 'vue';import {useRoute} from 'vue-router';import {ElMessage} from 'element-plus';import OperationsFrame from './OperationsFrame.vue';import {listNotices,getNotice,readNotice,readAllNotices} from '@/api/operations';import {usePagePolling} from './useOperations';
+const route=useRoute(),rows=ref([]),total=ref(0),loading=ref(false),unreadCount=ref(0),open=ref(false),detail=ref(null),query=reactive({pageNum:1,pageSize:20,keyword:'',unreadOnly:false});
+// Plain text display also makes historical rich-text notices safe to read.
+const content=computed(()=>{const value=detail.value?.noticeContent||'';if(!/<\/?(?:p|div|span|br|font|img|script|style)\b/i.test(value))return value;const d=new DOMParser().parseFromString(value,'text/html');d.querySelectorAll('script,style').forEach(el=>el.remove());return d.body.textContent||''})
+async function load(){loading.value=true;try{const r=await listNotices(query);rows.value=r.rows;total.value=r.total;unreadCount.value=r.unreadCount;window.dispatchEvent(new Event('drilling-notice-read'))}catch{}finally{loading.value=false}}
+function search(){query.pageNum=1;return load()}
+async function openNotice(id){if(!/^\d+$/.test(String(id)))return;try{detail.value=(await getNotice(id)).data;open.value=true;await readNotice(id);await load()}catch{}}
+async function markAll(){try{await readAllNotices();await load();ElMessage.success('已全部标为已读')}catch{}}
+onMounted(async()=>{await load();if(route.query.noticeId)await openNotice(route.query.noticeId)});watch(()=>route.query.noticeId,id=>{if(id)openNotice(id)});usePagePolling(load,60000)
+</script>

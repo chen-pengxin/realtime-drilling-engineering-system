@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "checks": [
+    "V48已应用，历史显示名未被强制批量改写",
+    "原始文件名、对象键、SHA-256和文件版次未改变",
+    "历史轨迹、测点、来源信息和业务成果未改变",
+    "设计、实钻和业务成果当前指针未改变",
+    "正式原件实际字节与保存摘要一致",
+    "Java运行包与本次构建SHA-256一致",
+    "算法、Java和前端健康检查通过"
+  ],
+  "counts": {
+    "files": 370,
+    "versions": 237,
+    "storage_versions": 237,
+    "heads": 146,
+    "business_heads": 60,
+    "file_editions": 473,
+    "sources": 371,
+    "stations": 244496
+  },
+  "verified_original_bytes_files": 370,
+  "jar_sha256": "53dc8372b0deda422b8b32c9b70e0bd3dcbdf5cf1dba1f159c531bcd69f5174f",
+  "services": {
+    "algorithm": "UP",
+    "java": "UP",
+    "frontend": "UP"
+  },
+  "backup_created": true,
+  "recorded_at": "2026-11-16 14:26:28",
+  "qa_cleanup": {
+    "temporary_database_removed": true,
+    "temporary_services_stopped": true,
+    "temporary_uploads_and_sessions_removed": true
+  }
+}

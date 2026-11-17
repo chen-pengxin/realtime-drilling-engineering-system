@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "checks": [
+    "正式库所有历史轨迹ID、内容和参数摘要未改变",
+    "当前设计、实钻及业务成果指针未改变",
+    "测点、原件和旧存储流水未改变",
+    "全部井眼按设计/实钻分别连续编号",
+    "明确设计/实测成果节点下缺失文件类别已补齐",
+    "V47迁移已登记",
+    "正式Java运行包与本次构建SHA-256一致",
+    "算法、Java和前端健康检查通过"
+  ],
+  "counts": [
+    {
+      "trajectory_kind": "ACTUAL",
+      "versions": 85,
+      "wellbores": 66
+    },
+    {
+      "trajectory_kind": "DESIGN",
+      "versions": 152,
+      "wellbores": 87
+    }
+  ],
+  "immutable_counts": {
+    "versions": 237,
+    "heads": 146,
+    "business_heads": 60,
+    "storage_versions": 237,
+    "stations": 244496,
+    "files": 370
+  },
+  "services": {
+    "algorithm": "UP",
+    "java": "UP",
+    "frontend": "UP"
+  },
+  "jar_sha256": "a0af12fb133c06044779402e0046b9a2a3714bef4d6443ae5132ec7244bb3b80",
+  "backup_created": true
+}

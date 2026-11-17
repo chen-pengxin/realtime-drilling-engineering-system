@@ -1,0 +1,91 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="sequence-realtime-collision" id="sequence-realtime-collision">
+    <mxGraphModel dx="1190" dy="900" grid="1" gridSize="10" page="1" pageWidth="1190" pageHeight="900">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0" value="选择井眼、版本与邻井" style="exitX=0.5;exitY=0.08;entryX=0.5;entryY=0.08;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="ulife" target="vlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="提交计算请求" style="exitX=0.5;exitY=0.16;entryX=0.5;entryY=0.16;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="vlife" target="jlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="校验权限、确认记录并读取版本" style="exitX=0.5;exitY=0.24;entryX=0.5;entryY=0.24;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="jlife" target="dblife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="返回不可变版本快照" style="exitX=0.5;exitY=0.32;entryX=0.5;entryY=0.32;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="dblife" target="jlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="提交规范测点及参数" style="exitX=0.5;exitY=0.42;entryX=0.5;entryY=0.42;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="jlife" target="plife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="返回方案与密集校验结果" style="exitX=0.5;exitY=0.5466666666666666;entryX=0.5;entryY=0.5466666666666666;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="plife" target="jlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="保存任务、分段和输入快照" style="exitX=0.5;exitY=0.6533333333333333;entryX=0.5;entryY=0.6533333333333333;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="jlife" target="dblife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="返回任务编号" style="exitX=0.5;exitY=0.7333333333333333;entryX=0.5;entryY=0.7333333333333333;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="dblife" target="jlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" value="返回状态与工程结果" style="exitX=0.5;exitY=0.8333333333333334;entryX=0.5;entryY=0.8333333333333334;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="jlife" target="vlife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" value="展示轨道表及图形" style="exitX=0.5;exitY=0.9333333333333333;entryX=0.5;entryY=0.9333333333333333;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="vlife" target="ulife">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="u" value="工程师" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="70" y="25" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="v" value="浏览器" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="290" y="25" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="j" value="业务服务" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="510" y="25" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="p" value="计算服务" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="730" y="25" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="数据库" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="950" y="25" width="160" height="52" as="geometry" />
+        </mxCell>
+        <mxCell id="ulife" value="" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="149" y="90" width="2" height="750" as="geometry" />
+        </mxCell>
+        <mxCell id="vlife" value="" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="369" y="90" width="2" height="750" as="geometry" />
+        </mxCell>
+        <mxCell id="jlife" value="" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="589" y="90" width="2" height="750" as="geometry" />
+        </mxCell>
+        <mxCell id="plife" value="" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="809" y="90" width="2" height="750" as="geometry" />
+        </mxCell>
+        <mxCell id="dblife" value="" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1029" y="90" width="2" height="750" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

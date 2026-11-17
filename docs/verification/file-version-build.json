@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "verified_at": "2026-11-16T14:03:11.004843",
+  "checks": {
+    "java_maven_package": "passed",
+    "vue_production_build": "passed",
+    "python_compileall": "passed",
+    "python_related_tests": {
+      "passed": 71,
+      "scope": [
+        "test_survey_revisions.py",
+        "test_source_roundtrip.py",
+        "test_execution_and_version_parameters.py"
+      ]
+    },
+    "file_version_api_checks": 43,
+    "existing_upload_api_regression_checks": 25,
+    "browser_checks": 7,
+    "schema_initialization": "empty schema and repeated initialization passed"
+  },
+  "notes": [
+    "Vue retains existing bundle-size and mixed-import warnings.",
+    "Global git diff whitespace findings are in pre-existing unrelated edits; files changed for this task passed the scoped check."
+  ]
+}

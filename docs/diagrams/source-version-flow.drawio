@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="source-version-flow" id="source-version-flow">
+    <mxGraphModel dx="1100" dy="990" grid="1" gridSize="10" page="1" pageWidth="1100" pageHeight="990">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="e0" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="file" target="parse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="parse" target="review">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="review" target="import">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="import" target="new">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="new" target="head">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="head" target="calc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="" style="exitX=0.5;exitY=1.0;entryX=0.5;entryY=0.0;exitPerimeter=0;entryPerimeter=0;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=0;endArrow=block;strokeColor=#333333;fontSize=13;" edge="1" parent="1" source="calc" target="output">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="file" value="上传或引用来源文件，按摘要识别原件" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="30" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="parse" value="解析用途、工程归属、表头与测点" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="145" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="review" value="人工修改并确认新资料及邻井关系" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="260" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="import" value="选择完整导入、增量续接或复测修订" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="375" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="new" value="生成不可变轨迹版本及修订区间" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="490" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="head" value="明确发布当前实钻/设计版本" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="605" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="calc" value="任务绑定版本，复用未受影响的扫描区间" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="720" width="600" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="output" value="回查原件、修订记录与历史计算成果" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="250" y="835" width="600" height="65" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

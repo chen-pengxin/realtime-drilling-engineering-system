@@ -1,0 +1,17 @@
+{
+  "success": false,
+  "timestamp": "2026-11-15T23:59:09.528Z",
+  "checks": [
+    {
+      "name": "nine unique actual-first neighbors with full engineering paths",
+      "passed": true,
+      "neighbors": 9,
+      "kinds": [
+        "ACTUAL"
+      ],
+      "margin_m": 500
+    }
+  ],
+  "pageErrors": [],
+  "failure": "AssertionError [ERR_ASSERTION]: {\"msg\":\"428 PRECONDITION_REQUIRED \\\"请先核对并确认当前误差模型、SF口径和参数\\\"\",\"code\":500}\n\n200 !== 428\n\n    at /Users/ermoon/study/bupt/项目/项目demo/ruoyi-vue3/tests/current_requirements_browser.cjs:32:12"
+}

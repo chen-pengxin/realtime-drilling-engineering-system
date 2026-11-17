@@ -1,0 +1,21 @@
+# Production TLS overlay.
+#
+# Usage (from the deploy directory):
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.tls.example.yml up -d --build
+#
+# Put the certificate chain and private key in ./tls/ (or set
+# DRILLING_TLS_DIR in deploy/.env) before starting:
+#   tls/fullchain.pem
+#   tls/privkey.pem
+#
+# Edit server_name in nginx.tls.conf.example to the site's DNS name before
+# mounting it.  The base compose file remains suitable for local HTTP use.
+services:
+  nginx:
+    volumes:
+      - ../ruoyi-vue3/dist:/usr/share/nginx/html:ro
+      - ./nginx.tls.conf.example:/etc/nginx/conf.d/default.conf:ro
+      - ${DRILLING_TLS_DIR:-./tls}:/etc/nginx/tls:ro
+    ports:
+      - "80:80"
+      - "443:443"

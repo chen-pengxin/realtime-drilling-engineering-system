@@ -1,0 +1,26 @@
+{
+  "success": true,
+  "cases": [
+    {
+      "field_id": 13,
+      "well_id": 68,
+      "survey_version_id": 271,
+      "status": "MODEL_NOT_CONFIGURED",
+      "task_id": "5a604a53-42cc-4903-8308-3efbf54dc9ed"
+    },
+    {
+      "field_id": 14,
+      "well_id": 78,
+      "survey_version_id": 291,
+      "status": "MODEL_NOT_CONFIGURED",
+      "task_id": "477b7e43-fbc2-4274-a6ba-5622941747e5"
+    },
+    {
+      "field_id": 15,
+      "well_id": 88,
+      "survey_version_id": 311,
+      "status": "MODEL_NOT_CONFIGURED",
+      "task_id": "80e847ad-08c5-4a4e-8364-086bafc0d9a7"
+    }
+  ]
+}

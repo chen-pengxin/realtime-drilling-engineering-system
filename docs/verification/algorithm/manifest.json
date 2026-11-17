@@ -1,0 +1,137 @@
+[
+  {
+    "file": "mode_solver_validation/summary.csv",
+    "sha256": "d3524dcb1a7a9f81c539a60f38a9690e01c4c35242ae8d049b6ef9979a053b80",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "mode_solver_validation/input_problem.json",
+    "sha256": "3562afe5a49a57fa1c15f482bb9d6c3f9ea9ef99e23dd6ce0bf89a62fc5237a5",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "mode_solver_validation/known_single_arc__COBYQA__r1/result.json",
+    "sha256": "04c6830e3f48f566d1c927f2ae4b5f6cfd64e66d8c5d5ad9bc0a1c9551ec2f14",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "mode_solver_validation/known_single_arc__trust-constr__r1/result.json",
+    "sha256": "23a93640ff74057362648a03b6fff2b2fa428d2576412eb17c71386ae56578ff",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "mode_solver_validation/known_single_arc__SLSQP__r1/result.json",
+    "sha256": "27f118bd9bd7993b491683f689c8ab784cea63412e0fad39c06883ed7f9fcd68",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "mode_solver_validation/known_single_arc__COBYLA__r1/result.json",
+    "sha256": "953dca17f13fe8fab56b07e432c6733642da1ee656ff7d7ea663cf065954cf69",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/summary.csv",
+    "sha256": "b119ec94c61db451331c1e156968d16fe140be008f7a514f8f83ca364999b453",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/input_problem.json",
+    "sha256": "d209935f82165e0f524502278d5d220770d41273cada4bd8cf173f60696b95ce",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/one_arc__SLSQP__r1/result.json",
+    "sha256": "71b81f43b30c543bdbfcac1ebf16352462df497f1b069bfc1b6414cd7f46ab2e",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/arc_line_arc__COBYQA__r1/result.json",
+    "sha256": "d16c3042c3584cdafaf4e5f2f8600d458fd50bf1338a5bf8b6428e08a3bebf07",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/arc_line_arc__trust-constr__r1/result.json",
+    "sha256": "4badc46bbdbb1726fe949c8d1ea710c2f073a06e0ba338219f55f1877a894ccd",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/one_arc__COBYLA__r1/result.json",
+    "sha256": "ffdc340f423284ab76bc82f31fae55b81ecc2445010c75f741ffa7f5b197c890",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/arc_line_arc__SLSQP__r1/result.json",
+    "sha256": "55cf3f439ac63fe5b62d59b8bc5f62b9efd91dc9c907fb373aee0dc3237ca7a8",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/five_arcs__SLSQP__r1/result.json",
+    "sha256": "0479efda89d14c935530ba29a2812548be68992812009787f1065e85285b4097",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/five_arcs__COBYLA__r1/result.json",
+    "sha256": "15117731d437921838c560a64193ed313c9988705e87d8b3a1b04fbcfe05bc3c",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/three_arcs__SLSQP__r1/result.json",
+    "sha256": "b67e012f46d053d7f9c4e349dd7b12a4f50c60e99874cd79d9efd68043dc31f7",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/three_arcs__trust-constr__r1/result.json",
+    "sha256": "ebbd3f015a37d91ba9c7ca00e43abd88d01ec5025e84157142e831a7507fec30",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/three_arcs__COBYLA__r1/result.json",
+    "sha256": "ab284115f8ed1b4e6ab56e9193282590335c3280d39e791b770d5b53ead1d5be",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/one_arc__trust-constr__r1/result.json",
+    "sha256": "1fc45eae5dc9d63a3f566f3d14a5a90f609bc2abe9559c0896f6704ba7c61fea",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/five_arcs__trust-constr__r1/result.json",
+    "sha256": "9b806ee047d6a939e045fb78ca32b86d38f2d8bad76ca17495b3fe0609e191c8",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/arc_line_arc__COBYLA__r1/result.json",
+    "sha256": "3eb5c5a729b46aa31546eaf615bf0f3ae900b748defa0feff39ae52cb97b6b89",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/one_arc__COBYQA__r1/result.json",
+    "sha256": "4162a83f02ec8e0b29979400f924f24c1bc4dad2d6f113e97ad51e3c4eaa431f",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/five_arcs__COBYQA__r1/result.json",
+    "sha256": "07281cc5384c1e4c75b1efe8f39a2b2dc1c9fb8215250e9c080dfd6e5bf480db",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "comparison/three_arcs__COBYQA__r1/result.json",
+    "sha256": "22af2c31b2aa7be5aa8126e0e640b36888bf94783945c07b16b03c3b99e6ac94",
+    "source": "supplied algorithm experiment output; not a new system run"
+  },
+  {
+    "file": "scenarios/scene_A-algorithm_comparison.csv",
+    "sha256": "8781012083e10a7c2df11b08e4404719283122800b4092e409d7a8163df6268d",
+    "source": "supplied algorithm project; original scenario comparison table"
+  },
+  {
+    "file": "scenarios/scene_B-algorithm_comparison.csv",
+    "sha256": "d2c6bf1968e6f1403bcdda5091e37b9ae558e333c02c15bfd6cfccf5aaade397",
+    "source": "supplied algorithm project; original scenario comparison table"
+  },
+  {
+    "file": "scenarios/scene_C-algorithm_comparison.csv",
+    "sha256": "e15cbac4cb6b544a256825ca5bd07405e07db2eb45f6f7ac70ddf38772ca8573",
+    "source": "supplied algorithm project; original scenario comparison table"
+  }
+]

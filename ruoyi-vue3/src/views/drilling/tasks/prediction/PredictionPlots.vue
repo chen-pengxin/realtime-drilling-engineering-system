@@ -1,0 +1,12 @@
+<template><div class="pose-projections"><div ref="firstEl" class="pose-chart"></div><div ref="secondEl" class="pose-chart"></div></div></template>
+<script setup>
+import {onMounted,onBeforeUnmount,ref,watch} from 'vue'
+import {loadPlotly,chartPalette,plotConfig} from '@/utils/plotlyRuntime'
+import {trajectoryColors} from '@/utils/trajectoryColors'
+const props=defineProps({measured:{type:Array,default:()=>[]},predicted:{type:Array,default:()=>[]},attitude:Boolean}),firstEl=ref(),secondEl=ref();let P,observer,disposed=false
+const rows=()=>({measured:props.measured||[],predicted:props.predicted?.length?[...(props.measured||[]).slice(-1),...props.predicted]:[]})
+async function draw(){P=await loadPlotly();if(disposed)return;const palette=chartPalette(),r=rows(),spec=props.attitude?[['井斜随井深变化','md','inclination','井斜（°）'],['方位随井深变化','md','azimuth','方位（°）']]:[['N–TVD 垂直剖面','north','tvd','TVD（m）'],['E–N 水平投影','east','north','N（m）']];for(const [el,[title,x,y,ytitle]] of [[firstEl.value,spec[0]],[secondEl.value,spec[1]]]){if(!el)continue;const traces=[];for(const [name,data,color,dash] of [['实测轨迹',r.measured,trajectoryColors.ACTUAL,'solid'],['模型预测',r.predicted,trajectoryColors.PREDICTED,'dash']]){traces.push({type:'scatter',mode:'lines',name,x:data.map(v=>Number(v[x])),y:data.map(v=>Number(v[y])),line:{color,dash,width:2}})}const axis={title:{text:x==='md'?'MD（m）':`${x.toUpperCase()}（m）`},gridcolor:palette.border,zerolinecolor:palette.border};const layout={title:{text:title,font:{size:13,color:palette.text}},paper_bgcolor:palette.background,plot_bgcolor:palette.background,font:{color:palette.text},margin:{l:55,r:12,t:38,b:45},showlegend:true,legend:{orientation:'h'},xaxis:axis,yaxis:{...axis,title:{text:ytitle},autorange:!props.attitude&&y==='tvd'?'reversed':true}};await P.react(el,traces,layout,plotConfig)}}
+watch([()=>props.measured,()=>props.predicted,()=>props.attitude],draw,{deep:true});onMounted(()=>{draw();observer=new ResizeObserver(()=>{if(P){P.Plots.resize(firstEl.value);P.Plots.resize(secondEl.value)}});observer.observe(firstEl.value);observer.observe(secondEl.value)});onBeforeUnmount(()=>{disposed=true;observer?.disconnect();if(P){P.purge(firstEl.value);P.purge(secondEl.value)}})
+</script>
+<style scoped>.pose-projections{display:grid;grid-template-columns:1fr 1fr;gap:12px;height:100%;min-height:260px}.pose-chart{height:100%;min-height:240px}@media(max-width:760px){.pose-projections{grid-template-columns:1fr;grid-template-rows:1fr 1fr}}
+</style>

@@ -1,0 +1,11 @@
+<template><OperationsFrame title="在线用户"><template #actions><el-tag type="info">每30秒刷新</el-tag></template>
+ <el-form :inline="true" v-show="showSearch" :model="query"><el-form-item label="账号"><el-input v-model="query.account" placeholder="账号ID / 账号名称" clearable @keyup.enter="search" /></el-form-item><el-form-item label="登录地址"><el-input v-model="query.ipaddr" placeholder="IP地址" clearable @keyup.enter="search" /></el-form-item><el-form-item><el-button type="primary" icon="Search" @click="search">搜索</el-button><el-button icon="Refresh" @click="reset">重置</el-button></el-form-item></el-form>
+ <div class="operations-toolbar"><right-toolbar v-model:showSearch="showSearch" @queryTable="load" /></div>
+ <el-table :data="rows" v-loading="loading"><el-table-column prop="loginName" label="账号ID" min-width="140" /><el-table-column prop="userName" label="账号名称" min-width="150" /><el-table-column prop="ipaddr" label="IP地址" min-width="140" /><el-table-column prop="browser" label="浏览器" width="120" /><el-table-column prop="os" label="操作系统" width="130" /><el-table-column prop="startTime" label="登录时间" width="180" /><el-table-column prop="lastAccessTime" label="最后访问时间" width="180" /><el-table-column prop="timeoutMinutes" label="空闲超时（分钟）" width="150" /><el-table-column label="操作" width="110" fixed="right"><template #default="{row}"><el-tag v-if="row.current">当前会话</el-tag><el-button v-else link type="danger" @click="revoke(row)">强制退出</el-button></template></el-table-column></el-table>
+ <pagination v-show="total>0" :total="total" v-model:page="query.pageNum" v-model:limit="query.pageSize" @pagination="load" />
+</OperationsFrame></template>
+<script setup>
+import {ElMessage,ElMessageBox} from 'element-plus';import OperationsFrame from './OperationsFrame.vue';import {useOperations,usePagePolling} from './useOperations';import {executeOperation} from '@/api/operations';
+const {rows,total,loading,query,showSearch,load,search,reset}=useOperations('sessions',{account:'',ipaddr:''});usePagePolling(load)
+async function revoke(row){try{await ElMessageBox.confirm(`强制退出 ${row.userName} 的此登录会话？`,'强制退出',{type:'warning'});await executeOperation(`sessions/${row.sessionKey}/revoke`);ElMessage.success('会话已退出');await load()}catch{}}
+</script>

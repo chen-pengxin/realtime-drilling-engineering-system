@@ -1,0 +1,9 @@
+{
+  "package": "wellpath-engine",
+  "version": "1.0.0",
+  "source": "用户提供 well_control_iscwsa/dist",
+  "sha256": "bc5714be2b35582e416ece95329b71677fff47e6d70f836f3198f6e58dbb550f",
+  "default_error_model": "iscwsa_rev0",
+  "default_solver": "SLSQP",
+  "numerical_source_modified": false
+}

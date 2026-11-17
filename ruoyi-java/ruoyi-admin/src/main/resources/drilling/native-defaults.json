@@ -1,0 +1,101 @@
+{
+  "evaluationMode": "BOTH",
+  "scanStep": 1.0,
+  "engineVersion": "wellpath-engine-1.0.0",
+  "thresholds": {
+    "redSf": 1.0,
+    "orangeSf": 1.5,
+    "yellowSf": 2.5,
+    "redDistance": 5.0,
+    "errorNetRatioOrange": 0.5,
+    "errorNetRatioYellow": 1.0
+  },
+  "errorModel": {
+    "mode": "ISCWSA",
+    "modelVersion": "iscwsa_rev0",
+    "k": 1.0,
+    "sfMethod": "major_axis_sum",
+    "settings": {
+      "uncertainty_model": {
+        "type": "iscwsa_rev0",
+        "parameters": {
+          "accel_bias_mps2": 0.004,
+          "accel_scale": 0.0005,
+          "mag_bias_nt": 70.0,
+          "mag_scale": 0.0016,
+          "sag_deg": 0.2,
+          "misalignment_x_deg": 0.06,
+          "misalignment_y_deg": 0.06,
+          "amid_constant_deg": 0.25,
+          "amid_direction_deg": 0.6,
+          "declination_sigma_deg": 0.36,
+          "dbh_deg_nt": 5000.0,
+          "dip_sigma_deg": 0.2,
+          "total_field_sigma_nt": 130.0,
+          "depth_random_m": 0.35,
+          "depth_system_m": 0.0,
+          "depth_scale": 0.00024,
+          "depth_stretch_per_m": 2.2e-07,
+          "b_total_nt": 48000.0,
+          "dip_deg": 58.0,
+          "declination_deg": 2.0,
+          "gravity": 9.80665,
+          "toolface_deg": 0.0,
+          "asz_divide_by_gravity": true
+        },
+        "propagation_basis": "minimum_curvature"
+      }
+    },
+    "radiiMarginM": 0.0,
+    "sigmaPaM": 0.0,
+    "curveToleranceM": 0.01
+  },
+  "planning": {
+    "solver": "SLSQP",
+    "maxDoglegDegPer30m": 6.0,
+    "minDoglegDegPer30m": 0.0,
+    "minSegmentLength": 3.0,
+    "maxSegmentLength": 30.0,
+    "maxToolfaceChangeDeg": 180.0,
+    "collisionConstraint": "SEPARATION_FACTOR",
+    "minimumSf": 1.5,
+    "targetToleranceM": 0.5,
+    "maxIterations": 500,
+    "nativeOptions": {
+      "solver": {
+        "initial_search_attempts": 6,
+        "optimization_starts": 1,
+        "feasibility_max_nfev": 200,
+        "max_seconds_per_run": 30,
+        "max_function_evaluations": 5000
+      },
+      "inclination_bounds_deg": [
+        1e-06,
+        179.999999
+      ],
+      "max_segment_bend_deg": 150,
+      "centerline_min_distance_m": 0,
+      "trajectory_mode": "arc-straight",
+      "n_segments": 3
+    },
+    "taskTimeoutSeconds": 120
+  },
+  "prediction": {
+    "predictionStep": 9.0,
+    "modelVersionId": null,
+    "templateRuntimePath": "",
+    "device": "auto",
+    "allowFallback": true,
+    "fallbackMode": "TANGENT_EXTRAPOLATION",
+    "popupAlarmEnabled": true,
+    "soundAlarmEnabled": true,
+    "alertMinimumLevel": "YELLOW",
+    "timeoutSeconds": 30
+  },
+  "reference": {
+    "crs": "",
+    "depth_datum": "",
+    "depth_datum_elevation_m": null
+  },
+  "neighborSearchMarginM": 500.0
+}

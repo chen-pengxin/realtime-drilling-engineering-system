@@ -1,0 +1,605 @@
+{
+  "algorithm": "SLSQP",
+  "status": "feasible_design",
+  "selected_candidate": "SLSQP run 1",
+  "solver_success": true,
+  "runs": [
+    {
+      "run": 1,
+      "solver_success": true,
+      "message": "Optimization terminated successfully",
+      "interrupted": false,
+      "iterations": 17,
+      "objective_calls": 25,
+      "elapsed_seconds": 1.7066222920002474,
+      "validation_seconds": 0.7683097079989238,
+      "candidate_length_m": 74.76607940152994,
+      "coarse_check": {
+        "feasible": true,
+        "position_error_m": 0.5000000325715463,
+        "position_error_components_m": [
+          0.2521990313661817,
+          0.2898470815609073,
+          -0.31997554665963435
+        ],
+        "inclination_error_deg": -0.49999999985197974,
+        "azimuth_error_deg": 0.5000000016970887,
+        "tangent_direction_error_deg": 0.707075370665784,
+        "minimum_scaled_constraint": -4.6249707786035427e-10,
+        "minimum_sf": 2.3447318716576446,
+        "sf_threshold": 1.5,
+        "sf_margin": 0.8447318716576446,
+        "separation_details": [
+          {
+            "neighbor": "Synthetic ISCWSA offset A",
+            "minimum_sf": 2.3447318716576446,
+            "reference_relative_md_m": 35.89957013367549,
+            "offset_md_m": 45.0,
+            "centerline_distance_m": 7.986434388535185,
+            "combined_error_boundary_m": 3.1928744088092826,
+            "reference_position_m": [
+              89.55188401934302,
+              -171.4337499382967,
+              1701.853127002178
+            ],
+            "offset_position_m": [
+              84.0,
+              -166.0,
+              1700.0
+            ]
+          }
+        ],
+        "verification": "optimization grid"
+      },
+      "fine_check": {
+        "feasible": true,
+        "position_error_m": 0.5000000325715463,
+        "position_error_components_m": [
+          0.2521990313661817,
+          0.2898470815609073,
+          -0.31997554665963435
+        ],
+        "inclination_error_deg": -0.49999999985197974,
+        "azimuth_error_deg": 0.5000000016970887,
+        "tangent_direction_error_deg": 0.707075370665784,
+        "minimum_scaled_constraint": -4.6249707786035427e-10,
+        "minimum_sf": 2.289719619654401,
+        "sf_threshold": 1.5,
+        "sf_margin": 0.789719619654401,
+        "separation_details": [
+          {
+            "neighbor": "Synthetic ISCWSA offset A",
+            "minimum_sf": 2.289719619654401,
+            "reference_relative_md_m": 35.63103122804498,
+            "offset_md_m": 46.767988652955346,
+            "centerline_distance_m": 7.7596049814424415,
+            "combined_error_boundary_m": 3.1705213682617486,
+            "reference_position_m": [
+              89.68734083461922,
+              -171.2780778330643,
+              1701.6812817500324
+            ],
+            "offset_position_m": [
+              84.0,
+              -166.0,
+              1701.7679886529554
+            ]
+          }
+        ],
+        "verification": "fine grid + continuous local refinement"
+      },
+      "history": [
+        {
+          "iteration": 0,
+          "elapsed_seconds": 0.10949729200001457,
+          "length_m": 68.84423999367951,
+          "maximum_scaled_constraint_violation": 0.8913701468187741,
+          "minimum_sf": 1.5437481651309357
+        },
+        {
+          "iteration": 1,
+          "elapsed_seconds": 0.2034972090004885,
+          "length_m": 69.4884971411467,
+          "maximum_scaled_constraint_violation": 0.49542553750232365,
+          "minimum_sf": 2.378171882729618
+        },
+        {
+          "iteration": 2,
+          "elapsed_seconds": 0.2973139589994389,
+          "length_m": 72.07435678100522,
+          "maximum_scaled_constraint_violation": 0.1502069168336073,
+          "minimum_sf": 2.2549433278518665
+        },
+        {
+          "iteration": 3,
+          "elapsed_seconds": 0.4042660840004828,
+          "length_m": 73.04776372425597,
+          "maximum_scaled_constraint_violation": 0.07656986939850677,
+          "minimum_sf": 2.339463787752228
+        },
+        {
+          "iteration": 4,
+          "elapsed_seconds": 0.5096164170008706,
+          "length_m": 72.3520805805832,
+          "maximum_scaled_constraint_violation": 0.39965446122207937,
+          "minimum_sf": 1.9610791447216924
+        },
+        {
+          "iteration": 5,
+          "elapsed_seconds": 0.6147572089994355,
+          "length_m": 73.56345486934765,
+          "maximum_scaled_constraint_violation": 0.03955562129831403,
+          "minimum_sf": 2.322735907146967
+        },
+        {
+          "iteration": 6,
+          "elapsed_seconds": 0.7080912090004858,
+          "length_m": 74.13974086950643,
+          "maximum_scaled_constraint_violation": 0.05693291833328207,
+          "minimum_sf": 2.622016091666861
+        },
+        {
+          "iteration": 7,
+          "elapsed_seconds": 0.8195682919995306,
+          "length_m": 74.35296011148861,
+          "maximum_scaled_constraint_violation": 0.008679748405350095,
+          "minimum_sf": 2.308305252983598
+        },
+        {
+          "iteration": 8,
+          "elapsed_seconds": 0.9241652090004209,
+          "length_m": 74.5122590864038,
+          "maximum_scaled_constraint_violation": 0.005528069277608392,
+          "minimum_sf": 2.375734817447796
+        },
+        {
+          "iteration": 9,
+          "elapsed_seconds": 1.0288723339999706,
+          "length_m": 74.59780801389547,
+          "maximum_scaled_constraint_violation": 0.0039952788116932375,
+          "minimum_sf": 2.307157146533356
+        },
+        {
+          "iteration": 10,
+          "elapsed_seconds": 1.1347965419990942,
+          "length_m": 74.6843794231306,
+          "maximum_scaled_constraint_violation": 0.0013196306183739669,
+          "minimum_sf": 2.3433287933667466
+        },
+        {
+          "iteration": 11,
+          "elapsed_seconds": 1.2282081249995827,
+          "length_m": 74.74517438597934,
+          "maximum_scaled_constraint_violation": 0.0004704790297163722,
+          "minimum_sf": 2.3512267805993585
+        },
+        {
+          "iteration": 12,
+          "elapsed_seconds": 1.3327473339995777,
+          "length_m": 74.7620901525344,
+          "maximum_scaled_constraint_violation": 6.251640362703372e-05,
+          "minimum_sf": 2.341592352359509
+        },
+        {
+          "iteration": 13,
+          "elapsed_seconds": 1.426451375000397,
+          "length_m": 74.76536219600712,
+          "maximum_scaled_constraint_violation": 1.096602153884296e-05,
+          "minimum_sf": 2.345834975182162
+        },
+        {
+          "iteration": 14,
+          "elapsed_seconds": 1.5202311249995546,
+          "length_m": 74.76601827940038,
+          "maximum_scaled_constraint_violation": 8.627956297383651e-07,
+          "minimum_sf": 2.3447179615777434
+        },
+        {
+          "iteration": 15,
+          "elapsed_seconds": 1.6134970839993912,
+          "length_m": 74.76607940152994,
+          "maximum_scaled_constraint_violation": 4.6249707786035427e-10,
+          "minimum_sf": 2.3447318716576446
+        },
+        {
+          "iteration": 16,
+          "elapsed_seconds": 1.7066075839993573,
+          "length_m": 74.76607940152994,
+          "maximum_scaled_constraint_violation": 4.6249707786035427e-10,
+          "minimum_sf": 2.3447318716576446
+        }
+      ]
+    }
+  ],
+  "selected_candidate_solver_success": true,
+  "initial_total_length_m": 76.01330079171576,
+  "final_total_length_m": 74.76607940152994,
+  "optimization_seconds": 1.7066222920002474,
+  "validation_seconds": 1.5315160829995875,
+  "algorithm_wall_seconds": 3.238182750001215,
+  "final_check": {
+    "feasible": true,
+    "position_error_m": 0.5000000325715463,
+    "position_error_components_m": [
+      0.2521990313661817,
+      0.2898470815609073,
+      -0.31997554665963435
+    ],
+    "inclination_error_deg": -0.49999999985197974,
+    "azimuth_error_deg": 0.5000000016970887,
+    "tangent_direction_error_deg": 0.707075370665784,
+    "minimum_scaled_constraint": -4.6249707786035427e-10,
+    "minimum_sf": 2.289719619654401,
+    "sf_threshold": 1.5,
+    "sf_margin": 0.789719619654401,
+    "separation_details": [
+      {
+        "neighbor": "Synthetic ISCWSA offset A",
+        "minimum_sf": 2.289719619654401,
+        "reference_relative_md_m": 35.63103122804498,
+        "offset_md_m": 46.767988652955346,
+        "centerline_distance_m": 7.7596049814424415,
+        "combined_error_boundary_m": 3.1705213682617486,
+        "reference_position_m": [
+          89.68734083461922,
+          -171.2780778330643,
+          1701.6812817500324
+        ],
+        "offset_position_m": [
+          84.0,
+          -166.0,
+          1701.7679886529554
+        ]
+      }
+    ],
+    "verification": "fine grid + continuous local refinement"
+  },
+  "global_optimum_proven": false,
+  "feasibility_phase": {
+    "elapsed_seconds": 4.620469875000708,
+    "attempts": [
+      {
+        "attempt": 1,
+        "elapsed_seconds": 4.6204212909997295,
+        "nfev": 49,
+        "check": {
+          "feasible": true,
+          "position_error_m": 0.4999859543491949,
+          "position_error_components_m": [
+            -0.44648864282195433,
+            -0.11752706823989456,
+            -0.1918885994748507
+          ],
+          "inclination_error_deg": -0.4999940033815591,
+          "azimuth_error_deg": 0.49999400099667923,
+          "tangent_direction_error_deg": 0.7070668880311366,
+          "minimum_scaled_constraint": 1.994372920611319e-07,
+          "minimum_sf": 2.3404870940873352,
+          "sf_threshold": 1.5,
+          "sf_margin": 0.8404870940873352,
+          "separation_details": [
+            {
+              "neighbor": "Synthetic ISCWSA offset A",
+              "minimum_sf": 2.3404870940873352,
+              "reference_relative_md_m": 37.79515843790344,
+              "offset_md_m": 50.0,
+              "centerline_distance_m": 8.033762300643325,
+              "combined_error_boundary_m": 3.2188864957536065,
+              "reference_position_m": [
+                89.17942887723241,
+                -171.98209664119565,
+                1703.6109812872662
+              ],
+              "offset_position_m": [
+                84.0,
+                -166.0,
+                1705.0
+              ]
+            }
+          ],
+          "verification": "optimization grid"
+        },
+        "fine_check": {
+          "feasible": true,
+          "position_error_m": 0.4999859543491949,
+          "position_error_components_m": [
+            -0.44648864282195433,
+            -0.11752706823989456,
+            -0.1918885994748507
+          ],
+          "inclination_error_deg": -0.4999940033815591,
+          "azimuth_error_deg": 0.49999400099667923,
+          "tangent_direction_error_deg": 0.7070668880311366,
+          "minimum_scaled_constraint": 1.994372920611319e-07,
+          "minimum_sf": 2.3125272436896664,
+          "sf_threshold": 1.5,
+          "sf_margin": 0.8125272436896664,
+          "separation_details": [
+            {
+              "neighbor": "Synthetic ISCWSA offset A",
+              "minimum_sf": 2.3125272436896664,
+              "reference_relative_md_m": 36.61198160762832,
+              "offset_md_m": 47.95301456184381,
+              "centerline_distance_m": 7.8319988003905445,
+              "combined_error_boundary_m": 3.1705567233414502,
+              "reference_position_m": [
+                89.78784749041363,
+                -171.27598429159693,
+                1702.882188070655
+              ],
+              "offset_position_m": [
+                84.0,
+                -166.0,
+                1702.9530145618437
+              ]
+            }
+          ],
+          "verification": "fine grid + continuous local refinement"
+        }
+      }
+    ],
+    "status": "feasible"
+  },
+  "feasibility_seconds": 4.620469875000708,
+  "shared_initial_sha256": "242703c5de5e99ac18fd5bb10a3e09b5f643c7d5d2ee5dbe87753b0482a05d13",
+  "repeat": 1,
+  "layout": "arc_line_arc",
+  "sf_threshold": 1.5,
+  "configuration": {
+    "description": "Song Table 3-4 initial/target states; Liu minimum-curvature arcs; synthetic ISCWSA scenario, not field survey history.",
+    "start": {
+      "position_m": [
+        102.69,
+        -156.39,
+        1673.15
+      ],
+      "inclination_deg": 10.4,
+      "azimuth_deg": 228.18
+    },
+    "target": {
+      "position_m": [
+        62.5,
+        -192.9,
+        1718.0
+      ],
+      "inclination_deg": 89.5,
+      "azimuth_deg": 205.5,
+      "position_mode": "sphere",
+      "position_tolerance_m": 0.5,
+      "inclination_tolerance_deg": 0.5,
+      "azimuth_tolerance_deg": 0.5
+    },
+    "n_segments": 3,
+    "default_segment_bounds": {
+      "dls_deg_per_30m": [
+        28.647889756541165,
+        42.97183463481174
+      ],
+      "start_toolface_deg": [
+        -80,
+        80
+      ],
+      "length_m": [
+        10,
+        100
+      ]
+    },
+    "segment_bounds": [],
+    "inclination_bounds_deg": [
+      5,
+      95
+    ],
+    "max_segment_bend_deg": 150,
+    "planned_well_radius_m": 0.1,
+    "collision_cells_per_arc": 12,
+    "output_sample_step_m": 0.25,
+    "solver": {
+      "random_seed": 7,
+      "initial_search_attempts": 5,
+      "optimization_starts": 1,
+      "feasibility_max_nfev": 200,
+      "maxiter": 160,
+      "max_function_evaluations": 2000,
+      "max_seconds_per_run": 25
+    },
+    "max_dls_deg_per_30m": 42.97183463481174,
+    "segment_types": [
+      "arc",
+      "straight",
+      "arc"
+    ],
+    "iscwsa": {
+      "sf_threshold": 1.5,
+      "k_sigma": 3.5,
+      "sigma_pa_m": 0.5,
+      "surface_margin_m": 0.3,
+      "optimization_sf_buffer": 0.05,
+      "scan_stations_per_arc": 4,
+      "offset_scan_step_m": 5.0,
+      "validation_scan_factor": 4,
+      "independent_wells": true,
+      "planned": {
+        "error_model": "ISCWSA MWD Rev5.11",
+        "header": {
+          "latitude": 40.0,
+          "longitude": 116.0,
+          "b_total": 50000.0,
+          "dip": 60.0,
+          "declination": 0.0,
+          "convergence": 0.0,
+          "azi_reference": "true"
+        },
+        "start_md_m": 0.0,
+        "survey_interval_m": 10.0,
+        "start_cov_nev_m2": [
+          [
+            0.25,
+            0,
+            0
+          ],
+          [
+            0,
+            0.25,
+            0
+          ],
+          [
+            0,
+            0,
+            0.25
+          ]
+        ],
+        "radius_m": 0.1,
+        "description": "Conditional local survey from known tie-in; 0.5 m one-sigma prior per NEV axis is an explicit synthetic assumption. For full-well ISCWSA use real history."
+      },
+      "neighbors": [
+        {
+          "name": "Synthetic ISCWSA offset A",
+          "radius_m": 0.1,
+          "survey": {
+            "error_model": "ISCWSA MWD Rev5.11",
+            "header": {
+              "latitude": 40.0,
+              "longitude": 116.0,
+              "b_total": 50000.0,
+              "dip": 60.0,
+              "declination": 0.0,
+              "convergence": 0.0,
+              "azi_reference": "true"
+            },
+            "start_cov_nev_m2": [
+              [
+                0.25,
+                0,
+                0
+              ],
+              [
+                0,
+                0.25,
+                0
+              ],
+              [
+                0,
+                0,
+                0.25
+              ]
+            ],
+            "md_m": [
+              0,
+              15,
+              30,
+              45,
+              60,
+              75,
+              90
+            ],
+            "inclination_deg": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "azimuth_deg": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            "positions_m": [
+              [
+                84.0,
+                -166.0,
+                1655.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1670.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1685.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1700.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1715.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1730.0
+              ],
+              [
+                84.0,
+                -166.0,
+                1745.0
+              ]
+            ]
+          }
+        }
+      ]
+    },
+    "neighbor_wells": []
+  },
+  "versions": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "welleng": "0.30.0",
+    "plotly": "7.1.0"
+  },
+  "segment_types": [
+    "arc",
+    "straight",
+    "arc"
+  ],
+  "free_control_variables": 7,
+  "final_position_m": [
+    62.75219903136618,
+    -192.6101529184391,
+    1717.6800244533404
+  ],
+  "segments": [
+    {
+      "segment": 1,
+      "type": "arc",
+      "length_m": 27.795989502548508,
+      "initial_toolface_deg": 0.9506206001587856,
+      "curvature_1_per_m": 0.025,
+      "dls_deg_per_30m": 42.97183463481174,
+      "radius_m": 40.0
+    },
+    {
+      "segment": 2,
+      "type": "straight",
+      "length_m": 16.207161262253962,
+      "initial_toolface_deg": null,
+      "curvature_1_per_m": 0.0,
+      "dls_deg_per_30m": 0.0,
+      "radius_m": null
+    },
+    {
+      "segment": 3,
+      "type": "arc",
+      "length_m": 30.76292863672746,
+      "initial_toolface_deg": -34.131455897588616,
+      "curvature_1_per_m": 0.024999999999999998,
+      "dls_deg_per_30m": 42.971834634811735,
+      "radius_m": 40.0
+    }
+  ],
+  "minimum_curvature_crosscheck_error_m": 4.469223435922176e-14,
+  "export_and_plot_seconds": 0.04386266599976807,
+  "total_seconds_including_initialization_and_export": 7.902515291001691
+}

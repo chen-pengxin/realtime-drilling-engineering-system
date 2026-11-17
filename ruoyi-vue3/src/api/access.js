@@ -1,0 +1,17 @@
+import request from '@/utils/request'
+export const accessOptions = () => request({ url: '/api/access/options' })
+export const listAccounts = params => request({ url: '/api/access/users', params })
+export const getAccount = id => request({ url: `/api/access/users/${id}` })
+export const saveAccount = data => request({ url: `/api/access/users${data.userId ? `/${data.userId}` : ''}`, method: data.userId ? 'put' : 'post', data })
+export const deleteAccount = id => request({ url: `/api/access/users/${id}`, method: 'delete' })
+export const resetAccountPassword = id => request({ url: `/api/access/users/${id}/reset-password`, method: 'put' })
+export const listRoles = () => request({ url: '/api/access/roles' })
+export const saveRole = data => request({ url: `/api/access/roles${data.roleId ? `/${data.roleId}` : ''}`, method: data.roleId ? 'put' : 'post', data })
+export const deleteRole = id => request({ url: `/api/access/roles/${id}`, method: 'delete' })
+export const getMe = () => request({ url: '/api/access/me' })
+export const changePassword = data => request({ url: '/api/access/me/password', method: 'put', data, headers: { repeatSubmit: false } })
+export const updateProfile = data => request({ url: '/api/access/me/profile', method: 'put', data })
+export const accountAudit = () => request({ url: '/api/access/audit' })
+export const getDemo = module => request({ url: `/api/access/demo/${module}` })
+
+export const renameAccount = userName => request({ url: '/api/access/me/name', method: 'put', data: { userName } })

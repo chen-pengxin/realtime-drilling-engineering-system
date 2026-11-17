@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "checks": [
+    "V48重复迁移通过，新增可空独立显示名字段",
+    "迁移与命名测试未改变迁移前原文件名、对象键及SHA-256"
+  ],
+  "preserved_original_files": 370
+}

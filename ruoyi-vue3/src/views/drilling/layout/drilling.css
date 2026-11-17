@@ -1,0 +1,18 @@
+/* Use the same Element Plus theme and spacing as the RuoYi management pages. */
+.drilling-page-frame{min-height:calc(100vh - 84px);color:var(--el-text-color-primary);background:var(--el-bg-color);}
+.drilling-page-frame.drilling-embedded{min-height:0;padding:0;}
+.drilling-field-search{display:flex;flex-wrap:wrap;gap:0 12px;}
+.drilling-field-search .el-form-item{margin-right:0;margin-bottom:22px;}
+.drilling-field-search .field-select{width:300px;}
+.drilling-content,.drilling-content main,.drilling-content section{min-width:0;}
+.drilling-content :where(aside){margin:0;padding:0;border-radius:0;line-height:normal;font-size:14px;font-family:inherit;color:inherit;background:var(--el-bg-color);}
+.drilling-content h2,.drilling-content h3{color:var(--el-text-color-primary);font-size:14px;font-weight:600;}
+.drilling-content .el-input-number,.drilling-content .el-select{max-width:100%;}
+.drilling-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.drilling-toolbar .right-toolbar{margin-left:auto;}
+.drilling-page-frame .el-tabs__item{font-weight:400;}
+.drilling-page-frame .el-tabs__item.is-active{color:var(--el-color-primary);}
+.drilling-page-frame .el-tabs__active-bar{background-color:var(--el-color-primary);}
+.drilling-dialog{max-width:calc(100vw - 24px);}
+.drilling-dialog .el-dialog__body{max-height:calc(85vh - 130px);overflow-y:auto;}
+@media(max-width:760px){.drilling-field-search .field-select{width:100%;}.drilling-field-search .el-form-item:first-child{width:100%;}.drilling-field-search .el-form-item__content{min-width:0;}.drilling-content .el-descriptions__table{table-layout:fixed;}.drilling-content .el-descriptions__cell{overflow-wrap:anywhere;}.drilling-dialog{width:94vw!important;}}

@@ -1,0 +1,29 @@
+{
+  "success": true,
+  "cases": [
+    {
+      "field_id": 13,
+      "plan_id": 1,
+      "snapshot_present": true,
+      "input_versions": 10,
+      "segments": 3,
+      "status": "SUCCESS"
+    },
+    {
+      "field_id": 14,
+      "plan_id": 2,
+      "snapshot_present": true,
+      "input_versions": 10,
+      "segments": 3,
+      "status": "SUCCESS"
+    },
+    {
+      "field_id": 15,
+      "plan_id": 3,
+      "snapshot_present": true,
+      "input_versions": 10,
+      "segments": 3,
+      "status": "SUCCESS"
+    }
+  ]
+}

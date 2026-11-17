@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" type="device">
+  <diagram name="database-category-7" id="database-category-7">
+    <mxGraphModel dx="1600" dy="750" grid="1" gridSize="10" page="1" pageWidth="1600" pageHeight="750">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n0" value="sys_config" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="30" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" value="sys_dict_type" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="30" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n2" value="sys_dict_data" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="30" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="sys_notice" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="140" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="sys_notice_read" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="140" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="sys_job" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="140" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="sys_job_log" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="250" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="sys_user_online" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="250" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n8" value="sys_oper_log" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="250" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n9" value="sys_logininfor" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="360" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n10" value="drilling_account_audit" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="360" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n11" value="drilling_audit_log" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="360" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n12" value="drilling_system_audit" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n13" value="drilling_maintenance_result" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="470" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n14" value="drilling_schema_version" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="470" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n15" value="gen_table" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="40" y="580" width="450" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n16" value="gen_table_column" style="shape=rectangle;rounded=0;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=#333333;fontColor=#111111;fontSize=15;" vertex="1" parent="1">
+          <mxGeometry x="540" y="580" width="450" height="70" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

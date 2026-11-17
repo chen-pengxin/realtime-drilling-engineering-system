@@ -1,0 +1,651 @@
+{
+  "algorithm": "COBYQA",
+  "status": "feasible_design",
+  "selected_candidate": "COBYQA run 1",
+  "solver_success": true,
+  "runs": [
+    {
+      "run": 1,
+      "solver_success": true,
+      "message": "The lower bound for the trust-region radius has been reached",
+      "interrupted": false,
+      "iterations": 53,
+      "objective_calls": 53,
+      "elapsed_seconds": 0.08061212499887915,
+      "validation_seconds": 0.00010066700087918434,
+      "candidate_length_m": 149.89846086992193,
+      "coarse_check": {
+        "feasible": true,
+        "position_error_m": 0.10000000057446837,
+        "position_error_components_m": [
+          -0.030644054130156917,
+          -0.04536489391610132,
+          -0.08368374072269091
+        ],
+        "inclination_error_deg": -0.0027410653766537507,
+        "azimuth_error_deg": -0.010452029193544377,
+        "tangent_direction_error_deg": 0.006747082632556532,
+        "minimum_scaled_constraint": -3.873889665396427e-12,
+        "minimum_sf": null,
+        "sf_threshold": 1.5,
+        "sf_margin": null,
+        "separation_details": [],
+        "verification": "optimization grid"
+      },
+      "fine_check": {
+        "feasible": true,
+        "position_error_m": 0.10000000057446837,
+        "position_error_components_m": [
+          -0.030644054130156917,
+          -0.04536489391610132,
+          -0.08368374072269091
+        ],
+        "inclination_error_deg": -0.0027410653766537507,
+        "azimuth_error_deg": -0.010452029193544377,
+        "tangent_direction_error_deg": 0.006747082632556532,
+        "minimum_scaled_constraint": -3.873889665396427e-12,
+        "minimum_sf": null,
+        "sf_threshold": 1.5,
+        "sf_margin": null,
+        "separation_details": [],
+        "verification": "fine grid + continuous local refinement"
+      },
+      "history": [
+        {
+          "iteration": 0,
+          "elapsed_seconds": 0.0035127920000377344,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 1,
+          "elapsed_seconds": 0.003669374998935382,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 2,
+          "elapsed_seconds": 0.003803416999289766,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 3,
+          "elapsed_seconds": 0.003931541999918409,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 4,
+          "elapsed_seconds": 0.004057124999235384,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 5,
+          "elapsed_seconds": 0.004180416999588488,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 6,
+          "elapsed_seconds": 0.004305874999772641,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 7,
+          "elapsed_seconds": 0.006875249999211519,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 8,
+          "elapsed_seconds": 0.009000374999232008,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 9,
+          "elapsed_seconds": 0.01045387500016659,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 10,
+          "elapsed_seconds": 0.011702499999955762,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 11,
+          "elapsed_seconds": 0.013404082999841194,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 12,
+          "elapsed_seconds": 0.015929167000649613,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 13,
+          "elapsed_seconds": 0.017408916999556823,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 14,
+          "elapsed_seconds": 0.018603250000523985,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 15,
+          "elapsed_seconds": 0.020383582999784267,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 16,
+          "elapsed_seconds": 0.021726749999288586,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 17,
+          "elapsed_seconds": 0.02289116700012528,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 18,
+          "elapsed_seconds": 0.026745499999378808,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 19,
+          "elapsed_seconds": 0.028739625000525848,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 20,
+          "elapsed_seconds": 0.030787457999394974,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 21,
+          "elapsed_seconds": 0.03260450000016135,
+          "length_m": 149.99999999999997,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 22,
+          "elapsed_seconds": 0.03390958300042257,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 23,
+          "elapsed_seconds": 0.03534025000044494,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 24,
+          "elapsed_seconds": 0.03686208299950522,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 25,
+          "elapsed_seconds": 0.03972054199948616,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 26,
+          "elapsed_seconds": 0.04162558300049568,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 27,
+          "elapsed_seconds": 0.04292449999957171,
+          "length_m": 149.911095823402,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 28,
+          "elapsed_seconds": 0.044191582999701495,
+          "length_m": 149.89949826487273,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 29,
+          "elapsed_seconds": 0.04546058300002187,
+          "length_m": 149.8991991603921,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 30,
+          "elapsed_seconds": 0.046761874998992425,
+          "length_m": 149.8991991603921,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 31,
+          "elapsed_seconds": 0.048916583000391256,
+          "length_m": 149.8991991603921,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 32,
+          "elapsed_seconds": 0.05038770799910708,
+          "length_m": 149.89872053979406,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 33,
+          "elapsed_seconds": 0.051679166999747395,
+          "length_m": 149.89872053979406,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 34,
+          "elapsed_seconds": 0.05296674999954121,
+          "length_m": 149.89872053979406,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 35,
+          "elapsed_seconds": 0.05421504200057825,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 36,
+          "elapsed_seconds": 0.0571294580004178,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 37,
+          "elapsed_seconds": 0.058320457999798236,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 38,
+          "elapsed_seconds": 0.05990949999977602,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 39,
+          "elapsed_seconds": 0.06122591699931945,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 40,
+          "elapsed_seconds": 0.06253820799975074,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 41,
+          "elapsed_seconds": 0.06384241699925042,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 42,
+          "elapsed_seconds": 0.06512516700058768,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 43,
+          "elapsed_seconds": 0.06666987499920651,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 44,
+          "elapsed_seconds": 0.06779020800058788,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 45,
+          "elapsed_seconds": 0.06934029200056102,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 46,
+          "elapsed_seconds": 0.07048466699961864,
+          "length_m": 149.89853946662546,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 47,
+          "elapsed_seconds": 0.07198874999994587,
+          "length_m": 149.8984639087678,
+          "maximum_scaled_constraint_violation": 0.0,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 48,
+          "elapsed_seconds": 0.07313491700006125,
+          "length_m": 149.89846086992193,
+          "maximum_scaled_constraint_violation": 3.873889665396427e-12,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 49,
+          "elapsed_seconds": 0.07479074999901059,
+          "length_m": 149.89846086992193,
+          "maximum_scaled_constraint_violation": 3.873889665396427e-12,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 50,
+          "elapsed_seconds": 0.0765552499997284,
+          "length_m": 149.89846086992193,
+          "maximum_scaled_constraint_violation": 3.873889665396427e-12,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 51,
+          "elapsed_seconds": 0.07865312499961874,
+          "length_m": 149.89846086992193,
+          "maximum_scaled_constraint_violation": 3.873889665396427e-12,
+          "minimum_sf": null
+        },
+        {
+          "iteration": 52,
+          "elapsed_seconds": 0.07985054199889419,
+          "length_m": 149.89846086992193,
+          "maximum_scaled_constraint_violation": 3.873889665396427e-12,
+          "minimum_sf": null
+        }
+      ]
+    }
+  ],
+  "selected_candidate_solver_success": true,
+  "initial_total_length_m": 149.99999999999997,
+  "final_total_length_m": 149.89846086992193,
+  "optimization_seconds": 0.08061212499887915,
+  "validation_seconds": 0.00013054200098849833,
+  "algorithm_wall_seconds": 0.08077558300101373,
+  "final_check": {
+    "feasible": true,
+    "position_error_m": 0.10000000057446837,
+    "position_error_components_m": [
+      -0.030644054130156917,
+      -0.04536489391610132,
+      -0.08368374072269091
+    ],
+    "inclination_error_deg": -0.0027410653766537507,
+    "azimuth_error_deg": -0.010452029193544377,
+    "tangent_direction_error_deg": 0.006747082632556532,
+    "minimum_scaled_constraint": -3.873889665396427e-12,
+    "minimum_sf": null,
+    "sf_threshold": 1.5,
+    "sf_margin": null,
+    "separation_details": [],
+    "verification": "fine grid + continuous local refinement"
+  },
+  "global_optimum_proven": false,
+  "feasibility_phase": {
+    "elapsed_seconds": 0.0009698750000097789,
+    "attempts": [
+      {
+        "attempt": 1,
+        "elapsed_seconds": 0.0009212500008288771,
+        "nfev": 1,
+        "check": {
+          "feasible": true,
+          "position_error_m": 4.263256414560601e-14,
+          "position_error_components_m": [
+            0.0,
+            0.0,
+            -4.263256414560601e-14
+          ],
+          "inclination_error_deg": 7.105427357601002e-15,
+          "azimuth_error_deg": 0.0,
+          "tangent_direction_error_deg": 3.555968236953808e-15,
+          "minimum_scaled_constraint": 0.0003371717199758209,
+          "minimum_sf": null,
+          "sf_threshold": 1.5,
+          "sf_margin": null,
+          "separation_details": [],
+          "verification": "optimization grid"
+        },
+        "fine_check": {
+          "feasible": true,
+          "position_error_m": 4.263256414560601e-14,
+          "position_error_components_m": [
+            0.0,
+            0.0,
+            -4.263256414560601e-14
+          ],
+          "inclination_error_deg": 7.105427357601002e-15,
+          "azimuth_error_deg": 0.0,
+          "tangent_direction_error_deg": 3.555968236953808e-15,
+          "minimum_scaled_constraint": 0.0003371717199758209,
+          "minimum_sf": null,
+          "sf_threshold": 1.5,
+          "sf_margin": null,
+          "separation_details": [],
+          "verification": "fine grid + continuous local refinement"
+        }
+      }
+    ],
+    "status": "feasible"
+  },
+  "feasibility_seconds": 0.0009698750000097789,
+  "shared_initial_sha256": "89798f7868a874486b1ba259dbf88849380c4304bb584e257ea46bf7b6d4a36c",
+  "repeat": 1,
+  "layout": "known_single_arc",
+  "sf_threshold": 1.5,
+  "shared_initial_controls": [
+    [
+      [
+        6.000000000000002,
+        109.99999999999999,
+        149.99999999999997
+      ]
+    ]
+  ],
+  "configuration": {
+    "description": "Song Table 3-4 initial/target states; Liu minimum-curvature arcs; synthetic ISCWSA scenario, not field survey history.",
+    "start": {
+      "position_m": [
+        0,
+        0,
+        0
+      ],
+      "inclination_deg": 35,
+      "azimuth_deg": 20
+    },
+    "target": {
+      "position_m": [
+        54.76405738371329,
+        58.31338142092307,
+        124.86424758899766
+      ],
+      "inclination_deg": 36.148210682515845,
+      "azimuth_deg": 72.79878108131855,
+      "position_mode": "sphere",
+      "position_tolerance_m": 0.1,
+      "inclination_tolerance_deg": 0.1,
+      "azimuth_tolerance_deg": 0.1
+    },
+    "n_segments": 1,
+    "default_segment_bounds": {
+      "dls_deg_per_30m": [
+        5,
+        7
+      ],
+      "start_toolface_deg": [
+        90,
+        120
+      ],
+      "length_m": [
+        140,
+        160
+      ]
+    },
+    "segment_bounds": [],
+    "inclination_bounds_deg": [
+      5,
+      95
+    ],
+    "max_segment_bend_deg": 150,
+    "planned_well_radius_m": 0.1,
+    "collision_cells_per_arc": 12,
+    "output_sample_step_m": 0.25,
+    "solver": {
+      "random_seed": 7,
+      "initial_search_attempts": 5,
+      "optimization_starts": 1,
+      "feasibility_max_nfev": 200,
+      "maxiter": 400,
+      "max_function_evaluations": 2500,
+      "max_seconds_per_run": 10
+    },
+    "max_dls_deg_per_30m": 7,
+    "iscwsa": {
+      "sf_threshold": 1.5,
+      "k_sigma": 3.5,
+      "sigma_pa_m": 0.5,
+      "surface_margin_m": 0.3,
+      "optimization_sf_buffer": 0.05,
+      "scan_stations_per_arc": 4,
+      "offset_scan_step_m": 5.0,
+      "validation_scan_factor": 4,
+      "independent_wells": true,
+      "planned": {
+        "error_model": "ISCWSA MWD Rev5.11",
+        "header": {
+          "latitude": 40.0,
+          "longitude": 116.0,
+          "b_total": 50000.0,
+          "dip": 60.0,
+          "declination": 0.0,
+          "convergence": 0.0,
+          "azi_reference": "true"
+        },
+        "start_md_m": 0.0,
+        "survey_interval_m": 10.0,
+        "start_cov_nev_m2": [
+          [
+            0.25,
+            0,
+            0
+          ],
+          [
+            0,
+            0.25,
+            0
+          ],
+          [
+            0,
+            0,
+            0.25
+          ]
+        ],
+        "radius_m": 0.1,
+        "description": "Conditional local survey from known tie-in; 0.5 m one-sigma prior per NEV axis is an explicit synthetic assumption. For full-well ISCWSA use real history."
+      },
+      "neighbors": []
+    },
+    "trajectory_mode": "arc",
+    "neighbor_wells": []
+  },
+  "versions": {
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "welleng": "0.30.0",
+    "plotly": "7.1.0"
+  },
+  "segment_types": [
+    "arc"
+  ],
+  "free_control_variables": 3,
+  "trajectory_mode": "arc",
+  "n_segments": 1,
+  "final_position_m": [
+    54.733413329583136,
+    58.26801652700697,
+    124.78056384827497
+  ],
+  "segments": [
+    {
+      "segment": 1,
+      "type": "arc",
+      "length_m": 149.89846086992193,
+      "initial_toolface_deg": 109.99999996472472,
+      "curvature_1_per_m": 0.003492237436952209,
+      "dls_deg_per_30m": 6.002713985848365,
+      "radius_m": 286.3493728744667
+    }
+  ],
+  "minimum_curvature_crosscheck_error_m": 1.5888218580782548e-14,
+  "export_and_plot_seconds": 0.025927749999027583,
+  "total_seconds_including_initialization_and_export": 0.10767320800005109
+}

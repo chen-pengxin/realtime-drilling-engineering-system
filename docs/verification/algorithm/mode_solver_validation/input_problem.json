@@ -1,0 +1,105 @@
+{
+  "description": "Song Table 3-4 initial/target states; Liu minimum-curvature arcs; synthetic ISCWSA scenario, not field survey history.",
+  "start": {
+    "position_m": [
+      0,
+      0,
+      0
+    ],
+    "inclination_deg": 35,
+    "azimuth_deg": 20
+  },
+  "target": {
+    "position_m": [
+      54.76405738371329,
+      58.31338142092307,
+      124.86424758899766
+    ],
+    "inclination_deg": 36.148210682515845,
+    "azimuth_deg": 72.79878108131855,
+    "position_mode": "sphere",
+    "position_tolerance_m": 0.1,
+    "inclination_tolerance_deg": 0.1,
+    "azimuth_tolerance_deg": 0.1
+  },
+  "n_segments": 1,
+  "default_segment_bounds": {
+    "dls_deg_per_30m": [
+      5,
+      7
+    ],
+    "start_toolface_deg": [
+      90,
+      120
+    ],
+    "length_m": [
+      140,
+      160
+    ]
+  },
+  "segment_bounds": [],
+  "inclination_bounds_deg": [
+    5,
+    95
+  ],
+  "max_segment_bend_deg": 150,
+  "planned_well_radius_m": 0.1,
+  "collision_cells_per_arc": 12,
+  "output_sample_step_m": 0.25,
+  "solver": {
+    "random_seed": 7,
+    "initial_search_attempts": 5,
+    "optimization_starts": 1,
+    "feasibility_max_nfev": 200,
+    "maxiter": 400,
+    "max_function_evaluations": 2500,
+    "max_seconds_per_run": 10
+  },
+  "max_dls_deg_per_30m": 7,
+  "iscwsa": {
+    "sf_threshold": 1.5,
+    "k_sigma": 3.5,
+    "sigma_pa_m": 0.5,
+    "surface_margin_m": 0.3,
+    "optimization_sf_buffer": 0.05,
+    "scan_stations_per_arc": 4,
+    "offset_scan_step_m": 5.0,
+    "validation_scan_factor": 4,
+    "independent_wells": true,
+    "planned": {
+      "error_model": "ISCWSA MWD Rev5.11",
+      "header": {
+        "latitude": 40.0,
+        "longitude": 116.0,
+        "b_total": 50000.0,
+        "dip": 60.0,
+        "declination": 0.0,
+        "convergence": 0.0,
+        "azi_reference": "true"
+      },
+      "start_md_m": 0.0,
+      "survey_interval_m": 10.0,
+      "start_cov_nev_m2": [
+        [
+          0.25,
+          0,
+          0
+        ],
+        [
+          0,
+          0.25,
+          0
+        ],
+        [
+          0,
+          0,
+          0.25
+        ]
+      ],
+      "radius_m": 0.1,
+      "description": "Conditional local survey from known tie-in; 0.5 m one-sigma prior per NEV axis is an explicit synthetic assumption. For full-well ISCWSA use real history."
+    },
+    "neighbors": []
+  },
+  "trajectory_mode": "arc"
+}
