@@ -19,6 +19,7 @@
 **/.vscode/
 **/*.iml
 /artifacts/
+/tools/
 /参考文献.zip
 # Private input/reference materials and supplied datasets. Keep only sanitized
 # source code and Markdown documentation in the repository.
@@ -30,6 +31,8 @@
 !/data/.gitkeep
 /algorithm-server/data/*
 !/algorithm-server/data/.gitkeep
+!/algorithm-server/data/replanning_demo/
+!/algorithm-server/data/replanning_demo/**
 /algorithm-server/models/*
 !/algorithm-server/models/.gitkeep
 /tmp/

@@ -133,7 +133,11 @@ def main():
     state={}
     try:
         for name,command,cwd,signature in commands:
-            with (RUNTIME/(name+'.log')).open('a') as log:p=subprocess.Popen(command,cwd=cwd,env=env,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+            # A managed service must never inherit the caller's terminal input.
+            # Vite/Node may install a readline handler when stdin is a TTY; if
+            # that TTY disappears after this launcher returns, Node exits with
+            # EIO and the frontend looks like it started only briefly.
+            with (RUNTIME/(name+'.log')).open('a') as log:p=subprocess.Popen(command,cwd=cwd,env=env,stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
             # npm's command line is 'npm run dev ...'; retain its actual command
             # as the PID identity, while its whole process group handles Vite.
             if name=='frontend':signature='npm run dev'

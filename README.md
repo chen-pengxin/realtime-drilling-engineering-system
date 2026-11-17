@@ -58,7 +58,7 @@ python3.12 -m venv algorithm-server/.venv
 (cd ruoyi-java && mvn -DskipTests package)
 ```
 
-需要JDK17或兼容版本、Maven、Node.js和已初始化的MySQL数据库。算法依赖包含仓库内固定wheel；SQL Server连接还需系统ODBC驱动。现有`ry`库不要重新导入若依基础SQL，基础脚本含建表重置语句。
+需要JDK17、Maven、Node.js、Python 3.11+和已初始化的MySQL数据库。算法依赖包含仓库内固定wheel；SQL Server连接还需系统ODBC驱动。新环境可执行 `MYSQL_PASSWORD='你的密码' ./deploy/init-local-db.sh`，脚本会创建 `ry`、导入脱敏的 RuoYi 基础表及全部领域迁移，并拒绝覆盖已有非空数据库。默认账号为 `admin`，初始密码为 `123456`，首次登录必须修改密码。现有 `ry` 库请先备份，不要直接执行初始化脚本。
 
 启动和日常管理：
 
@@ -91,7 +91,15 @@ Java从 `.local-runtime/java-builds/` 下按内容哈希保存的只读JAR快照
 
 ## 部署和接口
 
-Docker配置在 `deploy/docker-compose.yml`，复制 `deploy/.env.example` 为私有 `.env` 并填写凭据，先构建前端，再运行Compose。Compose首个空卷按顺序初始化基础库及历史迁移；后续升级先备份，不删除数据卷。FastAPI仅在内部网络开放，用户请求由Java检查账号、操作权限和井场数据范围。生产TLS示例见 `deploy/nginx.tls.conf.example`。
+Docker配置在 `deploy/docker-compose.yml`，复制 `deploy/.env.example` 为私有 `.env` 并填写凭据，然后执行：
+
+```bash
+cp deploy/.env.example deploy/.env
+# 编辑 deploy/.env，替换所有 replace-with-* 值
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml up --build
+```
+
+Compose 首个空卷会按顺序初始化脱敏基础库、全部领域迁移和 A/B/C 合成测试输入；`frontend-build` 会在启动 Nginx 前自动执行 `npm ci` 和生产构建，构建结果写入 Docker 卷，不需要提交 `dist/`。后续升级先备份，不删除数据卷。FastAPI 仅在内部网络开放，用户请求由 Java 检查账号、操作权限和井场数据范围。生产 TLS 示例见 `deploy/nginx.tls.conf.example`。
 
 | 用途 | Java业务接口 |
 | --- | --- |
@@ -154,3 +162,25 @@ git diff --check
 cd algorithm-server
 PYTHONPATH=. .venv/bin/python tools/import_test_cases.py
 ```
+
+## 同事启动与提交
+
+同事从 `main` 拉取后，在自己的功能分支开发：
+
+```bash
+git clone git@github.com:chen-pengxin/realtime-drilling-engineering-system.git
+cd realtime-drilling-engineering-system
+git switch -c feat/system-management
+```
+
+本地开发可按“数据库、算法服务、Java、前端”的顺序启动；完整命令、端口、验证码检查和常见错误见[同事正式启动与代码提交指南](docs/同事正式启动与代码提交指南.md)。完成后只提交源码、SQL 迁移、脱敏测试输入和文档，不提交 `.env`、数据库导出、上传文件、模型权重、日志、`target/`、`node_modules/` 或 `dist/`：
+
+```bash
+git status --short
+git add -p
+git diff --cached --check
+git commit -m "feat: implement system management"
+git push -u origin feat/system-management
+```
+
+同事只推送自己的功能分支并创建 Pull Request，由项目负责人审查后合并到 `main`。

@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in deploy/.env}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../ruoyi-java/sql/ry_20260319.sql:/docker-entrypoint-initdb.d/01-ruoyi.sql:ro
+      - ../database/bootstrap/ruoyi-base.sql:/docker-entrypoint-initdb.d/01-ruoyi-base.sql:ro
       - ../database/migrations/V1__drilling_domain.sql:/docker-entrypoint-initdb.d/02-drilling-domain.sql:ro
       - ../database/migrations/V2__drilling_operations.sql:/docker-entrypoint-initdb.d/03-drilling-operations.sql:ro
       - ../database/migrations/V3__ruoyi_drilling_menu.sql:/docker-entrypoint-initdb.d/04-ruoyi-drilling-menu.sql:ro
@@ -149,10 +149,17 @@ services:
         condition: service_healthy
       ruoyi-admin:
         condition: service_started
+  frontend-build:
+    build:
+      context: ../ruoyi-vue3
+      dockerfile: Dockerfile
+    volumes:
+      - frontend-dist:/out
+    restart: "no"
   nginx:
     image: nginx:1.27-alpine
     volumes:
-      - ../ruoyi-vue3/dist:/usr/share/nginx/html:ro
+      - frontend-dist:/usr/share/nginx/html:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       algorithm-server:
@@ -160,6 +167,8 @@ services:
       ruoyi-admin:
         condition: service_started
       test-case-import:
+        condition: service_completed_successfully
+      frontend-build:
         condition: service_completed_successfully
     ports:
       - "80:80"
@@ -170,3 +179,4 @@ volumes:
   training-data:
   training-models:
   ruoyi-upload:
+  frontend-dist:

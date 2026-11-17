@@ -58,7 +58,9 @@ SELECT alias_well_id,canonical_well_id,alias_code,
        '来源正文井名与目录井名核对后的历史别名归并',
        JSON_OBJECT('source_text_name',alias_code,'directory_name',directory_code,
                    'canonical_has_trajectory',TRUE,'duplicate_has_trajectory',FALSE)
-  FROM _volve_well_alias
+  FROM _volve_well_alias a
+  JOIN drilling_well alias_well ON alias_well.well_id=a.alias_well_id
+  JOIN drilling_well canonical_well ON canonical_well.well_id=a.canonical_well_id
  ON DUPLICATE KEY UPDATE canonical_well_id=VALUES(canonical_well_id),
    alias_code=VALUES(alias_code),reason=VALUES(reason),evidence_json=VALUES(evidence_json);
 
