@@ -4,7 +4,7 @@ export const trajectoryColors = Object.freeze({
   ACTUAL: '#075985',
   DESIGN: '#166534',
   PREDICTED: '#9a3412',
-  NEIGHBOR: '#5b2b9d',
+  NEIGHBOR: '#b9a8d0',
   PLANNED: '#c2410c'
 })
 

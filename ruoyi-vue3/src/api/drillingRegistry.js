@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 const root=p=>`/api/drilling/fields/${p}/registry`
-export const registry=(p,path,method='get',data,params)=>request({url:root(p)+path,method,data,params,timeout:path==='/engine-confirmation'?20000:240000})
+export const registry=(p,path,method='get',data,params,options={})=>request({url:root(p)+path,method,data,params,timeout:path==='/engine-confirmation'?20000:240000,...options})
 export const listWellbores=p=>registry(p,'/wellbores')
 export const boreVersions=(p,b,kind)=>registry(p,`/wellbores/${b}/versions`,'get',undefined,{kind})
 export const trajectoryVersion=(p,v,viewReferenceId)=>registry(p,`/versions/${v}`,'get',undefined,{viewReferenceId,viewStep:10})

@@ -1,10 +1,11 @@
 import math
 import pytest
 
-from app.shared.trajectory.min_curvature import compute_minimum_curvature, minimum_curvature_increment
+from app.shared.trajectory.min_curvature import SurveyStation, compute_minimum_curvature, minimum_curvature_increment
 from app.schemas import PlanningInput
 from app.tasks.anticollision.evaluation import CollisionThresholds, ErrorModelConfig, scan_network, scan_pair
 from app.tasks.replanning.trajectory_planning import PlanningConstraints, SteeringState, Target, plan_trajectory
+from tools.import_test_cases import case_defaults, load_case
 
 
 def parallel(offset=10.0):
@@ -143,6 +144,65 @@ def test_multi_segment_plan_scans_history_and_neighbors_without_duplicate_joint_
     assert result['trajectory'][0]['md']==pytest.approx(last.md)
     assert result['collision_evaluation']['mode']=='BOTH'
     assert not result['collision_evaluation']['failed_pairs']
+
+
+def test_case_a_replanning_uses_native_workflow_and_adapts_all_nine_neighbors():
+    problem, tracks = load_case('A')
+    config = case_defaults(problem)
+    plan = config['planning']
+    by_track = {(row['number'], row['kind']): row['rows'] for row in tracks}
+
+    def stations(rows):
+        return [SurveyStation(
+            row['md'], row['inclination'], row['azimuth'],
+            row['north'], row['east'], row['tvd'],
+        ) for row in rows]
+
+    history = stations(by_track[(1, 'ACTUAL')])
+    obstacles = [stations(by_track[(number, 'ACTUAL')]) for number in range(2, 11)]
+    start = history[-1]
+    target = plan['target']
+    error = config['errorModel']
+    error_model = ErrorModelConfig(
+        model_version=error['modelVersion'], k=error['k'],
+        sf_method=error['sfMethod'], settings=error['settings'],
+        radii_margin_m=error['radiiMarginM'], sigma_pa_m=error['sigmaPaM'],
+        curve_tolerance_m=error['curveToleranceM'],
+    )
+    bounds = [
+        {'length_m': [row['minLength'], row['maxLength']],
+         'dls_deg_per_30m': [row['minDls'], row['maxDls']]}
+        for row in plan['segmentBounds']
+    ]
+    result = plan_trajectory(
+        SteeringState(start.md, start.north, start.east, start.tvd,
+                      start.inclination, start.azimuth),
+        Target(north=target['north'], east=target['east'], tvd=target['tvd']),
+        PlanningConstraints(
+            max_dogleg_deg_per_30m=plan['maxDoglegDegPer30m'],
+            min_dogleg_deg_per_30m=plan['minDoglegDegPer30m'],
+            min_segment_length=plan['minSegmentLength'],
+            max_segment_length=plan['maxSegmentLength'],
+            constraint_mode=plan['constraintMode'],
+            scan_step=config['scanStep'], minimum_sf=config['thresholds']['orangeSf'],
+            error_model=error_model,
+        ),
+        solver=plan['solver'], obstacles=obstacles, history=history,
+        segment_bounds=bounds, native_options=plan['nativeOptions'],
+        target_inclination=target['inclination'], target_azimuth=target['azimuth'],
+        obstacle_identities=[(number, number) for number in range(2, 11)],
+    ).to_dict()
+
+    assert result['status'] == 'SUCCESS'
+    assert result['solver_metadata']['engine'] == 'well_control_iscwsa ReplanningProblem'
+    assert result['total_length'] == pytest.approx(1861.554634, abs=0.02)
+    assert result['timing']['collision_review_seconds'] == 0
+    collision = result['collision_evaluation']
+    assert collision['status'] == 'COMPLETED'
+    assert collision['mode'] == 'BOTH'
+    assert len(collision['pairs']) == 9
+    assert {pair['neighbor_well_id'] for pair in collision['pairs']} == set(range(2, 11))
+    assert all(pair['profile'] for pair in collision['pairs'])
 
 
 def test_planning_constraint_modes_are_mutually_exclusive():

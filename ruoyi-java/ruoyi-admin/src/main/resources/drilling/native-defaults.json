@@ -63,11 +63,20 @@
     "maxIterations": 500,
     "nativeOptions": {
       "solver": {
-        "initial_search_attempts": 6,
-        "optimization_starts": 1,
-        "feasibility_max_nfev": 200,
-        "max_seconds_per_run": 30,
-        "max_function_evaluations": 5000
+        "initial_search_attempts": 12,
+        "optimization_starts": 3,
+        "feasibility_max_nfev": 600,
+        "max_seconds_per_run": 75,
+        "max_function_evaluations": 3000,
+        "retain_feasible_iterates": true,
+        "planned_survey_interval_m": 30.0,
+        "planned_survey_max_step_m": 30.0,
+        "optimization_offset_scan_step_m": 10.0,
+        "optimization_cells_per_segment": 24,
+        "optimization_target_radius_m": 0.49,
+        "optimization_sf_buffer": 0.03,
+        "centerline_buffer_m": 0.1,
+        "scan_stations_per_arc": 5
       },
       "inclination_bounds_deg": [
         1e-06,
@@ -78,7 +87,7 @@
       "trajectory_mode": "arc-straight",
       "n_segments": 3
     },
-    "taskTimeoutSeconds": 120
+    "taskTimeoutSeconds": 300
   },
   "prediction": {
     "predictionStep": 9.0,

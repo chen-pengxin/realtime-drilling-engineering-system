@@ -1,4 +1,5 @@
 <template>
+  <el-alert v-if="error && !visible && eligible" :title="error" type="warning" :closable="false" class="confirmation-read-error"><el-button link type="primary" :loading="busy" @click="check">重新读取</el-button><el-button link type="primary" @click="configure">检查参数</el-button></el-alert>
   <el-dialog v-model="visible" title="确认工程评价配置" class="engine-confirmation-dialog" width="min(820px, calc(100vw - 24px))" align-center append-to-body :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false">
     <el-alert title="请核对轨道不确定性模型、实际使用参数及分离系数公式" type="warning" :closable="false" />
     <div v-loading="busy" class="confirm-content">
@@ -38,17 +39,34 @@
   </el-dialog>
 </template>
 <script setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, reactive, ref, toRefs, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import useUserStore from '@/store/modules/user'
 import { registry } from '@/api/drillingRegistry'
 import { errorModelName, errorParameterRows, separationFactorDetails } from '@/utils/engineeringErrorModels'
 import { useDrillingContext } from '../composables/useDrillingContext'
 import { engineConfirmationOpen } from '../composables/engineConfirmationState'
-const { fieldId, currentConfig, currentFieldName: fieldName } = useDrillingContext()
+import { createEngineConfirmation, isEngineeringEvaluationRoute, readLoginSessionId, rotateLoginSessionId } from '@/utils/engineConfirmation'
+const { fieldId, activeWellboreId, liveWellboreId, currentConfig } = useDrillingContext()
 const route = useRoute(), router = useRouter(), user = useUserStore()
-const eligible = computed(() => route.path.startsWith('/drilling') && !route.path.includes('/basic/config') && !user.demoOnly && !user.mustChangePassword && user.permissions.some(p => ['*:*:*','drilling:collision:run','drilling:plan:run','drilling:prediction:run'].includes(p)))
-const visible = engineConfirmationOpen, snapshot = ref(), checked = ref(false), busy = ref(false), error = ref('')
+const liveRoute = computed(() => route.path === '/drilling/realtime' || route.path === '/drilling/basic/realtime-data')
+const evaluationWellboreId = computed(() => liveRoute.value ? liveWellboreId.value : activeWellboreId.value)
+const eligible = computed(() => !!user.token && isEngineeringEvaluationRoute(route.path) && !user.demoOnly && !user.mustChangePassword && user.permissions.some(p => ['*:*:*','drilling:collision:run','drilling:plan:run'].includes(p)))
+const loginSessionId = ref(readLoginSessionId())
+watch(() => user.token, (token, previous) => {
+  if (token && token !== previous) loginSessionId.value = rotateLoginSessionId()
+})
+const state = reactive({ visible: false, snapshot: null, checked: false, busy: false, error: '', fieldId: null, wellboreId: null })
+const { visible, snapshot, checked, busy, error } = toRefs(state)
+watch(visible, value => { engineConfirmationOpen.value = value }, { flush: 'sync' })
+const gate = createEngineConfirmation({
+  state,
+  context: () => ({ fieldId: fieldId.value, wellboreId: evaluationWellboreId.value, userId: user.id, sessionId: loginSessionId.value, configVersion: currentConfig.value?.config_version, eligible: eligible.value }),
+  read: field => registry(field, '/engine-confirmation', 'get', undefined, undefined, { silentError: true }),
+  submit: (field, configHash) => registry(field, '/engine-confirmation', 'post', { configHash }, undefined, { silentError: true }),
+  onConfirmed: field => window.dispatchEvent(new CustomEvent('drilling-engine-confirmed', { detail: { fieldId: field } }))
+})
+const check = gate.check, confirm = gate.confirm
 const openSections = ref(['parameters'])
 const errorConfiguration = computed(() => snapshot.value?.configuration?.errorModel || {})
 const uncertaintyModelName = computed(() => errorModelName(errorConfiguration.value.settings?.uncertainty_model?.type || errorConfiguration.value.modelVersion))
@@ -57,57 +75,22 @@ const activeParameters = computed(() => errorParameterRows(errorConfiguration.va
 const kParameter = computed(() => activeParameters.value.find(row => row.key === 'k'))
 const parameterRows = computed(() => activeParameters.value.filter(row => row.key !== 'k'))
 const versionProfiles = computed(() => (snapshot.value?.surveyProfiles||[]).filter(p=>p.parameter_source!=='FIELD_CONFIGURATION'||JSON.stringify(p.settings)!==JSON.stringify(errorConfiguration.value.settings)))
-let requestSerial = 0
-let pending, pendingField, snapshotField
-async function check() {
-  const field = fieldId.value
-  if (!field || !eligible.value) { requestSerial++; pending = null; visible.value = false; busy.value = false; return }
-  const key=`${field}:${currentConfig.value?.config_version}`
-  if (pending && pendingField === key) return pending
-  if (snapshotField !== field) { visible.value = false; snapshot.value = undefined; checked.value = false }
-  const request = ++requestSerial
-  pendingField = key
-  busy.value = true
-  const operation = (async () => {
-    try {
-      const value = await registry(field, '/engine-confirmation')
-      if (request !== requestSerial || field !== fieldId.value || !eligible.value) return
-      if (snapshot.value?.configHash !== value.configHash || snapshot.value?.sessionHash !== value.sessionHash) checked.value = false
-      snapshot.value = value
-      snapshotField = field
-      error.value = ''
-      // Do not display a dialog until the server actually requires review.
-      visible.value = !value.confirmed
-    } catch (e) {
-      if (request === requestSerial) { checked.value = false; snapshot.value = undefined; error.value = e.message || '无法读取工程评价参数'; visible.value = true }
-    } finally { if (request === requestSerial) busy.value = false }
-  })()
-  pending = operation
-  try { await operation } finally { if (pending === operation) pending = null }
-}
-async function confirm() {
-  if (!snapshot.value || !checked.value || busy.value) return
-  const field = fieldId.value, value = snapshot.value, request = requestSerial
-  busy.value = true; error.value = ''
-  try {
-    await registry(field, '/engine-confirmation', 'post', { configHash: value.configHash })
-    if (field === fieldId.value && value === snapshot.value) {
-      snapshot.value = { ...value, confirmed: true }
-      visible.value = false
-      window.dispatchEvent(new CustomEvent('drilling-engine-confirmed', { detail: { fieldId: field } }))
-    }
-  } catch (e) { if (request === requestSerial && field === fieldId.value) error.value = e.message || '参数确认失败，请重新核对' }
-  finally { if (request === requestSerial) busy.value = false }
-}
-function configure() { visible.value = false; router.push('/drilling/basic/config?tab=errorModel') }
-watch(() => [fieldId.value, currentConfig.value?.config_version, eligible.value], check, { immediate: true })
+function configure() { gate.reset(); router.push('/drilling/basic/config?tab=errorModel') }
+// One scoped watcher avoids duplicate reads from overlapping immediate
+// watchers. Route tabs and survey-version events do not change this scope.
+watch(() => [eligible.value, fieldId.value, evaluationWellboreId.value, currentConfig.value?.config_version, user.id, loginSessionId.value], ([isEligible, field, wellbore, version]) => {
+  if (!isEligible) { gate.reset(); return }
+  if (field && wellbore && version != null) check()
+}, { immediate: true, flush: 'post' })
 function required(event) {
   if (event.detail?.fieldId && Number(event.detail.fieldId) !== Number(fieldId.value)) return
-  if (eligible.value && !busy.value) check()
+  if (eligible.value) check({ force: true })
 }
-const updateEvents=['drilling-engine-confirmation-required','drilling-survey-updated','drilling-survey-version-changed']
-onMounted(() => updateEvents.forEach(name=>window.addEventListener(name, required)))
-onBeforeUnmount(() => { requestSerial++; visible.value = false; updateEvents.forEach(name=>window.removeEventListener(name, required)) })
+onMounted(() => window.addEventListener('drilling-engine-confirmation-required', required))
+onBeforeUnmount(() => {
+  gate.reset()
+  window.removeEventListener('drilling-engine-confirmation-required', required)
+})
 </script>
 <style scoped>
 :global(.el-dialog.engine-confirmation-dialog.is-align-center){display:flex;flex-direction:column;max-height:calc(100dvh - 32px);margin:auto!important}:global(.engine-confirmation-dialog .el-dialog__body){min-height:0;overflow-y:auto}:global(.engine-confirmation-dialog .el-dialog__header),:global(.engine-confirmation-dialog .el-dialog__footer){flex-shrink:0}

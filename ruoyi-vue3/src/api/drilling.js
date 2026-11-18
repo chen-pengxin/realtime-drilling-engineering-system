@@ -27,8 +27,8 @@ export function scanAntiCollision(data) {
   return request({ url: '/api/algorithm/anti-collision/scan', method: 'post', data })
 }
 
-export function scanAntiCollisionNetwork(data) {
-  return request({ url: '/api/algorithm/anti-collision/network-scan', method: 'post', data, timeout: 0 })
+export function scanAntiCollisionNetwork(data, options = {}) {
+  return request({ url: '/api/algorithm/anti-collision/network-scan', method: 'post', data, timeout: 0, ...options })
 }
 
 export function solveTrajectoryPlan(data, signal) {

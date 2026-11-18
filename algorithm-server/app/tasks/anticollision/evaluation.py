@@ -77,15 +77,25 @@ def _digest(value):return hashlib.sha256(json.dumps(clean_json(value),sort_keys=
 def _prepare(stations,step,model):
     if len(stations)<2:raise ValueError('防碰至少需要两个真实测点')
     raw=np.asarray([[s.md,s.inclination,s.azimuth,s.north,s.east,s.tvd] for s in stations],dtype=float)
-    uncertainty=calculate_uncertainty(raw[:,0],raw[:,1],raw[:,2],raw[:,3:6],model.resolved())
+    if not np.isfinite(raw).all() or np.any(np.diff(raw[:,0])<=0) or np.any(raw[:,0]<0) or np.any((raw[:,1]<0)|(raw[:,1]>180)):
+        raise ValueError('测斜数据须为有限数，井深非负且严格递增，井斜角为0～180°')
+    settings=model.resolved()
+    kind=_model_type(settings)
+    # Propagated models use the first real station as a local tie-on. This
+    # preserves absolute MD and coordinates without inventing a surface point.
+    uncertainty_origin_md=float(raw[0,0])
+    tie_on_models=('iscwsa_rev0','wdw','iscwsa')
+    propagation_md=raw[:,0]-uncertainty_origin_md if kind in tie_on_models else raw[:,0]
+    uncertainty=calculate_uncertainty(propagation_md,raw[:,1],raw[:,2],raw[:,3:6],settings)
     # Densify using the engine's MC chord-height bound as well as max step.
     from wellpath.geometry.minimum_curvature import resample_minimum_curvature
     md,p,inc,azi=resample_minimum_curvature(raw[:,0],raw[:,1],raw[:,2],raw[:,3:6],max_step_m=step,tolerance_m=model.curve_tolerance_m)
     cov=uncertainty['covariance_nev_m2']
-    dense={'model':uncertainty['model'],'covariance_nev_m2':None if cov is None else interpolate_cov(raw[:,0],cov,md),'radius_m':np.interp(md,raw[:,0],uncertainty['radius_m'])}
+    dense_relative_md=md-uncertainty_origin_md if kind in tie_on_models else md
+    dense={'model':uncertainty['model'],'covariance_nev_m2':None if cov is None else interpolate_cov(propagation_md,cov,dense_relative_md),'radius_m':np.interp(dense_relative_md,propagation_md,uncertainty['radius_m']),'uncertainty_origin_md':uncertainty_origin_md}
     return md,p,inc,azi,dense
 
-def _slice(u,ids):return {'model':u['model'],'covariance_nev_m2':None if u['covariance_nev_m2'] is None else u['covariance_nev_m2'][ids],'radius_m':u['radius_m'][ids]}
+def _slice(u,ids):return {'model':u['model'],'covariance_nev_m2':None if u['covariance_nev_m2'] is None else u['covariance_nev_m2'][ids],'radius_m':u['radius_m'][ids],'uncertainty_origin_md':u.get('uncertainty_origin_md')}
 
 def _cache():
     path=Path(os.getenv('DRILLING_SCAN_CACHE','data/native_scan_cache.sqlite3'));path.parent.mkdir(parents=True,exist_ok=True)
@@ -123,7 +133,13 @@ def _block(md,p,inc,azi,u,neighbor,model,thresholds,db):
 def scan_pair(reference,neighbor,step=1.,error_model=None,thresholds=None,mode='BOTH',*,reference_uncertainty=None,neighbor_uncertainty=None,**kwargs):
     model=error_model or ErrorModelConfig();th=thresholds or CollisionThresholds()
     reference_model=model.for_survey(reference_uncertainty);neighbor_model=model.for_survey(neighbor_uncertainty)
-    amd,ap,ai,aa,au=_prepare(reference,step,reference_model);bmd,bp,bi,ba,bu=_prepare(neighbor,step,neighbor_model)
+    prepared=kwargs.pop('_prepared',None)
+    if prepared is not None:
+        if not isinstance(prepared,(tuple,list)) or len(prepared)!=2:
+            raise ValueError('内部预处理轨迹必须包含正钻井和邻井两组数据')
+        amd,ap,ai,aa,au=prepared[0];bmd,bp,bi,ba,bu=prepared[1]
+    else:
+        amd,ap,ai,aa,au=_prepare(reference,step,reference_model);bmd,bp,bi,ba,bu=_prepare(neighbor,step,neighbor_model)
     blocks=[];reused=[];computed=[]
     # Fixed MD bands keep completed blocks stable as the well grows. Each
     # segment is included in a band, including its endpoint across the boundary.
@@ -145,7 +161,7 @@ def scan_pair(reference,neighbor,step=1.,error_model=None,thresholds=None,mode='
         else:risks.append({'start_md':r['md'],'end_md':r['md'],'risk_level':r['risk_level'],'min_sf':r['sf'],'min_center_distance':r['center_distance']})
     level=risk_level(ds['min_distance'],ss['sf'] if ss['sf'] is not None else math.inf,th)
     payload={k:v for k,v in ds.items() if k not in ('profile','native_diagnostics')};payload.update({k:v for k,v in ss.items() if k.startswith('sf_') or k in ('sf','error_envelope_radius')})
-    payload.update(mode='BOTH',risk_level=level,operating_risk_level=level,operating_sf=ss['sf'],spacing_risk_level='RED' if ds['min_distance']<=th.red_distance else 'BLUE',separation_factor_risk_level=risk_level(math.inf,ss['sf'] if ss['sf'] is not None else math.inf,th),profile=profile,risk_segments=risks,error_model={**asdict(model),'engine':'wellpath-engine-1.0.0','native_model':au['model']},interpolation_method='wellpath-minimum-curvature',normal_distance=ds['normal_distance'],normal_distance_definition='连接向量在正钻井原生最小曲率切向法平面上的投影长度；不是邻井与法平面的交点距离',horizontal_distance=float(np.linalg.norm(np.asarray(ds['reference_point'])[:2]-np.asarray(ds['neighbor_point'])[:2])),net_distance=None,net_distance_ratio=None,incremental={'reused_ranges':reused,'recomputed_ranges':computed,'reused_blocks':len(reused),'recomputed_blocks':len(computed),'dependency':'geometry+propagated_covariance+neighbor+configuration','cache':'persistent-sqlite'},evaluations={'spacing':{'method':'SPACING','min_distance':ds['min_distance'],'reference_md':ds['reference_md'],'neighbor_md':ds['neighbor_md']},'separation_factor':{'method':'SEPARATION_FACTOR','sf':ss['sf'],'reference_md':ss['sf_reference_md'],'neighbor_md':ss['sf_neighbor_md']}},geometry_tolerance_m=model.curve_tolerance_m)
+    payload.update(mode='BOTH',risk_level=level,operating_risk_level=level,operating_sf=ss['sf'],spacing_risk_level='RED' if ds['min_distance']<=th.red_distance else 'BLUE',separation_factor_risk_level=risk_level(math.inf,ss['sf'] if ss['sf'] is not None else math.inf,th),profile=profile,risk_segments=risks,error_model={**asdict(model),'engine':'wellpath-engine-1.0.0','native_model':au['model']},uncertainty_origin_md={'reference':au.get('uncertainty_origin_md'),'neighbor':bu.get('uncertainty_origin_md')},interpolation_method='wellpath-minimum-curvature',normal_distance=ds['normal_distance'],normal_distance_definition='连接向量在正钻井原生最小曲率切向法平面上的投影长度；不是邻井与法平面的交点距离',horizontal_distance=float(np.linalg.norm(np.asarray(ds['reference_point'])[:2]-np.asarray(ds['neighbor_point'])[:2])),net_distance=None,net_distance_ratio=None,incremental={'reused_ranges':reused,'recomputed_ranges':computed,'reused_blocks':len(reused),'recomputed_blocks':len(computed),'dependency':'geometry+propagated_covariance+neighbor+configuration','cache':'persistent-sqlite'},evaluations={'spacing':{'method':'SPACING','min_distance':ds['min_distance'],'reference_md':ds['reference_md'],'neighbor_md':ds['neighbor_md']},'separation_factor':{'method':'SEPARATION_FACTOR','sf':ss['sf'],'reference_md':ss['sf_reference_md'],'neighbor_md':ss['sf_neighbor_md']}},geometry_tolerance_m=model.curve_tolerance_m)
     payload['spacing']=payload['evaluations']['spacing'];payload['separation_factor']=payload['evaluations']['separation_factor']
     payload['survey_models']={'reference':{'model_version':reference_model.model_version,'settings':reference_model.resolved(),'parameter_source':(reference_uncertainty or {}).get('parameter_source','FIELD_CONFIGURATION'),'tool':(reference_uncertainty or {}).get('tool',{})},'neighbor':{'model_version':neighbor_model.model_version,'settings':neighbor_model.resolved(),'parameter_source':(neighbor_uncertainty or {}).get('parameter_source','FIELD_CONFIGURATION'),'tool':(neighbor_uncertainty or {}).get('tool',{})}}
     return CollisionResult(clean_json(payload))
@@ -153,21 +169,30 @@ def scan_pair(reference,neighbor,step=1.,error_model=None,thresholds=None,mode='
 def scan_network(reference,neighbors,step=1.,error_model=None,thresholds=None,incremental_from_md=None,incremental_to_md=None,*,reference_uncertainty=None,neighbor_uncertainties=None):
     t=time.perf_counter();pairs=[];failed=[];screened=[]
     model=error_model or ErrorModelConfig(); th=thresholds or CollisionThresholds()
+    coarse_step=max(float(step),10.)
+    reference_model=model.for_survey(reference_uncertainty)
     def bound(rows,survey_model):
         if len(rows)<2: raise ValueError('防碰至少需要两个真实测点')
         # End-station boxes do not enclose curved segments (a returning arc
         # can extend outside both endpoints). The supplied MC sampler bounds
         # chord height; inflate its box by that bound before excluding wells.
-        _,pts,_,_,u=_prepare(rows,max(step,10.),survey_model)
+        prepared=_prepare(rows,coarse_step,survey_model)
+        _,pts,_,_,u=prepared
         radius=float(np.max(np.asarray(u.get('radius_m',0),dtype=float)))
-        return pts.min(axis=0)-model.curve_tolerance_m,pts.max(axis=0)+model.curve_tolerance_m,radius
+        return pts.min(axis=0)-model.curve_tolerance_m,pts.max(axis=0)+model.curve_tolerance_m,radius,prepared
     profiles=neighbor_uncertainties or [None]*len(neighbors)
     if len(profiles)!=len(neighbors):raise ValueError('邻井误差参数与所选版本数不一致')
-    rlo,rhi,rr=bound(reference,model.for_survey(reference_uncertainty))
+    reference_error=None
+    try:
+        rlo,rhi,rr,rprepared=bound(reference,reference_model)
+    except ValueError as e:
+        reference_error=str(e)
+        failed.append({'scope':'REFERENCE','reason':reference_error})
     ordered=[]
-    for (well_id,version_id,stations),profile in zip(neighbors,profiles):
+    for (well_id,version_id,stations),profile in zip(neighbors if reference_error is None else [],profiles):
         try:
-            nlo,nhi,nr=bound(stations,model.for_survey(profile))
+            survey_model=model.for_survey(profile)
+            nlo,nhi,nr,nprepared=bound(stations,survey_model)
             gap=np.maximum(0,np.maximum(rlo-nhi,nlo-rhi))
             lower=float(np.linalg.norm(gap))
             # Sum is an upper bound for all three native SF denominator
@@ -175,18 +200,22 @@ def scan_network(reference,neighbors,step=1.,error_model=None,thresholds=None,in
             boundary=model.k*(rr+nr+model.radii_margin_m+model.sigma_pa_m)+model.radii_margin_m
             risk_limit=boundary*max(th.yellow_sf,1.0)+th.red_distance
             sf_lower=lower/boundary if boundary>0 else math.inf
-            ordered.append((lower,well_id,version_id,stations,risk_limit,sf_lower,profile))
+            ordered.append((lower,well_id,version_id,stations,risk_limit,sf_lower,profile,nprepared,survey_model))
         except ValueError as e: failed.append({'neighbor_well_id':well_id,'neighbor_survey_version_id':version_id,'reason':str(e)})
     ordered.sort(key=lambda x:x[0])
     best_distance=best_sf=math.inf
-    for lower,well_id,version_id,stations,risk_limit,sf_lower,profile in ordered:
+    reference_fine=rprepared if not reference_error and math.isclose(coarse_step,float(step)) else None
+    for lower,well_id,version_id,stations,risk_limit,sf_lower,profile,nprepared,survey_model in ordered:
         # A box gap larger than every possible yellow threshold is a safe,
         # conservative exclusion.  The lower bound is recorded for audit.
         if pairs and lower>risk_limit and lower>best_distance and sf_lower>best_sf:
             screened.append({'neighbor_well_id':well_id,'neighbor_survey_version_id':version_id,'lower_bound_distance':lower,'risk_limit_distance':risk_limit,'reason':'uncertainty-expanded N/E/TVD boxes disjoint'})
             continue
         try:
-            pair={**scan_pair(reference,stations,step,error_model,thresholds,reference_uncertainty=reference_uncertainty,neighbor_uncertainty=profile).to_dict(),'neighbor_well_id':well_id,'neighbor_survey_version_id':version_id}
+            if reference_fine is None:
+                reference_fine=_prepare(reference,step,reference_model)
+            neighbor_fine=nprepared if math.isclose(coarse_step,float(step)) else _prepare(stations,step,survey_model)
+            pair={**scan_pair(reference,stations,step,error_model,thresholds,reference_uncertainty=reference_uncertainty,neighbor_uncertainty=profile,_prepared=(reference_fine,neighbor_fine)).to_dict(),'neighbor_well_id':well_id,'neighbor_survey_version_id':version_id}
             pairs.append(pair)
             best_distance=min(best_distance,pair['min_distance'])
             if pair['sf'] is not None:best_sf=min(best_sf,pair['sf'])
@@ -194,6 +223,9 @@ def scan_network(reference,neighbors,step=1.,error_model=None,thresholds=None,in
     nearest=min(pairs,key=lambda r:r['min_distance']) if pairs else None
     rank={'RED':0,'ORANGE':1,'YELLOW':2,'BLUE':3,'UNKNOWN':4}
     level=min((p['risk_level'] for p in pairs),key=rank.get,default=('BLUE' if screened and not failed else 'UNKNOWN'))
+    # A partial network cannot certify uncomputed well pairs as safe. Preserve
+    # any proven danger; otherwise expose an explicitly unevaluated aggregate.
+    if failed and level=='BLUE':level='UNKNOWN'
     reused_ranges=[{'from_md':r[0],'to_md':r[1],'neighbor_well_id':p['neighbor_well_id']} for p in pairs for r in p['incremental']['reused_ranges']]
     recomputed_ranges=[{'from_md':r[0],'to_md':r[1],'neighbor_well_id':p['neighbor_well_id']} for p in pairs for r in p['incremental']['recomputed_ranges']]
     return {'status':'INCOMPLETE' if failed else 'COMPLETED','mode':'BOTH','risk_level':level,'operating_risk_level':level,'pairs':pairs,'results':pairs,'candidate_count':len(pairs),'prefiltered_count':len(screened),'operational_risk_level':level,'nearest_pair':nearest,'candidate_pairs':[p['neighbor_well_id'] for p in pairs],'candidate_well_ids':[p['neighbor_well_id'] for p in pairs],'screened_well_ids':[p['neighbor_well_id'] for p in screened],'screened_pairs':screened,'neighbor_count':len(neighbors),'scanned_pair_count':len(pairs),'screened_pair_count':len(screened),'failed_pairs':failed,'minimum_sf':min((p['sf'] for p in pairs if p['sf'] is not None),default=None),'min_distance':nearest['min_distance'] if nearest else None,'risk_segments':[{**s,'neighbor_well_id':p['neighbor_well_id']} for p in pairs for s in p['risk_segments']],'reused_md_ranges':reused_ranges,'recomputed_md_ranges':recomputed_ranges,'affected_md_range':[incremental_from_md,incremental_to_md],'incremental':{'requested_from_md':incremental_from_md,'requested_to_md':incremental_to_md,'reused_blocks':sum(p['incremental']['reused_blocks'] for p in pairs),'recomputed_blocks':sum(p['incremental']['recomputed_blocks'] for p in pairs),'dependency_checked':True},'elapsed_seconds':time.perf_counter()-t,'screening':{'method':'native-safe-uncertainty-expanded-aabb','note':'仅当不可能达到黄色阈值时排除；候选井对进入连续最小曲率详细评价'},'engine':'wellpath-engine-1.0.0'}

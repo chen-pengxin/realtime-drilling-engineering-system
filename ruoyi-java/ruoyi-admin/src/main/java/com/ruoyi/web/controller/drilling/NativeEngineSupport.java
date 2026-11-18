@@ -150,7 +150,6 @@ public class NativeEngineSupport {
       profiles.putIfAbsent(key,profile);
     }
     var safetyPolicy=new LinkedHashMap<String,Object>(modelPayload(configuration));
-    safetyPolicy.remove("curve_tolerance_m");
     String configHash = hash(SurveyVersionMetadata.canonical(Map.of("policy",safetyPolicy,"surveyProfiles",profiles.keySet())));
     String session = hash(BOOT + ":" + ShiroUtils.getSessionId());
     int count =

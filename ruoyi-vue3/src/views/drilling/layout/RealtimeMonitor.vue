@@ -7,10 +7,11 @@ import useUserStore from '@/store/modules/user'
 import {useDrillingContext} from '../composables/useDrillingContext'
 import {useLiveDrilling,clearLiveDrilling} from '../composables/useLiveDrilling'
 import {playCollisionAlarm,riskLabel} from '@/utils/realtimeCollision'
+import {isEngineeringEvaluationRoute} from '@/utils/engineConfirmation'
 import {engineConfirmationOpen} from '../composables/engineConfirmationState'
 const router=useRouter(),route=useRoute(),user=useUserStore(),ctx=useDrillingContext(),live=useLiveDrilling(),{futureRisk}=live
 let timer,shown='',open=false,disposed=false
-const canMonitor=()=>route.path.startsWith('/drilling')&&!route.path.includes('/basic/config')&&!document.hidden&&!user.demoOnly&&!user.mustChangePassword&&(user.permissions.includes('*:*:*')||user.permissions.includes('drilling:collision:run'))
+const canMonitor=()=>isEngineeringEvaluationRoute(route.path)&&!document.hidden&&!user.demoOnly&&!user.mustChangePassword&&(user.permissions.includes('*:*:*')||user.permissions.includes('drilling:collision:run'))
 async function refresh(){if(!disposed&&ctx.fieldId.value&&canMonitor())await live.refresh()}
 watch(ctx.fieldId,()=>{if(open)ElMessageBox.close();clearLiveDrilling();shown='';refresh()})
 // Page navigation shares the same live snapshot and in-flight scan. Clearing
@@ -37,7 +38,7 @@ watch([futureRisk,engineConfirmationOpen,live.loading,()=>route.path],async ([ri
   }catch{}finally{open=false}
 })
 watch([ctx.fieldId,engineConfirmationOpen,()=>route.path],()=>{if(open&&(!canMonitor()||engineConfirmationOpen.value))ElMessageBox.close()})
-function confirmed(){live.refresh({force:true})}
+function confirmed(){if(canMonitor())live.refresh({force:true})}
 function onVisibilityChange(){if(!document.hidden)refresh()}
 onMounted(()=>{refresh();timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',onVisibilityChange);window.addEventListener('drilling-engine-confirmed',confirmed);window.addEventListener('drilling-survey-updated',confirmed);window.addEventListener('drilling-survey-version-changed',confirmed)})
 onBeforeUnmount(()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',onVisibilityChange);clearLiveDrilling();window.removeEventListener('drilling-engine-confirmed',confirmed);window.removeEventListener('drilling-survey-updated',confirmed);window.removeEventListener('drilling-survey-version-changed',confirmed)})

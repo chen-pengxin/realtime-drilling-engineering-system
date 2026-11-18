@@ -140,13 +140,39 @@ public class SourceRegistryController {
     boolean crs = ref.get("crs") != null && !Objects.toString(ref.get("crs"), "").isBlank();
     boolean vertical = ref.get("depth_datum_elevation_m") != null
         && !Objects.toString(ref.get("depth_datum"), "").isBlank();
-    boolean md0 = !stations.isEmpty()
-        && ((Number) stations.get(0).get("md")).doubleValue() == 0d;
+    boolean validSurvey = stations != null && stations.size() >= 2;
+    double previousMd = -1d;
+    if (validSurvey) {
+      for (var station : stations) {
+        try {
+          double md = ((Number) station.get("md")).doubleValue();
+          double inc = ((Number) station.get("inclination")).doubleValue();
+          double azi = ((Number) station.get("azimuth")).doubleValue();
+          double north = ((Number) station.get("north")).doubleValue();
+          double east = ((Number) station.get("east")).doubleValue();
+          double tvd = ((Number) station.get("tvd")).doubleValue();
+          if (!Double.isFinite(md) || md < 0 || md <= previousMd
+              || !Double.isFinite(inc) || inc < 0 || inc > 180
+              || !Double.isFinite(azi) || !Double.isFinite(north)
+              || !Double.isFinite(east) || !Double.isFinite(tvd)) {
+            validSurvey = false;
+            break;
+          }
+          previousMd = md;
+        } catch (RuntimeException invalid) {
+          validSurvey = false;
+          break;
+        }
+      }
+    }
     if (!coordinate) return "COORDINATE_MISSING";
     if (!crs) return ref.get("coordinate_datum_name") != null
         ? "DATUM_NAMED_PROJECTION_REQUIRED" : "COORDINATE_REFERENCE_UNCONFIRMED";
     if (!vertical) return "VERTICAL_DATUM_UNCONFIRMED";
-    if (!md0) return "MD0_HISTORY_REQUIRED";
+    if (!validSurvey) return "SURVEY_HISTORY_INVALID";
+    // A survey may begin at any positive measured depth.  The first real
+    // station is the local tie-on for propagated uncertainty; no synthetic
+    // MD=0 station is invented or required for evaluation.
     return "READY";
   }
 
@@ -157,7 +183,7 @@ public class SourceRegistryController {
           + "），但尚未确认投影分带/中央经线，不能进行跨井安全评价";
       case "COORDINATE_REFERENCE_UNCONFIRMED" -> "已读取井口投影坐标 X/Y，但来源文件未明确完整坐标参考系";
       case "VERTICAL_DATUM_UNCONFIRMED" -> "已读取平面坐标，但深度基准名称或基准高程尚未确认";
-      case "MD0_HISTORY_REQUIRED" -> "测点历史未包含 MD=0 起算点，不能确认轨迹起算基准";
+      case "SURVEY_HISTORY_INVALID" -> "测斜版本至少需要两个有效且井深递增的真实测点";
       default -> "当前版本可用于跨井评价";
     };
   }
@@ -378,11 +404,14 @@ public class SourceRegistryController {
                 + " drilling_survey_station WHERE survey_version_id=? ORDER BY md",
             versionId));
     var reference = obj(r.get("reference_json"));
-    String referenceStatus = Objects.toString(reference.get("reference_status"),
-        "READY".equals(r.get("quality_status")) ? "READY" : "COORDINATE_REFERENCE_UNCONFIRMED");
+    @SuppressWarnings("unchecked")
+    var stations = (List<Map<String, Object>>) r.get("stations");
+    // Recalculate the derived eligibility from the immutable evidence so
+    // legacy MD0_HISTORY_REQUIRED records are corrected on read as well.
+    String referenceStatus = referenceStatus(reference, stations);
     reference.put("reference_status", referenceStatus);
     reference.put("evaluation_eligibility", "READY".equals(referenceStatus) ? "ELIGIBLE" : "BLOCKED");
-    reference.putIfAbsent("evaluation_message", referenceMessage(reference, referenceStatus));
+    reference.put("evaluation_message", referenceMessage(reference, referenceStatus));
     r.put("reference", reference);
     r.put("effective_uncertainty",SurveyVersionMetadata.uncertainty(reference,DrillingAlgorithmDefaults.merged(engine.config(fieldId).get("algorithm_defaults_json"))));
     r.put("revision_summary", obj(r.get("summary_json")));
@@ -1578,12 +1607,15 @@ public class SourceRegistryController {
     bore(fieldId, wellboreId);
     var rows = db.queryForList(
         """
-        WITH usable AS (
-          SELECT tv.*,tv.trajectory_version_no AS version_no FROM drilling_trajectory_version tv
+        WITH available AS (
+          SELECT tv.*,tv.trajectory_version_no AS version_no,
+            COALESCE(sr.status,'PENDING') AS source_review_status
+          FROM drilling_trajectory_version tv
           JOIN drilling_survey_version sv ON sv.survey_version_id=tv.survey_version_id
-          JOIN drilling_source_review sr ON sr.source_id=(SELECT MAX(sd.source_id)
-            FROM drilling_source_document sd WHERE sd.file_id=sv.source_file_id)
-          WHERE tv.quality_status='READY' AND sr.status='CONFIRMED'
+          LEFT JOIN drilling_source_document sd ON sd.source_id=(SELECT MAX(latest.source_id)
+            FROM drilling_source_document latest WHERE latest.file_id=sv.source_file_id)
+          LEFT JOIN drilling_source_review sr ON sr.source_id=sd.source_id
+          WHERE tv.quality_status='READY'
         ), selected AS (
           SELECT b.wellbore_id,w.well_id,w.well_code,w.well_name,b.wellbore_code,b.wellbore_name,
             f.field_id,f.field_name,k.block_id,k.block_name,n.included AS selection_included,
@@ -1604,14 +1636,14 @@ public class SourceRegistryController {
             AND n.reference_wellbore_id=? AND n.neighbor_wellbore_id=b.wellbore_id
           LEFT JOIN drilling_trajectory_head ah ON ah.wellbore_id=b.wellbore_id AND ah.trajectory_kind='ACTUAL'
           LEFT JOIN drilling_trajectory_head dh ON dh.wellbore_id=b.wellbore_id AND dh.trajectory_kind='DESIGN'
-          LEFT JOIN usable av ON av.survey_version_id=ah.survey_version_id
-          LEFT JOIN usable dv ON dv.survey_version_id=dh.survey_version_id
-          LEFT JOIN usable pv ON pv.survey_version_id=n.pinned_version_id
+          LEFT JOIN available av ON av.survey_version_id=ah.survey_version_id
+          LEFT JOIN available dv ON dv.survey_version_id=dh.survey_version_id
+          LEFT JOIN available pv ON pv.survey_version_id=n.pinned_version_id
           WHERE x.field_id=? AND b.wellbore_id<>? AND w.status<>'ARCHIVED'
             AND LEFT(w.well_code,17)<>'__ARCHIVED_ALIAS_' AND b.engineering_status<>'ABANDONED'
         )
-        SELECT c.*,v.trajectory_kind,v.version_no,'READY' quality_status,'CONFIRMED' source_review_status
-        FROM selected c JOIN usable v ON v.survey_version_id=c.survey_version_id
+        SELECT c.*,v.trajectory_kind,v.version_no,v.quality_status,v.source_review_status
+        FROM selected c JOIN available v ON v.survey_version_id=c.survey_version_id
         ORDER BY c.block_name,c.field_name,c.well_name,c.wellbore_name
         """, wellboreId, fieldId, wellboreId);
     var heads = db.queryForList("SELECT h.survey_version_id FROM drilling_trajectory_head h "
@@ -1640,7 +1672,10 @@ public class SourceRegistryController {
       boolean manuallyIncluded = Boolean.TRUE.equals(row.get("selection_included"))
           || "1".equals(Objects.toString(row.get("selection_included"), ""))
           || row.get("selection_included") instanceof Number n && n.intValue() != 0;
-      row.put("included", explicit && manuallyIncluded);
+      boolean usable = "READY".equals(Objects.toString(row.get("quality_status"), ""))
+          && "CONFIRMED".equals(Objects.toString(row.get("source_review_status"), ""));
+      row.put("usable", usable);
+      row.put("included", explicit && manuallyIncluded && usable);
       row.put("auto_candidate", auto);
       row.put("relationship_confirmed", explicit);
       row.put("candidate_rule", "全井连续最小曲率轨迹水平闭包盒，外扩"+margin+" m；候选关系须人工确认");

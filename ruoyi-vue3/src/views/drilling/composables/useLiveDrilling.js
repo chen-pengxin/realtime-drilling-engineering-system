@@ -4,6 +4,8 @@ import { listWellbores, boreNeighbors, trajectoryVersion, registry } from '@/api
 import { scanAntiCollisionNetwork } from '@/api/drilling'
 import { predictBitPosition, predictedNetworkRisk } from '@/utils/realtimeCollision'
 import {trajectoryColors} from '@/utils/trajectoryColors'
+import { buildEvaluationStations } from '@/utils/liveEvaluationStations'
+import { neighborEvaluationMessage } from '@/utils/neighborEvaluationMessage'
 import { useDrillingContext } from './useDrillingContext'
 
 // One live snapshot is shared by the dashboard, ingest page and layout monitor.
@@ -22,7 +24,7 @@ const trajectories=computed(()=>[
   ...neighborDetails.value.map(v=>({...trajectoryIdentity(v),id:`neighbor-${v.survey_version_id}`,kind:'NEIGHBOR',label:`${v.well_code||v.well_id} / ${v.wellbore_name||v.wellbore_id}`,versionLabel:`v${v.version_no}`,points:v.plot_stations||v.stations,color:trajectoryColors.NEIGHBOR}))
 ])
 
-export function clearLiveDrilling(){sequence++;pending=null;lastScanKey='';loading.value=false;bores.value=[];boreId.value=null;detail.value=null;neighborDetails.value=[];network.value=null;prediction.value=null;futureRisk.value=null;configuration.value=null;error.value='';refreshedAt.value=null}
+export function clearLiveDrilling(){sequence++;pending=null;lastScanKey='';loading.value=false;bores.value=[];boreId.value=null;useDrillingContext().liveWellboreId.value=null;detail.value=null;neighborDetails.value=[];network.value=null;prediction.value=null;futureRisk.value=null;configuration.value=null;error.value='';refreshedAt.value=null}
 
 export async function selectLiveBore(id){
   const p=useDrillingContext().fieldId.value
@@ -45,27 +47,43 @@ export function refreshLiveDrilling({force=false,wellboreId,incrementalFrom,incr
       bores.value=rows
       const chosen=rows.find(b=>Number(b.wellbore_id)===Number(wellboreId||boreId.value||localStorage.getItem(`drilling.liveBoreId.${p}`)))||rows.find(b=>b.engineering_status==='DRILLING'&&b.actual_version_id)||rows.find(b=>b.actual_version_id)||rows[0]
       boreId.value=chosen?.wellbore_id
+      ctx.liveWellboreId.value=chosen?.wellbore_id||null
       if(!chosen?.actual_version_id){detail.value=null;network.value=null;error.value='当前井眼没有实钻测斜版本';return}
-      const [reference,links,confirmation]=await Promise.all([trajectoryVersion(p,chosen.actual_version_id),boreNeighbors(p,chosen.wellbore_id),registry(p,'/engine-confirmation')])
+      const [reference,links,confirmation]=await Promise.all([trajectoryVersion(p,chosen.actual_version_id),boreNeighbors(p,chosen.wellbore_id),registry(p,'/engine-confirmation','get',undefined,undefined,{silentError:true})])
       if(!valid())return
       configuration.value=confirmation.configuration
-      const selected=reference.quality_status!=='READY'?[]:links.filter(x=>Number(x.included)&&x.survey_version_id&&x.quality_status==='READY')
+      const selected=reference.quality_status!=='READY'?[]:links.filter(x=>Number(x.included)&&x.relationship_confirmed&&x.survey_version_id&&x.quality_status==='READY'&&x.source_review_status==='CONFIRMED')
       const neighbors=await Promise.all(selected.map(async x=>({...x,...await trajectoryVersion(p,x.survey_version_id,reference.survey_version_id)})))
       if(!valid())return
-      detail.value=reference;neighborDetails.value=neighbors;error.value='';refreshedAt.value=new Date()
-      const key=JSON.stringify([p,chosen.wellbore_id,reference.survey_version_id,confirmation.configHash,selected.map(x=>x.survey_version_id)])
-      if(!force&&key===lastScanKey)return
-      network.value=null;futureRisk.value=null;prediction.value=null
+      detail.value=reference;neighborDetails.value=neighbors;refreshedAt.value=new Date()
+      // The collision request must retain the complete measured history.  A
+      // previous implementation sent only the optional prediction point,
+      // which made a non-zero-MD survey look like an incomplete MD=0 history
+      // to the native uncertainty model.
+      const measuredStations=Array.isArray(reference.stations)?reference.stations:[]
+      const lastMeasured=measuredStations.at(-1)
+      if(!confirmation.confirmed){network.value=null;futureRisk.value=null;prediction.value=null;error.value='请先核对并确认当前工程评价配置';window.dispatchEvent(new CustomEvent('drilling-engine-confirmation-required',{detail:{fieldId:p}}));return}
+      error.value='';network.value=null;futureRisk.value=null;prediction.value=null
       if(reference.quality_status!=='READY'){error.value='当前版本不可用于防碰评价';return}
-      if(!confirmation.confirmed){error.value='请先核对并确认当前工程评价配置';window.dispatchEvent(new CustomEvent('drilling-engine-confirmation-required',{detail:{fieldId:p}}));return}
       const predicted=await predictBitPosition({fieldId:p,predictionConfig:confirmation.configuration.prediction,stations:reference.stations||[]})
       if(!valid())return
       prediction.value=predicted
-      if(!selected.length){error.value='没有已选且可用于评价的邻井版本；尚未进行防碰评价';lastScanKey=key;return}
-      const result=await scanAntiCollisionNetwork({field_id:p,reference_well_id:reference.well_id,reference_survey_version_id:reference.survey_version_id,reference:{stations:predicted.point?[predicted.point]:[]},neighbors:selected.map(x=>({well_id:x.well_id,survey_version_id:x.survey_version_id})),step:Number(ctx.configForm.algorithmDefaults.scanStep||1),mode:'BOTH',incremental_from_md:incrementalFrom??null,incremental_to_md:incrementalTo??null})
+      const predictedPoint=predicted?.point&&lastMeasured&&Number(predicted.point.md)>Number(lastMeasured.md)+1e-9
+        ? predicted.point
+        : null
+      const requestStations=buildEvaluationStations(measuredStations,predictedPoint)
+      const predictionKey=predictedPoint?[predictedPoint.md,predictedPoint.inclination,predictedPoint.azimuth,predictedPoint.north,predictedPoint.east,predictedPoint.tvd]:null
+      const key=JSON.stringify([p,chosen.wellbore_id,reference.survey_version_id,confirmation.configHash,selected.map(x=>x.survey_version_id),predictionKey])
+      if(!force&&key===lastScanKey)return
+      if(!selected.length){
+        error.value=neighborEvaluationMessage(links)
+        lastScanKey=key;return
+      }
+      if(measuredStations.length<2){error.value='当前实钻版本至少需要两个有效测点；尚未进行防碰评价';lastScanKey=key;return}
+      const result=await scanAntiCollisionNetwork({field_id:p,reference_well_id:reference.well_id,reference_survey_version_id:reference.survey_version_id,reference:{stations:requestStations},neighbors:selected.map(x=>({well_id:x.well_id,survey_version_id:x.survey_version_id})),step:Number(ctx.configForm.algorithmDefaults.scanStep||1),mode:'BOTH',incremental_from_md:incrementalFrom??null,incremental_to_md:incrementalTo??null},{silentError:true})
       if(!valid())return
       network.value=result;futureRisk.value=predictedNetworkRisk(result,reference.stations?.at(-1)?.md);lastScanKey=key
-      if(result.failed_pairs?.length)error.value=`${result.failed_pairs.length} 个井对评价失败，请检查防碰详情`
+      if(result.failed_pairs?.length)error.value=result.failed_pairs.find(p=>p.scope==='REFERENCE')?.reason||`${result.failed_pairs.length} 个井对评价失败，请检查防碰详情`
     }catch(e){if(valid()){error.value=e.message||'实时监测刷新失败';network.value=null;futureRisk.value=null}}
     finally{if(valid())loading.value=false}
   })()

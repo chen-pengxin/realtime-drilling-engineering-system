@@ -60,6 +60,8 @@ export function useTrajectoryTask(task){
       // avoids the synchronous boreId watcher issuing a second identical
       // request for every page entry.
       hydrating=true;boreId.value=chosen?.wellbore_id
+      context.activeWellboreId.value=chosen?.wellbore_id||null
+      if(chosen?.wellbore_id)localStorage.setItem('drilling.activeWellboreId',String(chosen.wellbore_id))
       title.value=saved?.title||(task==='anticollision'?'防碰评价':'轨迹再规划')
       const alert=route.query.alert==='collision'
       await loadVersions(alert?{surveyVersionId:route.query.referenceVersionId}:chosen?.wellbore_id===draft.wellboreId?draft:null)
@@ -95,7 +97,7 @@ export function useTrajectoryTask(task){
   }
   async function exportReport(format='bundle',sections){if(!result.value)return;const blob=await exportDrillingReport({field_id:context.fieldId.value,title:title.value,format,payload:{...result.value,report_sections:sections,reference_version:versionId.value,wellbore:bore.value,neighbors:selectedNeighbors.value}});downloadBlob(blob,`${title.value}.${format==='bundle'?'zip':format}`)}
   function referencePayload(){if(!detail.value)throw Error('请选择实钻轨迹版本');return {reference_well_id:detail.value.well_id,reference_survey_version_id:versionId.value,neighbors:selectedNeighbors.value.map(n=>({well_id:n.well_id,survey_version_id:n.survey_version_id}))}}
-  watch(context.fieldId,loadBores,{immediate:true});watch(boreId,()=>{if(!hydrating)loadVersions()},{flush:'sync'})
+  watch(context.fieldId,loadBores,{immediate:true});watch(boreId,(value)=>{context.activeWellboreId.value=value||null;if(value)localStorage.setItem('drilling.activeWellboreId',String(value));else localStorage.removeItem('drilling.activeWellboreId');if(!hydrating)loadVersions()},{flush:'sync'})
   onBeforeUnmount(()=>{disposed=true;serial++;versionSerial++;neighborSerial++})
   return {...context,bores,boreId,bore,borePath,wellboreOptions,versions,versionId,detail,design,neighbors,selectedNeighbors,neighborDetails,baseTrajectories,busy,result,title,historyOpen,history,workspaceDraft,historySnapshot,label,selectedVersion,loadBores,loadDetail,loadNeighborDetails,saveNeighbors,save,rename,showHistory,restoreHistory,exportReport,referencePayload}
 }

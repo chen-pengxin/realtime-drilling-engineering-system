@@ -17,6 +17,7 @@ public class SourceRegistrySupport {
       ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/source-registry.sql"));
       ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/trajectory-numbering.sql"));
       ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/legacy-trajectory-seed.sql"));
+      ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/nonzero-md-tie-on.sql"));
       ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/file-display-names.sql"));
       ScriptUtils.executeSqlScript(c,new ClassPathResource("drilling/document-content.sql")); return null;
     });

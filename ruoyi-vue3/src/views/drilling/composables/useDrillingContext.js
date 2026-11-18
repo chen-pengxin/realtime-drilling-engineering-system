@@ -4,6 +4,11 @@ import { listDrillingFields, getCurrentFieldConfig, listWells, listFieldFiles } 
 // 工程上下文只使用井场作为业务范围。
 const fields = ref([])
 const fieldId = ref(Number(localStorage.getItem('drilling.fieldId')) || null)
+// The confirmation gate is scoped to the engineering object currently being
+// evaluated.  Keep the selected wellbore in the shared context so changing a
+// wellbore can re-check once, while opening a project/file page cannot.
+const activeWellboreId = ref(Number(localStorage.getItem('drilling.activeWellboreId')) || null)
+const liveWellboreId = ref(null)
 const currentConfig = ref(null)
 const wells = ref([])
 const fieldFiles = ref([])
@@ -68,6 +73,9 @@ async function loadFieldContext(options = {}) {
 
 function selectField(value, options = {}) {
   fieldId.value = value
+  activeWellboreId.value = null
+  liveWellboreId.value = null
+  localStorage.removeItem('drilling.activeWellboreId')
   return loadFieldContext(options)
 }
 
@@ -81,5 +89,5 @@ function thresholdsPayload() {
 }
 
 export function useDrillingContext() {
-  return { fields, fieldId, currentConfig, wells, fieldFiles, loading, configForm, currentFieldName, defaults, loadFields, loadFieldContext, selectField, errorModelPayload, thresholdsPayload }
+  return { fields, fieldId, activeWellboreId, liveWellboreId, currentConfig, wells, fieldFiles, loading, configForm, currentFieldName, defaults, loadFields, loadFieldContext, selectField, errorModelPayload, thresholdsPayload }
 }

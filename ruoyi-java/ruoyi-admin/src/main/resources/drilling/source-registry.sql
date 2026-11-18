@@ -114,4 +114,3 @@ CREATE TABLE IF NOT EXISTS drilling_workspace_draft (
  payload_json JSON NOT NULL,update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
  PRIMARY KEY(field_id,user_id,task_type),FOREIGN KEY(field_id) REFERENCES drilling_field(field_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
