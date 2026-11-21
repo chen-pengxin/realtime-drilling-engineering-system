@@ -61,7 +61,7 @@ const { visible, snapshot, checked, busy, error } = toRefs(state)
 watch(visible, value => { engineConfirmationOpen.value = value }, { flush: 'sync' })
 const gate = createEngineConfirmation({
   state,
-  context: () => ({ fieldId: fieldId.value, wellboreId: evaluationWellboreId.value, userId: user.id, sessionId: loginSessionId.value, configVersion: currentConfig.value?.config_version, eligible: eligible.value }),
+  context: () => ({ fieldId: fieldId.value, wellboreId: evaluationWellboreId.value, userId: user.id, sessionId: loginSessionId.value, configVersion: currentConfig.value?.engineering_config_version, eligible: eligible.value }),
   read: field => registry(field, '/engine-confirmation', 'get', undefined, undefined, { silentError: true }),
   submit: (field, configHash) => registry(field, '/engine-confirmation', 'post', { configHash }, undefined, { silentError: true }),
   onConfirmed: field => window.dispatchEvent(new CustomEvent('drilling-engine-confirmed', { detail: { fieldId: field } }))
@@ -74,11 +74,11 @@ const sfDetails = computed(() => separationFactorDetails(errorConfiguration.valu
 const activeParameters = computed(() => errorParameterRows(errorConfiguration.value))
 const kParameter = computed(() => activeParameters.value.find(row => row.key === 'k'))
 const parameterRows = computed(() => activeParameters.value.filter(row => row.key !== 'k'))
-const versionProfiles = computed(() => (snapshot.value?.surveyProfiles||[]).filter(p=>p.parameter_source!=='FIELD_CONFIGURATION'||JSON.stringify(p.settings)!==JSON.stringify(errorConfiguration.value.settings)))
+const versionProfiles = computed(() => (snapshot.value?.surveyProfiles||[]).filter(p=>!['FIELD_CONFIGURATION','ENGINEERING_DEFAULT'].includes(p.parameter_source)||JSON.stringify(p.settings)!==JSON.stringify(errorConfiguration.value.settings)))
 function configure() { gate.reset(); router.push('/drilling/basic/config?tab=errorModel') }
 // One scoped watcher avoids duplicate reads from overlapping immediate
 // watchers. Route tabs and survey-version events do not change this scope.
-watch(() => [eligible.value, fieldId.value, evaluationWellboreId.value, currentConfig.value?.config_version, user.id, loginSessionId.value], ([isEligible, field, wellbore, version]) => {
+watch(() => [eligible.value, fieldId.value, evaluationWellboreId.value, currentConfig.value?.engineering_config_version, user.id, loginSessionId.value], ([isEligible, field, wellbore, version]) => {
   if (!isEligible) { gate.reset(); return }
   if (field && wellbore && version != null) check()
 }, { immediate: true, flush: 'post' })

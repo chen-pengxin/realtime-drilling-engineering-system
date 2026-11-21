@@ -1,11 +1,11 @@
 // Fixed engineering legend colors.  They are semantic colors, so changing the
 // selected well never changes what a line means.
 export const trajectoryColors = Object.freeze({
-  ACTUAL: '#075985',
-  DESIGN: '#166534',
-  PREDICTED: '#9a3412',
-  NEIGHBOR: '#b9a8d0',
-  PLANNED: '#c2410c'
+  ACTUAL: '#2563eb',
+  DESIGN: '#7c3aed',
+  PREDICTED: '#16a34a',
+  NEIGHBOR: '#9ca3af',
+  PLANNED: '#000000'
 })
 
 export const riskColors = Object.freeze({

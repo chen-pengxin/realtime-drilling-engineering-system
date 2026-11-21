@@ -4,7 +4,8 @@ import pytest
 from app.shared.trajectory.min_curvature import SurveyStation, compute_minimum_curvature, minimum_curvature_increment
 from app.schemas import PlanningInput
 from app.tasks.anticollision.evaluation import CollisionThresholds, ErrorModelConfig, scan_network, scan_pair
-from app.tasks.replanning.trajectory_planning import PlanningConstraints, SteeringState, Target, plan_trajectory
+from app.tasks.replanning.trajectory_planning import (PlanningConstraints, SteeringState, Target,
+    plan_trajectory, _compact_realtime_response, _realtime_native_options, _solver_outcome)
 from tools.import_test_cases import case_defaults, load_case
 
 
@@ -55,8 +56,8 @@ def test_native_network_keeps_incremental_ranges_and_safe_screening():
     assert result["pairs"][0]["neighbor_well_id"] == 7
 
 
-def test_native_planner_uses_separation_factor_and_reports_solver_metadata():
-    constraints = PlanningConstraints(minimum_sf=1.5, scan_step=1, max_segment_length=60)
+def test_native_planner_uses_combined_collision_constraint_and_reports_solver_metadata():
+    constraints = PlanningConstraints(minimum_sf=1.5, centerline_min_distance_m=5.0, scan_step=1, max_segment_length=60)
     result = plan_trajectory(
         SteeringState(0, 0, 0, 0, 1, 0),
         Target(north=0, east=0, tvd=100),
@@ -69,7 +70,77 @@ def test_native_planner_uses_separation_factor_and_reports_solver_metadata():
     assert result["solver_metadata"]["objective"] == "minimum_total_length"
     assert result['solver_metadata']['configuration']['trajectory_mode']=='arc-straight'
     assert result['solver_metadata']['configuration']['n_segments']==2
+    assert result['solver_metadata']['configuration']['collision_constraint'] == 'SEPARATION_FACTOR_AND_CENTER_DISTANCE'
+    assert result['solver_metadata']['configuration']['centerline_min_distance_m'] == 5.0
     assert all(row["geometry_method"] == "minimum-curvature" for row in result["segments"])
+
+
+def test_realtime_profile_preserves_configured_wait_without_reducing_iteration_budgets():
+    offline = _realtime_native_options({
+        'solver': {'max_seconds_per_run': 15, 'maxiter': 500},
+        'optimization_cells_per_segment': 24,
+    })
+    assert offline['solver']['max_seconds_per_run'] == 15
+    assert offline['optimization_cells_per_segment'] == 24
+
+    realtime = _realtime_native_options({
+        'realtime_mode': True,
+        'realtime_solver_budget_seconds': 3.5,
+        'solver': {'max_seconds_per_run': 15, 'maxiter': 500,
+                   'max_function_evaluations': 5000, 'optimization_starts': 3},
+        'optimization_cells_per_segment': 24,
+    })
+    assert realtime['solver']['max_seconds_per_run'] == pytest.approx(30)
+    assert realtime['solver']['maxiter'] == 500
+    assert realtime['solver']['max_function_evaluations'] == 5000
+    assert realtime['solver']['optimization_starts'] == 1
+    assert realtime['optimization_cells_per_segment'] == 24
+    assert realtime['solver']['retain_feasible_iterates'] is True
+
+    configured = _realtime_native_options({
+        'realtime_mode': True,
+        'realtime_max_wait_seconds': 600,
+        'solver': {'max_seconds_per_run': 15},
+    })
+    assert configured['solver']['max_seconds_per_run'] == pytest.approx(600)
+
+    # The public contract accepts values above the former 10/300 second
+    # implementation limits and forwards them unchanged to the native solver.
+    assert PlanningInput(
+        start_md=0, start_north=0, start_east=0, start_tvd=0,
+        start_inclination=10, start_azimuth=0,
+        target={'north': 0, 'east': 0, 'tvd': 10},
+        execution_timeout_seconds=601,
+    ).execution_timeout_seconds == 601
+
+
+def test_solver_outcome_does_not_call_a_feasible_incumbent_converged():
+    report = {
+        'algorithm': 'SLSQP',
+        'selected_candidate': 'SLSQP run 1',
+        'selected_candidate_solver_success': False,
+        'runs': [{'run': 1, 'solver_success': False, 'interrupted': True,
+                  'objective_calls': 10, 'iterations': 4,
+                  'elapsed_seconds': 30.0, 'message': 'budget reached'}],
+    }
+    result = _solver_outcome(report, True, {'max_seconds_per_run': 30, 'maxiter': 500,
+                                            'max_function_evaluations': 5000})
+    assert result['status'] == 'FEASIBLE_NOT_CONVERGED'
+    assert result['solver_converged'] is False
+    assert result['feasible_solution'] is True
+    assert result['stop_reason'] == 'MAX_WAIT_SECONDS'
+
+
+def test_solver_outcome_reports_convergence_only_for_selected_successful_run():
+    report = {'algorithm': 'SLSQP', 'selected_candidate': 'SLSQP run 1',
+              'selected_candidate_solver_success': True,
+              'runs': [{'run': 1, 'solver_success': True, 'interrupted': False,
+                        'objective_calls': 3, 'iterations': 2,
+                        'elapsed_seconds': .1, 'message': 'Optimization terminated successfully'}]}
+    result = _solver_outcome(report, True, {'max_seconds_per_run': 30})
+    assert result['status'] == 'SUCCESS'
+    assert result['solver_converged'] is True
+    assert result['stop_reason'] == 'CONVERGED'
 
 
 @pytest.mark.parametrize('solver',['SLSQP','trust-constr','COBYLA','COBYQA'])
@@ -100,6 +171,34 @@ def test_native_geometry_rejects_modes_and_counts_outside_algorithm_catalog():
     with pytest.raises(ValueError,match='n_segments'):
         plan_trajectory(SteeringState(0,0,0,0,10,0),Target(tvd=100),
             native_options={'trajectory_mode':'arc','n_segments':6})
+    with pytest.raises(ValueError,match='arc_segment_model'):
+        plan_trajectory(SteeringState(0,0,0,0,10,0),Target(tvd=10),
+            native_options={'trajectory_mode':'arc','n_segments':1,'arc_segment_model':'unknown'})
+
+
+@pytest.mark.parametrize('model',['minimum_curvature','constant_toolface'])
+def test_generic_planning_preserves_selected_nominal_geometry(model):
+    import numpy as np
+    from wellpath.geometry.arc import tangent
+    from wellpath.geometry.segments import segment_state
+    # Fixed curvature/toolface isolate the geometry from optimizer choices.
+    # A general 45-degree toolface distinguishes a spatial curve from a plane.
+    expected,tangents,_=segment_state(np.zeros(3),tangent(40,25),4,45,np.array([60.]),model)
+    result=plan_trajectory(SteeringState(0,0,0,0,40,25),
+        Target(north=expected[0,0],east=expected[0,1],tvd=expected[0,2]),
+        PlanningConstraints(constraint_mode='PER_SEGMENT',max_segment_length=70),
+        segment_bounds=[{'dls_deg_per_30m':[4,4],'start_toolface_deg':[45,45],'length_m':[59.99,60.01]}],
+        native_options={'trajectory_mode':'arc','n_segments':1,'arc_segment_model':model},
+        max_iterations=50).to_dict()
+    assert result['status']=='SUCCESS'
+    assert result['solver_metadata']['configuration']['arc_segment_model']==model
+    end=result['trajectory'][-1]
+    actual=np.array([end['north'],end['east'],end['tvd']])
+    assert np.linalg.norm(actual-expected[0]) < .02
+    if model=='constant_toolface':
+        assert all(row['toolface']==pytest.approx(45) for row in result['trajectory'])
+    else:
+        assert abs(end['toolface']-45) > .1
 
 
 @pytest.mark.parametrize('count,expected', [
@@ -146,7 +245,11 @@ def test_multi_segment_plan_scans_history_and_neighbors_without_duplicate_joint_
     assert not result['collision_evaluation']['failed_pairs']
 
 
-def test_case_a_replanning_uses_native_workflow_and_adapts_all_nine_neighbors():
+@pytest.mark.parametrize('arc_model,length', [
+    ('minimum_curvature', 1861.554634),
+    ('constant_toolface', 1861.561237),
+])
+def test_case_a_replanning_uses_native_workflow_and_adapts_all_nine_neighbors(arc_model,length):
     problem, tracks = load_case('A')
     config = case_defaults(problem)
     plan = config['planning']
@@ -188,15 +291,23 @@ def test_case_a_replanning_uses_native_workflow_and_adapts_all_nine_neighbors():
             error_model=error_model,
         ),
         solver=plan['solver'], obstacles=obstacles, history=history,
-        segment_bounds=bounds, native_options=plan['nativeOptions'],
+        segment_bounds=bounds, native_options={**plan['nativeOptions'],'arc_segment_model':arc_model},
         target_inclination=target['inclination'], target_azimuth=target['azimuth'],
         obstacle_identities=[(number, number) for number in range(2, 11)],
     ).to_dict()
 
     assert result['status'] == 'SUCCESS'
     assert result['solver_metadata']['engine'] == 'well_control_iscwsa ReplanningProblem'
-    assert result['total_length'] == pytest.approx(1861.554634, abs=0.02)
+    assert result['total_length'] == pytest.approx(length, abs=0.02)
+    assert result['solver_metadata']['configuration']['arc_segment_model'] == arc_model
     assert result['timing']['collision_review_seconds'] == 0
+    assert 'native_final' not in result
+    stages = ['preparation_seconds','feasibility_construction_seconds',
+              'optimization_wall_seconds','final_verification_seconds',
+              'collision_result_adaptation_seconds','trajectory_table_seconds',
+              'result_serialization_seconds']
+    assert all(result['timing'][key] >= 0 for key in stages)
+    assert sum(result['timing'][key] for key in stages) <= result['timing']['algorithm_total_seconds']
     collision = result['collision_evaluation']
     assert collision['status'] == 'COMPLETED'
     assert collision['mode'] == 'BOTH'
@@ -236,3 +347,24 @@ def test_cache_invalidates_only_affected_reference_blocks_and_changed_dependenci
     assert changed['incremental']['reused_blocks']==0
     changed_neighbor=compute_minimum_curvature([(0,20,0),(300,20,1)],(0,30,0))
     assert scan_pair(appended,changed_neighbor,step=10).incremental['reused_blocks']==0
+
+
+def test_realtime_response_keeps_audit_summary_without_duplicate_transport_arrays():
+    profile = [{'md': float(md), 'sf': 2.0, 'center_distance': 10.0} for md in range(0, 21)]
+    pair = {
+        'neighbor_well_id': 7, 'neighbor_survey_version_id': 70,
+        'profile': profile, 'reference_point': [1, 2, 3],
+        'neighbor_point': [4, 5, 6], 'risk_level': 'BLUE', 'sf': 2.0,
+    }
+    result = {'trajectory': [{'md': 0}, {'md': 20}], 'collision_evaluation': {
+        'pairs': [pair], 'results': [pair], 'nearest_pair': pair,
+    }}
+    _compact_realtime_response(result)
+    collision = result['collision_evaluation']
+    assert 'results' not in collision
+    assert len(collision['pairs'][0]['profile']) == 5
+    assert collision['verified_step_m'] == 1.0
+    assert set(collision['nearest_pair']) == {
+        'neighbor_well_id', 'neighbor_survey_version_id', 'sf', 'risk_level',
+        'reference_point', 'neighbor_point',
+    }

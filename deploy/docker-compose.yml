@@ -24,6 +24,7 @@ services:
       - ../database/migrations/V13__iscwsa_project_defaults.sql:/docker-entrypoint-initdb.d/14-iscwsa-project-defaults.sql:ro
       - ../database/migrations/V14__remove_benchmark_and_require_both.sql:/docker-entrypoint-initdb.d/15-remove-benchmark-and-require-both.sql:ro
       - ../database/migrations/V15__collision_mode_both_only.sql:/docker-entrypoint-initdb.d/16-collision-mode-both-only.sql:ro
+      - ../database/migrations/V16__drilling_menu_restructure.sql:/docker-entrypoint-initdb.d/17-menu-restructure.sql:ro
       - ../database/migrations/V16__prediction_incremental_learning.sql:/docker-entrypoint-initdb.d/17-prediction-incremental-learning.sql:ro
       - ../database/migrations/V17__drilling_account_security.sql:/docker-entrypoint-initdb.d/18-drilling-account-security.sql:ro
       - ../database/migrations/V18__drilling_operations_console.sql:/docker-entrypoint-initdb.d/19-drilling-operations-console.sql:ro
@@ -55,6 +56,16 @@ services:
       - ../database/migrations/V44__reference_appendix_source_labels.sql:/docker-entrypoint-initdb.d/45-reference-appendix-source-labels.sql:ro
       - ../database/migrations/V45__integrate_test_cases_into_engineering.sql:/docker-entrypoint-initdb.d/46-integrate-test-cases.sql:ro
       - ../database/migrations/V46__remove_retired_scope_snapshot_keys.sql:/docker-entrypoint-initdb.d/47-remove-retired-scope-snapshots.sql:ro
+      - ../database/migrations/V47__separate_trajectory_numbers_and_file_types.sql:/docker-entrypoint-initdb.d/48-separate-trajectory-numbers-and-file-types.sql:ro
+      - ../database/migrations/V48__independent_file_display_names.sql:/docker-entrypoint-initdb.d/49-independent-file-display-names.sql:ro
+      - ../database/migrations/V49__structured_document_content.sql:/docker-entrypoint-initdb.d/50-structured-document-content.sql:ro
+      - ../database/migrations/V50__shared_engineering_configuration.sql:/docker-entrypoint-initdb.d/51-shared-engineering-configuration.sql:ro
+      - ../database/migrations/V51__replanning_wait_policy.sql:/docker-entrypoint-initdb.d/52-replanning-wait-policy.sql:ro
+      - ../database/migrations/V52__remove_replanning_scenario.sql:/docker-entrypoint-initdb.d/53-remove-replanning-scenario.sql:ro
+      - ../database/migrations/V53__hide_redundant_business_centers.sql:/docker-entrypoint-initdb.d/54-hide-redundant-business-centers.sql:ro
+      - ../database/migrations/V54__disable_prediction_geometry_fallback.sql:/docker-entrypoint-initdb.d/55-disable-prediction-geometry-fallback.sql:ro
+      - ../database/migrations/V55__expand_trajectory_plan_status.sql:/docker-entrypoint-initdb.d/56-expand-trajectory-plan-status.sql:ro
+      - ../database/migrations/V56__allow_nonzero_md_tie_on.sql:/docker-entrypoint-initdb.d/57-allow-nonzero-md-tie-on.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s

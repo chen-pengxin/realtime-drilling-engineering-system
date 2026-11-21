@@ -125,10 +125,11 @@ public class TaskHistoryController {
                   + " v.survey_version_id=tw.survey_version_id LEFT JOIN drilling_trajectory_version tv ON tv.survey_version_id=v.survey_version_id JOIN drilling_well w ON"
                   + " w.well_id=tw.well_id WHERE tw.task_id=?",
               summary.get("record_id")));
-      r.put(
-          "riskResults",
-          s.jdbc.queryForList(
-              "SELECT * FROM anti_collision_result WHERE task_id=?", summary.get("record_id")));
+      var riskResults=s.jdbc.queryForList("SELECT * FROM anti_collision_result WHERE task_id=? ORDER BY result_id",summary.get("record_id"));
+      r.put("riskResults",riskResults);
+      var resultSummary=BusinessCenterSupport.object(raw.get("result_summary_json"));
+      raw.put("result_summary_json",com.alibaba.fastjson.JSON.toJSONString(
+          com.ruoyi.web.controller.drilling.CollisionResultStorage.restore(resultSummary,riskResults)));
     }
     if (type.equals("REPLANNING"))
       r.put(

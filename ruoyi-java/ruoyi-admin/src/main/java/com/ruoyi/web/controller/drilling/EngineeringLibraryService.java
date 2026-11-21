@@ -73,7 +73,7 @@ public class EngineeringLibraryService {
       var n=scopeNode(null,id); if(n==null)throw new IllegalArgumentException("工程节点不存在");
       return n;
     }
-    var rows=db.queryForList("SELECT * FROM drilling_engineering_node WHERE node_id=?",id);
+    var rows=db.queryForList("SELECT n.*,b.engineering_status FROM drilling_engineering_node n LEFT JOIN drilling_wellbore b ON b.wellbore_id=n.wellbore_id WHERE n.node_id=?",id);
     if(rows.isEmpty())throw new IllegalArgumentException("工程节点不存在");
     var n=rows.get(0);access(id(n.get("field_id")),write);return n;
   }
@@ -110,7 +110,7 @@ public class EngineeringLibraryService {
     var rows=new ArrayList<Map<String,Object>>();
     rows.add(scopeNode(fieldId,scopeId(BLOCK_SCOPE,blockId)));
     rows.add(scopeNode(fieldId,scopeId(FIELD_SCOPE,fieldId)));
-    var library=db.queryForList("SELECT n.*,(SELECT COUNT(*) FROM drilling_engineering_document d JOIN drilling_engineering_document_file f ON f.document_id=d.document_id WHERE d.node_id=n.node_id) file_count FROM drilling_engineering_node n WHERE n.status='ACTIVE' AND n.field_id=? ORDER BY n.node_id",fieldId);
+    var library=db.queryForList("SELECT n.*,b.engineering_status,(SELECT COUNT(*) FROM drilling_engineering_document d JOIN drilling_engineering_document_file f ON f.document_id=d.document_id WHERE d.node_id=n.node_id) file_count FROM drilling_engineering_node n LEFT JOIN drilling_wellbore b ON b.wellbore_id=n.wellbore_id WHERE n.status='ACTIVE' AND n.field_id=? ORDER BY n.node_id",fieldId);
     for(var row:library){
       row.put("properties",obj(row.remove("properties_json")));
       String type=Objects.toString(row.get("node_type"),"");
@@ -145,7 +145,10 @@ public class EngineeringLibraryService {
     }
     if(fieldIds.isEmpty())return rows;
     String fieldMarks=String.join(",",Collections.nCopies(fieldIds.size(),"?"));
-    var library=db.queryForList("SELECT n.* FROM drilling_engineering_node n WHERE n.status='ACTIVE' AND n.field_id IN ("+fieldMarks+") ORDER BY n.field_id,n.node_id",fieldIds.toArray());
+    // Prefer the real owner's directory entry over an older neighbor alias.
+    // The former field-id ordering could move a test well under Volve F merely
+    // because its cross-field reference happened to have a smaller field id.
+    var library=db.queryForList("SELECT n.*,b.engineering_status FROM drilling_engineering_node n LEFT JOIN drilling_wellbore b ON b.wellbore_id=n.wellbore_id LEFT JOIN drilling_well w ON w.well_id=n.well_id LEFT JOIN drilling_well_catalog wc ON wc.well_id=w.well_id WHERE n.status='ACTIVE' AND n.field_id IN ("+fieldMarks+") ORDER BY CASE WHEN n.field_id=COALESCE(wc.field_id,w.field_id) THEN 0 ELSE 1 END,n.field_id,n.node_id",fieldIds.toArray());
     Map<Long,Long> canonicalNodes=new HashMap<>();
     Map<String,Long> canonicalAssets=new HashMap<>();
     for(var item:library){
@@ -220,6 +223,23 @@ public class EngineeringLibraryService {
   }
 
   /** Validate explicit upload ownership before parsing or storing file bytes. */
+  @Transactional public Map<String,Object> fileTarget(Long fieldId,Long nodeId){
+    var target=nodeInField(fieldId,nodeId,true);
+    if(!"ACTIVE".equals(target.get("status"))||Boolean.TRUE.equals(obj(target.getOrDefault("properties",target.get("properties_json"))).get("reference_only")))
+      throw new IllegalArgumentException("请在所属井场选择可编辑的资料目录");
+    if("FIELD".equals(target.get("node_type"))){
+      // Serialize first use of the field's file folder. File operations must
+      // not require permission to create wells or change engineering parents.
+      db.queryForList("SELECT field_id FROM drilling_field WHERE field_id=? FOR UPDATE",fieldId);
+      var folders=db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND node_type='INBOX' AND well_id IS NULL AND parent_id IS NULL AND status='ACTIVE' ORDER BY node_id LIMIT 1",fieldId);
+      if(!folders.isEmpty())return fileTarget(fieldId,id(folders.get(0).get("node_id")));
+      return createNode(Map.of("fieldId",fieldId,"parentId",nodeId,"nodeType","INBOX","name","井场资料","code","INBOX-"+UUID.randomUUID()));
+    }
+    if(nodeId<0||!Set.of("INBOX","WELL","WELLBORE","PLAN","SURVEY").contains(target.get("node_type")))
+      throw new IllegalArgumentException("请选择井场、井、井眼或资料目录");
+    return target;
+  }
+
   public Map<String,Object> uploadTarget(Long fieldId,Long nodeId,Long wellboreId,String role,String kind){
     return uploadTarget(fieldId,nodeId,wellboreId,role,kind,null,null);
   }
@@ -244,18 +264,23 @@ public class EngineeringLibraryService {
       registerWellboreReference(fieldId,wellboreId);
       nodeId=db.queryForObject("SELECT MIN(node_id) FROM drilling_engineering_node WHERE field_id=? AND wellbore_id=? AND node_type='WELLBORE' AND status='ACTIVE'",Long.class,fieldId,wellboreId);
     }
-    var n=nodeInField(fieldId,nodeId,true);
-    if(nodeId<0||!"ACTIVE".equals(n.get("status")))throw new IllegalArgumentException("请选择有效的井、井眼或成果节点");
+    var n=fileTarget(fieldId,nodeId);
     if(wellboreId!=null&&!wellboreId.equals(id(n.get("wellbore_id"))))throw new IllegalArgumentException("上传节点与所选井眼不一致");
-    if("TRAJECTORY_DATA".equals(role)&&n.get("wellbore_id")==null)throw new IllegalArgumentException("轨迹数据必须关联到具体井眼，请展开工程树选择井眼");
-    if(kind!=null&&!kind.isBlank()){
-      if(!Set.of("DESIGN","ACTUAL").contains(kind))throw new IllegalArgumentException("轨迹用途必须是设计或实钻");
-      if(n.get("wellbore_id")==null)throw new IllegalArgumentException("设计或实钻资料必须关联到具体井眼");
-      if("PLAN".equals(n.get("node_type"))&&!"DESIGN".equals(kind)||"SURVEY".equals(n.get("node_type"))&&!"ACTUAL".equals(kind))throw new IllegalArgumentException("文件用途与所选成果节点不一致");
-    }
+    validateFileUsage(n,role,kind);
     if(n.get("well_id")!=null)access(db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,n.get("well_id")),true);
     if(document!=null){n.put("upload_document_id",documentId);n.put("upload_expected_edition_no",expectedEditionNo);n.put("upload_revision_id",document.get("revision_id"));}
     return n;
+  }
+
+  static void validateFileUsage(Map<String,Object> node,String role,String kind){
+    if("TRAJECTORY_DATA".equals(role)&&(node.get("wellbore_id")==null||kind==null||kind.isBlank()))
+      throw new IllegalArgumentException("轨迹数据必须选择具体井眼，并指定设计轨道或实钻测斜");
+    if(kind!=null&&!kind.isBlank()){
+      if(!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(role)||!Set.of("DESIGN","ACTUAL").contains(kind)||node.get("wellbore_id")==null)
+        throw new IllegalArgumentException("设计或实钻资料必须关联到具体井眼");
+      if("PLAN".equals(node.get("node_type"))&&!"DESIGN".equals(kind)||"SURVEY".equals(node.get("node_type"))&&!"ACTUAL".equals(kind))
+        throw new IllegalArgumentException("文件用途与所选资料目录不一致");
+    }
   }
 
   public Map<String,Object> documentContext(Long fieldId,Long documentId,boolean write){
@@ -349,63 +374,68 @@ public class EngineeringLibraryService {
     r.put("properties",obj(r.remove("properties_json")));return r;
   }
   @Transactional public Map<String,Object> createNode(Map<String,Object>b){
-    Long fieldId=id(b.get("fieldId")),parentId=id(b.get("parentId"));access(fieldId,true);
+    Long fieldId=id(b.get("fieldId")),parentId=id(b.get("parentId"));
+    if(fieldId==null||fieldId<=0)throw new IllegalArgumentException("请先选择所属井场");
+    access(fieldId,true);
     String type=required(b,"nodeType",16),name=required(b,"name",255),code=str(b,"code","");
     if(code.isBlank())code=name;
     if(code.length()>128)throw new IllegalArgumentException("节点编码最长128字");
     Map<String,Object> parent=parentId==null?null:nodeInField(fieldId,parentId,true);
-    boolean fieldParent=parent!=null&&"FIELD".equals(parent.get("node_type"));
-    Long storedParent=parentId!=null&&!isScope(parentId)?parentId:null;
-    if("INBOX".equals(type)){
-      if(parentId!=null&&!fieldParent)throw new IllegalArgumentException("工程资料只能挂在井场或井场下级节点");
-    }else if("WELL".equals(type)){
-      if(!fieldParent)throw new IllegalArgumentException("井必须挂在井场下");
-    }else{
-      String expected=Map.of("WELLBORE","WELL","PLAN","WELLBORE","SURVEY","WELLBORE").get(type);
-      if(expected==null||parent==null||!expected.equals(parent.get("node_type")))throw new IllegalArgumentException("工程层级必须为区块→井场→井→井眼→成果");
-    }
+    Long storedParent=EngineeringNodeHierarchy.creationParent(type,fieldId,parent);
+    String boreStatus=EngineeringNodeHierarchy.engineeringStatus(b.get("engineeringStatus"),"UNPLANNED");
     Long well=null,bore=null;
     if("WELL".equals(type)){
       well=id(b.get("wellId"));
       if(well==null){
         var registered=db.queryForList("SELECT c.well_id FROM drilling_well_catalog c WHERE c.field_id=? AND c.identity_key=?",fieldId,code);
-        if(!registered.isEmpty())throw new IllegalArgumentException("同一井场已有该井，请引用已有井和井眼，不能重复创建");
+        if(!registered.isEmpty())throw new IllegalArgumentException("同一井场已有该井，请在目录中选择，不能重复创建");
         db.update("INSERT INTO drilling_well(field_id,well_code,well_name,status,metadata_json,create_by) VALUES(?,?,?,'UNKNOWN',?,?)",fieldId,code,name,JSON.toJSONString(Map.of("source","ENGINEERING_LIBRARY")),ShiroUtils.getLoginName());
         well=db.queryForObject("SELECT well_id FROM drilling_well WHERE field_id=? AND well_code=?",Long.class,fieldId,code);
         db.update("INSERT INTO drilling_well_catalog(well_id,field_id,identity_key) VALUES(?,?,?)",well,fieldId,code);
-      }else access(db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,well),false);
+      }else{
+        Long owner=db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,well);
+        if(!fieldId.equals(owner))throw new IllegalArgumentException("井不属于所选井场");
+        if(db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_node WHERE field_id=? AND node_type='WELL' AND well_id=? AND status='ACTIVE'",Integer.class,fieldId,well)>0)throw new IllegalArgumentException("目录中已有该井，请直接选择");
+      }
     }else if("WELLBORE".equals(type)){
       well=id(parent.get("well_id"));Long parentBore=id(b.get("parentWellboreId"));
       if(db.queryForObject("SELECT COUNT(*) FROM drilling_wellbore WHERE well_id=? AND wellbore_code=?",Integer.class,well,code)>0)throw new IllegalArgumentException("该井下已有同编码井眼，请使用已有井眼");
       if(parentBore!=null&&db.queryForObject("SELECT COUNT(*) FROM drilling_wellbore WHERE wellbore_id=? AND well_id=?",Integer.class,parentBore,well)!=1)throw new IllegalArgumentException("父井眼必须属于同一口井");
-      db.update("INSERT INTO drilling_wellbore(well_id,parent_wellbore_id,wellbore_code,wellbore_name,engineering_status) VALUES(?,?,?,?,'UNKNOWN')",well,parentBore,code,name);
+      db.update("INSERT INTO drilling_wellbore(well_id,parent_wellbore_id,wellbore_code,wellbore_name,engineering_status) VALUES(?,?,?,?,?)",well,parentBore,code,name,boreStatus);
       bore=db.queryForObject("SELECT wellbore_id FROM drilling_wellbore WHERE well_id=? AND wellbore_code=?",Long.class,well,code);
       db.update("INSERT IGNORE INTO drilling_field_wellbore(field_id,wellbore_id) VALUES(?,?)",fieldId,bore);
     }else if(parent!=null){well=id(parent.get("well_id"));bore=id(parent.get("wellbore_id"));}
     String key=NativeEngineSupport.hash(fieldId+":"+storedParent+":"+type+":"+code);
-    db.update("INSERT INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)",key,fieldId,storedParent,type,name,code,well,bore,str(b,"entityKind","UNKNOWN"),JSON.toJSONString(obj(b.get("properties"))),ShiroUtils.getLoginName());
+    db.update("INSERT INTO drilling_engineering_node(node_key,field_id,parent_id,node_type,node_name,node_code,well_id,wellbore_id,entity_kind,properties_json,create_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)",key,fieldId,storedParent,type,name,code,well,bore,str(b,"entityKind","WELL".equals(type)?"WELL":"UNKNOWN"),JSON.toJSONString(obj(b.get("properties"))),ShiroUtils.getLoginName());
     Long result=db.queryForObject("SELECT node_id FROM drilling_engineering_node WHERE node_key=?",Long.class,key);audit(fieldId,"CREATE_ENGINEERING_NODE",Map.of("nodeId",result,"request",b));return node(result,false);
   }
   @Transactional public Map<String,Object> updateNode(Long nodeId,Map<String,Object>b){
     var old=node(nodeId,true);db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE node_id=? FOR UPDATE",nodeId);
-    Long parent=b.containsKey("parentId")?id(b.get("parentId")):id(old.get("parent_id"));
-    if(parent!=null){
-      var p=node(parent,true);if(!Objects.equals(p.get("field_id"),old.get("field_id")))throw new IllegalArgumentException("跨权限工程请使用资料引用，不能直接移动");
-      Long cursor=parent;Set<Long> visited=new HashSet<>();
-      while(cursor!=null){if(cursor.equals(nodeId)||!visited.add(cursor))throw new IllegalArgumentException("不能移入自身或子节点");cursor=id(node(cursor,false).get("parent_id"));}
-      String expected=Map.of("WELL","FIELD","WELLBORE","WELL","PLAN","WELLBORE","SURVEY","WELLBORE").get(old.get("node_type"));
-      if(!Objects.equals(expected,p.get("node_type")))throw new IllegalArgumentException("目标层级不匹配");
-    }else if(!Set.of("INBOX").contains(old.get("node_type")))throw new IllegalArgumentException("该节点必须保留所属工程层级");
+    old=node(nodeId,true);
+    Long fieldId=id(old.get("field_id"));
+    Long requestedParent=b.containsKey("parentId")?id(b.get("parentId")):id(old.get("parent_id"));
+    // Wells are stored at the field root (NULL parent_id). The tree uses a
+    // synthetic field id; both forms represent the same, valid ownership.
+    if(requestedParent==null&&Set.of("WELL","INBOX").contains(old.get("node_type")))requestedParent=scopeId(FIELD_SCOPE,fieldId);
+    var parentNode=requestedParent==null?null:nodeInField(fieldId,requestedParent,true);
+    Long parent=EngineeringNodeHierarchy.updateParent(old,parentNode);
+    String name=b.containsKey("name")?required(b,"name",255):old.get("node_name").toString();
+    String status=str(b,"status",old.get("status").toString());
+    if(!Set.of("ACTIVE","ARCHIVED").contains(status))throw new IllegalArgumentException("资料状态无效");
+    if(id(b.get("expectedVersion"))==null)throw new IllegalArgumentException("请刷新后重新保存");
+    if(Boolean.TRUE.equals(obj(old.get("properties_json")).get("reference_only")))throw new IllegalArgumentException("请在所属井场编辑该井眼");
+    String boreStatus=EngineeringNodeHierarchy.engineeringStatus(b.get("engineeringStatus"),Objects.toString(old.get("engineering_status"),"UNKNOWN"));
+    if(b.containsKey("engineeringStatus")&&!"WELLBORE".equals(old.get("node_type")))throw new IllegalArgumentException("仅井眼可以设置施工状态");
     if("ARCHIVED".equals(b.get("status"))&&db.queryForObject("SELECT COUNT(*) FROM drilling_engineering_node WHERE parent_id=? AND status='ACTIVE'",Integer.class,nodeId)>0)throw new IllegalArgumentException("请先归档下级节点");
     var props=obj(old.get("properties_json"));props.putAll(obj(b.get("properties")));
-    int changed=db.update("UPDATE drilling_engineering_node SET parent_id=?,node_name=?,properties_json=?,status=?,row_version=row_version+1,update_time=NOW() WHERE node_id=? AND row_version=?",parent,str(b,"name",old.get("node_name").toString()),JSON.toJSONString(props),str(b,"status",old.get("status").toString()),nodeId,id(b.get("expectedVersion")));
+    int changed=db.update("UPDATE drilling_engineering_node SET parent_id=?,node_name=?,properties_json=?,status=?,row_version=row_version+1,update_time=NOW() WHERE node_id=? AND row_version=?",parent,name,JSON.toJSONString(props),status,nodeId,id(b.get("expectedVersion")));
     if(changed!=1)throw new ResponseStatusException(HttpStatus.CONFLICT,"节点已被他人修改，请刷新");
     if("WELL".equals(old.get("node_type"))){
       Long owner=db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,old.get("well_id"));access(owner,true);
-      db.update("UPDATE drilling_well SET well_name=?,update_time=NOW() WHERE well_id=?",str(b,"name",old.get("node_name").toString()),old.get("well_id"));
+      db.update("UPDATE drilling_well SET well_name=?,update_time=NOW() WHERE well_id=?",name,old.get("well_id"));
     }else if("WELLBORE".equals(old.get("node_type"))){
       Long owner=db.queryForObject("SELECT w.field_id FROM drilling_well w JOIN drilling_wellbore wb ON wb.well_id=w.well_id WHERE wb.wellbore_id=?",Long.class,old.get("wellbore_id"));access(owner,true);
-      db.update("UPDATE drilling_wellbore SET wellbore_name=?,update_time=NOW() WHERE wellbore_id=?",str(b,"name",old.get("node_name").toString()),old.get("wellbore_id"));
+      db.update("UPDATE drilling_wellbore SET wellbore_name=?,engineering_status=?,update_time=NOW() WHERE wellbore_id=?",name,boreStatus,old.get("wellbore_id"));
     }
     audit(id(old.get("field_id")),"UPDATE_ENGINEERING_NODE",Map.of("before",old,"request",b));return node(nodeId,false);
   }
@@ -503,6 +533,7 @@ public class EngineeringLibraryService {
   }
   @Transactional public Map<String,Object> attachFile(Long nodeId,Long sourceId,Map<String,Object>b){
     var n=node(nodeId,true);Long p=id(n.get("field_id"));
+    if(!"ACTIVE".equals(n.get("status"))||Boolean.TRUE.equals(obj(n.getOrDefault("properties",n.get("properties_json"))).get("reference_only")))throw new IllegalArgumentException("请在所属井场选择可编辑的资料目录");
     var sources=db.queryForList("SELECT s.*,f.original_name,f.display_name,f.sha256 FROM drilling_source_document s JOIN data_file f ON f.file_id=s.file_id WHERE s.source_id=?",sourceId);
     if(sources.isEmpty())throw new IllegalArgumentException("来源文件不存在");var s=sources.get(0);access(id(s.get("field_id")),false);
     // Linking an accessible original is read-only with respect to its owner;
@@ -515,10 +546,7 @@ public class EngineeringLibraryService {
       if("PLAN".equals(n.get("node_type")))trajectoryKind="DESIGN";
       if("SURVEY".equals(n.get("node_type")))trajectoryKind="ACTUAL";
     }
-    if(!trajectoryKind.isBlank()){
-      if(!Set.of("DESIGN","ACTUAL").contains(trajectoryKind)||n.get("wellbore_id")==null)throw new IllegalArgumentException("轨迹用途必须对应具体井眼的设计或实钻资料");
-      if("PLAN".equals(n.get("node_type"))&&!"DESIGN".equals(trajectoryKind)||"SURVEY".equals(n.get("node_type"))&&!"ACTUAL".equals(trajectoryKind))throw new IllegalArgumentException("文件用途与成果节点不一致");
-    }
+    validateFileUsage(n,role,trajectoryKind);
     Long rid=id(b.get("revisionId"));
     if(rid!=null&&!nodeId.equals(id(revision(rid,true).get("node_id"))))throw new IllegalArgumentException("文件版本与所选成果不属于同一节点");
     String title=str(b,"title",s.get("original_name").toString());if(title.length()>255)throw new IllegalArgumentException("资料名称过长");

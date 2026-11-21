@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.*;
 @Service
 public class CenterTaskSnapshots {
   private final JdbcTemplate jdbc;
+  @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.EngineeringConfigService engineeringConfigs;
 
   public CenterTaskSnapshots(BusinessCenterSupport s) {
     jdbc = s.jdbc;
@@ -35,6 +36,7 @@ public class CenterTaskSnapshots {
             fieldId);
     Object well = input.getOrDefault("reference_well_id", input.get("well_id"));
     GeneratedKeyHolder key = new GeneratedKeyHolder();
+    Map<String, Object> auditInput = auditInput(type, input);
     jdbc.update(
         c -> {
           PreparedStatement ps =
@@ -46,8 +48,8 @@ public class CenterTaskSnapshots {
           ps.setObject(1, fieldId);
           ps.setObject(2, well);
           ps.setString(3, type);
-          ps.setString(4, JSON.toJSONString(input));
-          ps.setString(5, JSON.toJSONString(configs.isEmpty() ? null : configs.get(0)));
+          ps.setString(4, JSON.toJSONString(auditInput));
+          ps.setString(5, JSON.toJSONString(configs.isEmpty() ? null : engineeringConfigs.effective(configs.get(0))));
           ps.setString(6, ShiroUtils.getLoginName());
           return ps;
         },
@@ -92,7 +94,7 @@ public class CenterTaskSnapshots {
         source,
         fieldId,
         input,
-        configs.isEmpty() ? null : configs.get(0),
+        configs.isEmpty() ? null : engineeringConfigs.effective(configs.get(0)),
         new Timestamp(System.currentTimeMillis()));
   }
 
@@ -105,8 +107,42 @@ public class CenterTaskSnapshots {
         type,
         source,
         fieldId,
-        JSON.toJSONString(input),
+        JSON.toJSONString(input instanceof Map<?, ?> map
+            ? auditInput(type, (Map<String, Object>) map) : input),
         JSON.toJSONString(config),
         started);
+  }
+
+  /**
+   * Keep task history reproducible without duplicating the complete geometry
+   * payload. Immutable trajectory versions and their station tables are the
+   * source of truth; the center record only needs the selected version IDs,
+   * configuration and operator inputs. This keeps the synchronous database
+   * commit bounded when a real-time request contains nine neighbor tracks.
+   */
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> auditInput(String type, Map<String, Object> input) {
+    if (!"REPLANNING".equalsIgnoreCase(type) || input == null) return input;
+    Map<String, Object> out = new LinkedHashMap<>();
+    for (var entry : input.entrySet()) {
+      String key = entry.getKey();
+      if (Set.of("history", "obstacles", "neighbors", "reference", "neighbor").contains(key)) continue;
+      if ("input_versions".equals(key) && entry.getValue() instanceof List<?> versions) {
+        List<Map<String, Object>> compact = new ArrayList<>();
+        for (Object item : versions) {
+          if (!(item instanceof Map<?, ?> row)) continue;
+          Map<String, Object> v = new LinkedHashMap<>();
+          for (String field : List.of("role", "wellbore_id", "survey_version_id", "trajectory_kind", "uncertainty")) {
+            if (row.get(field) != null) v.put(field, row.get(field));
+          }
+          compact.add(v);
+        }
+        out.put(key, compact);
+      } else {
+        out.put(key, entry.getValue());
+      }
+    }
+    out.put("snapshot_kind", "VERSION_REFERENCES");
+    return out;
   }
 }

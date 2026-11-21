@@ -31,6 +31,25 @@ def digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
+def case_reference(letter, rows):
+    if letter not in 'ABC' or len(letter) != 1:
+        raise ValueError('Unknown test case')
+    return dict(crs='', coordinate_system='LOCAL_ENU', local_frame_id=f'TEST_CASE_{letter}',
+                depth_datum='测试统一深度基准', depth_datum_elevation_m=0,
+                north_reference='GRID_NORTH', length_unit='m', angle_unit='deg', reference_status='READY',
+                origin_north=rows[0]['north'], origin_east=rows[0]['east'], origin_tvd=rows[0]['tvd'])
+
+
+def matches_stored_case(stored, source):
+    # MySQL stores all six station fields to six decimal places. Legacy
+    # source CSVs used that same precision, so their byte hashes differ from
+    # the supplied full-precision CSV even when their geometry is identical.
+    keys = ('md', 'inclination', 'azimuth', 'north', 'east', 'tvd')
+    return bool(stored) and len(stored) == len(source) and all(
+        abs(float(a[k]) - float(b[k])) <= 5.001e-7
+        for a, b in zip(stored, source) for k in keys)
+
+
 def load_case(letter):
     root = CASES / f'scene_{letter}'
     problem = json.loads((root / 'problem.json').read_text())
@@ -96,6 +115,22 @@ def import_cases(db, profile):
         rows = query(f"SELECT {id_column} FROM {table} WHERE " + ' AND '.join(f'{k}=%s' for k in key), tuple(key.values()))
         return rows[0][id_column] if rows else insert(table, {**key, **values})
 
+    def tag_local_frame(version, ref):
+        with db.cursor() as c:
+            c.execute("""UPDATE drilling_trajectory_version SET reference_json=JSON_SET(reference_json,
+                '$.coordinate_system','LOCAL_ENU','$.local_frame_id',%s)
+                WHERE survey_version_id=%s AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reference_json,'$.crs')),'')=''
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reference_json,'$.coordinate_system')),'LOCAL_ENU')='LOCAL_ENU'
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(reference_json,'$.local_frame_id')),%s)=%s""",
+                (ref['local_frame_id'],version,ref['local_frame_id'],ref['local_frame_id']))
+            c.execute("""UPDATE drilling_source_extraction SET payload_json=JSON_SET(payload_json,
+                '$.reference.coordinate_system','LOCAL_ENU','$.reference.local_frame_id',%s)
+                WHERE survey_version_id=%s AND locator='CSV'
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.reference.crs')),'')=''
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.reference.coordinate_system')),'LOCAL_ENU')='LOCAL_ENU'
+                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(payload_json,'$.reference.local_frame_id')),%s)=%s""",
+                (ref['local_frame_id'],version,ref['local_frame_id'],ref['local_frame_id']))
+
     summaries = []
     block = ensure('drilling_block', {'block_code': 'TEST-CASES'}, {'block_name': '测试区块', 'create_by': 'system-test'}, 'block_id')
     for letter in 'ABC':
@@ -148,14 +183,13 @@ def import_cases(db, profile):
                 ensure('drilling_source_review', {'source_id': source}, dict(field_id=field, status='CONFIRMED',
                     proposed_json='{}', confirmed_json=js({'test_case': letter}), reviewed_by='system-test',
                     review_note='用户确认的算法测试数据'), 'review_id')
-                ref = dict(crs='', depth_datum='测试统一深度基准', depth_datum_elevation_m=0,
-                    north_reference='GRID_NORTH', length_unit='m', angle_unit='deg', reference_status='READY',
-                    origin_north=rows[0]['north'], origin_east=rows[0]['east'], origin_tvd=rows[0]['tvd'])
+                ref = case_reference(letter, rows)
                 existing = query('SELECT survey_version_id FROM drilling_trajectory_version WHERE wellbore_id=%s AND trajectory_kind=%s AND content_sha256=%s', (bore, kind, sha))
                 if existing:
                     version = existing[0]['survey_version_id']
                     with db.cursor() as c:
                         c.execute("UPDATE drilling_trajectory_version SET reference_json=JSON_SET(reference_json,'$.reference_status','READY') WHERE survey_version_id=%s AND JSON_UNQUOTE(JSON_EXTRACT(reference_json,'$.reference_status'))='CONFIRMED'", (version,))
+                    tag_local_frame(version, ref)
                 else:
                     query('SELECT well_id FROM drilling_well WHERE well_id=%s FOR UPDATE',(well,))
                     no = (query('SELECT version_no AS n FROM drilling_survey_version WHERE well_id=%s ORDER BY version_no DESC LIMIT 1 FOR UPDATE',(well,)) or [{'n':0}])[0]['n']+1
@@ -170,18 +204,34 @@ def import_cases(db, profile):
                         trajectory_version_no=(query('SELECT trajectory_version_no AS n FROM drilling_trajectory_version WHERE wellbore_id=%s AND trajectory_kind=%s ORDER BY trajectory_version_no DESC LIMIT 1 FOR UPDATE',(bore,kind)) or [{'n':0}])[0]['n']+1, content_sha256=sha, source_locator='CSV', reference_json=js(ref), quality_status='READY', label=name))
                     insert('drilling_trajectory_revision', dict(survey_version_id=version, revision_type='FULL', changed_to_md=rows[-1]['md']))
                 ensure('drilling_trajectory_head', {'wellbore_id': bore, 'trajectory_kind': kind}, {'survey_version_id': version}, 'survey_version_id')
+                # Preserve an active legacy version instead of activating a
+                # newer seed solely because CSV precision changed. Only name
+                # its frame after checking source provenance and every point.
+                legacy = query("""SELECT t.survey_version_id FROM drilling_trajectory_head h
+                    JOIN drilling_trajectory_version t ON t.survey_version_id=h.survey_version_id
+                    JOIN drilling_survey_version sv ON sv.survey_version_id=t.survey_version_id
+                    JOIN drilling_source_document sd ON sd.file_id=sv.source_file_id
+                    WHERE h.wellbore_id=%s AND h.trajectory_kind=%s AND t.survey_version_id<>%s
+                    AND JSON_UNQUOTE(JSON_EXTRACT(sd.metadata_json,'$.test_case'))=%s
+                    AND JSON_UNQUOTE(JSON_EXTRACT(sd.metadata_json,'$.trajectory_kind'))=%s
+                    AND JSON_EXTRACT(t.reference_json,'$.local_frame_id') IS NULL""", (bore,kind,version,letter,kind))
+                for active in legacy:
+                    active_id = active['survey_version_id']
+                    stored = query('SELECT md,inclination,azimuth,north,east,tvd FROM drilling_survey_station WHERE survey_version_id=%s ORDER BY md', (active_id,))
+                    if matches_stored_case(stored, rows):
+                        tag_local_frame(active_id, ref)
                 extraction_payload = js({'kind': kind, 'locator': 'CSV', 'label': name,
                     'headers': list(track['raw'][0]), 'reference': ref,
                     'rows': [{**row, 'source_row': i + 2, 'raw_cells': list(raw.values())}
                              for i, (row, raw) in enumerate(zip(rows, track['raw']))],
                     'mapping': {'md':1,'inclination':2,'azimuth':3,'north':4,'east':5,'tvd':6},
-                    'test_seed_schema': 2})
+                    'test_seed_schema': 3})
                 ensure('drilling_source_extraction', {'source_id': source, 'locator': 'CSV'}, dict(payload_json=extraction_payload,
                     import_status='IMPORTED', survey_version_id=version), 'extraction_id')
                 # Keep immutable source-table locators compatible with the ordinary
                 # preview and format-preserving export adapters.
                 with db.cursor() as c:
-                    c.execute("UPDATE drilling_source_extraction SET payload_json=%s WHERE source_id=%s AND locator='CSV' AND COALESCE(JSON_EXTRACT(payload_json,'$.test_seed_schema'),0)<2", (extraction_payload, source))
+                    c.execute("UPDATE drilling_source_extraction SET payload_json=%s WHERE source_id=%s AND locator='CSV' AND COALESCE(JSON_EXTRACT(payload_json,'$.test_seed_schema'),0)<3", (extraction_payload, source))
                 node = ensure('drilling_engineering_node', {'node_key': digest(f'TEST:{letter}:{number}:{kind}'.encode())},
                     dict(field_id=field, parent_id=parent, node_type='SURVEY' if kind=='ACTUAL' else 'PLAN',
                          node_name='实钻测斜' if kind=='ACTUAL' else '设计轨道', well_id=well, wellbore_id=bore, entity_kind='WELL'), 'node_id')

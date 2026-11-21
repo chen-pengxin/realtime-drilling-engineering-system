@@ -5,7 +5,7 @@
       <el-select v-if="manifest.versions?.length" v-model="parseId" aria-label="解析版次" style="width:270px" @change="loadManifest">
         <el-option v-for="v in manifest.versions" :key="v.parse_id" :value="Number(v.parse_id)" :label="`${v.parser_version} · ${String(v.create_time).replace('T',' ')}`" />
       </el-select>
-      <el-button v-hasPermi="['drilling:well:survey:import']" icon="Refresh" :loading="parsing" :disabled="loading" @click="reparse">重新解析</el-button>
+      <el-button v-if="!readOnly" v-hasPermi="['drilling:well:survey:import']" icon="Refresh" :loading="parsing" :disabled="loading" @click="reparse">重新解析</el-button>
     </div>
     <div v-loading="loading" class="document-workspace">
       <aside class="document-directory">
@@ -67,6 +67,7 @@ import { ElMessage } from 'element-plus'
 const props=defineProps({fieldId:Number}),emit=defineEmits(['parsed'])
 const visible=ref(false),source=ref(),manifest=ref({}),section=ref(),parseId=ref(),sectionId=ref(),loading=ref(false),sectionLoading=ref(false),parsing=ref(false),error=ref('')
 const directoryQuery=ref(''),keyword=ref(''),pageNum=ref(1),pageSize=ref(50),assetUrl=ref(''),assetType=ref(''),assetLoading=ref(false),pageVisible=ref(false),pageUrl=ref(''),pageLoading=ref(false)
+const readOnly=ref(false)
 let generation=0,sectionGeneration=0
 const base=computed(()=>source.value?.reference_id?`/api/drilling/reference-materials/${source.value.reference_id}`:`/api/drilling/fields/${Number(source.value?.source_field_id||source.value?.field_id)||props.fieldId}/registry/sources/${source.value?.source_id}`)
 const directory=computed(()=>['TABLE','TEXT','FIGURE'].map(type=>({id:type,label:{TABLE:'表格与工作表',TEXT:'正文',FIGURE:'插图与图表'}[type],children:(manifest.value.sections||[]).filter(s=>(type==='FIGURE'?['FIGURE','CHART'].includes(s.content_type):s.content_type===type)&&(!directoryQuery.value||s.title.toLowerCase().includes(directoryQuery.value.toLowerCase()))).map(s=>({id:Number(s.section_id),label:s.title,section:s}))})).filter(g=>g.children.length))
@@ -85,7 +86,7 @@ function clearAsset(){if(assetUrl.value)URL.revokeObjectURL(assetUrl.value);asse
 function clearPage(){if(pageUrl.value)URL.revokeObjectURL(pageUrl.value);pageUrl.value=''}
 function close(){generation++;sectionGeneration++;clearAsset();clearPage();section.value=undefined}
 async function fetchManifest(id){return request({url:base.value+'/content',params:id?{parseId:id}:{}})}
-async function show(row){close();source.value=row;manifest.value={};parseId.value=undefined;sectionId.value=undefined;directoryQuery.value='';keyword.value='';visible.value=true;await loadManifest()}
+async function show(row,options={}){close();readOnly.value=!!options.readOnly;source.value=row;manifest.value={};parseId.value=undefined;sectionId.value=undefined;directoryQuery.value='';keyword.value='';visible.value=true;await loadManifest()}
 async function showReference(row){await show({...row,reference_id:row.reference_id})}
 async function loadManifest(){const ticket=++generation;loading.value=true;error.value='';try{const result=await fetchManifest(parseId.value);if(ticket!==generation)return;manifest.value=result;parseId.value=Number(result.parse_id);const first=result.sections?.find(s=>Number(s.section_id)===sectionId.value)||result.sections?.find(s=>s.content_type==='TABLE')||result.sections?.[0];if(first)await selectSection({section:first})}catch(e){if(ticket===generation)error.value=e.message||'文档内容读取失败'}finally{if(ticket===generation)loading.value=false}}
 async function selectSection(node){if(!node.section)return;sectionId.value=Number(node.section.section_id);pageNum.value=1;keyword.value='';await loadSection()}
@@ -93,7 +94,7 @@ async function searchRows(){pageNum.value=1;await loadSection()}
 async function loadSection(){if(!sectionId.value)return;const ticket=++sectionGeneration;sectionLoading.value=true;error.value='';clearAsset();try{const result=await request({url:`${base.value}/content/${sectionId.value}`,params:{parseId:parseId.value,pageNum:pageNum.value,pageSize:pageSize.value,keyword:keyword.value}});if(ticket!==sectionGeneration)return;section.value=result;if(['FIGURE','CHART'].includes(result.type))await loadAsset(ticket)}catch(e){if(ticket===sectionGeneration)error.value=e.message||'章节读取失败'}finally{if(ticket===sectionGeneration)sectionLoading.value=false}}
 async function loadAsset(ticket){assetLoading.value=true;try{const blob=await request({url:`${base.value}/content/${sectionId.value}/asset`,params:{parseId:parseId.value},responseType:'blob',timeout:240000});if(ticket!==sectionGeneration)return;assetUrl.value=URL.createObjectURL(blob);assetType.value=blob.type}catch(e){if(ticket===sectionGeneration)error.value=e.message||'原图读取失败'}finally{if(ticket===sectionGeneration)assetLoading.value=false}}
 async function showPage(){clearPage();pageVisible.value=true;pageLoading.value=true;try{const blob=await request({url:`${base.value}/content/${sectionId.value}/asset`,params:{parseId:parseId.value},responseType:'blob',timeout:240000});if(pageVisible.value)pageUrl.value=URL.createObjectURL(blob)}catch(e){ElMessage.error(e.message||'原页读取失败')}finally{pageLoading.value=false}}
-async function reparse(){parsing.value=true;error.value='';try{const result=await request({url:base.value+'/reparse',method:'post',data:{},timeout:600000});manifest.value=result;parseId.value=Number(result.parse_id);await loadManifest();emit('parsed',source.value);ElMessage.success('文档内容已保存')}catch(e){error.value=e.message||'文档解析失败'}finally{parsing.value=false}}
+async function reparse(){if(readOnly.value)return;parsing.value=true;error.value='';try{const result=await request({url:base.value+'/reparse',method:'post',data:{},timeout:600000});manifest.value=result;parseId.value=Number(result.parse_id);await loadManifest();emit('parsed',source.value);ElMessage.success('文档内容已保存')}catch(e){error.value=e.message||'文档解析失败'}finally{parsing.value=false}}
 defineExpose({show,showReference})
 </script>
 

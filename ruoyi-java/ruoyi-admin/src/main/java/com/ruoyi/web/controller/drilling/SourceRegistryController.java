@@ -138,6 +138,9 @@ public class SourceRegistryController {
   static String referenceStatus(Map<String, Object> ref, List<Map<String, Object>> stations) {
     boolean coordinate = ref.get("origin_north") != null && ref.get("origin_east") != null;
     boolean crs = ref.get("crs") != null && !Objects.toString(ref.get("crs"), "").isBlank();
+    boolean confirmedLocal = !Objects.toString(ref.get("local_frame_id"), "").isBlank()
+        && "LOCAL_ENU".equals(ref.get("coordinate_system"))
+        && Set.of("READY","CONFIRMED").contains(Objects.toString(ref.get("reference_status"), ""));
     boolean vertical = ref.get("depth_datum_elevation_m") != null
         && !Objects.toString(ref.get("depth_datum"), "").isBlank();
     boolean validSurvey = stations != null && stations.size() >= 2;
@@ -166,7 +169,7 @@ public class SourceRegistryController {
       }
     }
     if (!coordinate) return "COORDINATE_MISSING";
-    if (!crs) return ref.get("coordinate_datum_name") != null
+    if (!crs && !confirmedLocal) return ref.get("coordinate_datum_name") != null
         ? "DATUM_NAMED_PROJECTION_REQUIRED" : "COORDINATE_REFERENCE_UNCONFIRMED";
     if (!vertical) return "VERTICAL_DATUM_UNCONFIRMED";
     if (!validSurvey) return "SURVEY_HISTORY_INVALID";
@@ -208,7 +211,7 @@ public class SourceRegistryController {
         SELECT b.*,w.well_id,w.well_code,w.well_name,w.wellhead_n,w.wellhead_e,w.wellhead_tvd,x.purpose,
         a.survey_version_id AS actual_version_id,d.survey_version_id AS design_version_id,
         av.quality_status AS actual_quality_status,dv.quality_status AS design_quality_status,
-        f.field_id,f.field_name,k.block_id,k.block_name
+        f.field_id,f.field_name,k.block_id,k.block_name,w.field_id AS owner_field_id,x.field_id AS context_field_id
         FROM drilling_field_wellbore x JOIN drilling_wellbore b ON b.wellbore_id=x.wellbore_id JOIN drilling_well w ON w.well_id=b.well_id
         LEFT JOIN drilling_well_catalog c ON c.well_id=w.well_id LEFT JOIN drilling_field f ON f.field_id=c.field_id LEFT JOIN drilling_block k ON k.block_id=f.block_id
         LEFT JOIN drilling_trajectory_head a ON a.wellbore_id=b.wellbore_id AND a.trajectory_kind='ACTUAL'
@@ -1269,6 +1272,7 @@ public class SourceRegistryController {
     if(Objects.toString(obj(ref.get("survey_tool")).get("name"),"").isBlank())throw new IllegalArgumentException("请填写本版本的测斜工具名称");
     if(!Boolean.TRUE.equals(profile.get("confirmed")) || profile.get("settings")==null || profile.get("model_version")==null)
       throw new IllegalArgumentException("请在导入窗口核对并确认本版本的坐标、测斜工具及误差参数");
+    SurveyVersionMetadata.requireCommonModel(profile,DrillingAlgorithmDefaults.merged(engine.config(fieldId).get("algorithm_defaults_json")));
     profile.put("confirmed_by",ShiroUtils.getLoginName());
     profile.put("confirmed_at",java.time.Instant.now().toString());
     ref.put("uncertainty",profile);
@@ -1469,6 +1473,7 @@ public class SourceRegistryController {
     var profile=obj(body.get("uncertainty"));
     if(!Boolean.TRUE.equals(profile.get("confirmed")))throw new IllegalArgumentException("请核对并确认本版本全井段的测斜工具及误差参数");
     var defaults=DrillingAlgorithmDefaults.merged(engine.config(fieldId).get("algorithm_defaults_json"));
+    SurveyVersionMetadata.requireCommonModel(profile,defaults);
     var ref=obj(original.get("reference"));ref.put("survey_tool",tool);ref.put("uncertainty",profile);
     var effective=SurveyVersionMetadata.uncertainty(ref,defaults);
     var model=new LinkedHashMap<String,Object>(NativeEngineSupport.modelPayload(defaults));
@@ -1641,6 +1646,9 @@ public class SourceRegistryController {
           LEFT JOIN available pv ON pv.survey_version_id=n.pinned_version_id
           WHERE x.field_id=? AND b.wellbore_id<>? AND w.status<>'ARCHIVED'
             AND LEFT(w.well_code,17)<>'__ARCHIVED_ALIAS_' AND b.engineering_status<>'ABANDONED'
+            AND NOT EXISTS(SELECT 1 FROM drilling_engineering_node en WHERE en.field_id=w.field_id
+              AND en.well_id=w.well_id AND en.node_type='WELL'
+              AND en.entity_kind='PLANNED_RELIEF' AND en.status='ACTIVE')
         )
         SELECT c.*,v.trajectory_kind,v.version_no,v.quality_status,v.source_review_status
         FROM selected c JOIN available v ON v.survey_version_id=c.survey_version_id
@@ -1657,29 +1665,47 @@ public class SourceRegistryController {
     // Discover against the entire known drilling corridor (actual plus its design continuation).
     // Each neighbor still contributes exactly one actual-preferred trajectory, never both versions.
     Double[] refBounds = null;
-    for (var head : heads) refBounds = union(refBounds,bounds(fieldId,id(head.get("survey_version_id")),target));
-    double margin = Double.parseDouble(Objects.toString(defaults.getOrDefault("neighborSearchMarginM",500),"500"));
-    if (!Double.isFinite(margin) || margin<0) throw new IllegalArgumentException("邻井搜索外扩距离必须为非负有限数");
+    for (var head : heads) {
+      Long headId=id(head.get("survey_version_id"));
+      var headVersion=trajectoryInputs.version(fieldId,headId);
+      if(TrajectoryReferenceFrames.incompatibility(obj(headVersion.get("reference")),target)==null)
+        refBounds=union(refBounds,bounds(fieldId,headId,target));
+    }
+    double margin = NeighborSelectionPolicy.automaticMargin(defaults);
+    double radius = NeighborSelectionPolicy.manualRadius(defaults);
     List<Map<String,Object>> filtered = new ArrayList<>();
     for (var row : rows) {
       Long selectedVersion = id(row.get("survey_version_id"));
       boolean explicit = row.get("selection_included") != null;
-      Double[] candidateBounds = bounds(fieldId,selectedVersion,target);
-      boolean auto = refBounds != null && candidateBounds != null
-          && candidateBounds[0] <= refBounds[1] + margin && candidateBounds[1] >= refBounds[0] - margin
-          && candidateBounds[2] <= refBounds[3] + margin && candidateBounds[3] >= refBounds[2] - margin;
-      if (!auto && !explicit) continue;
       boolean manuallyIncluded = Boolean.TRUE.equals(row.get("selection_included"))
           || "1".equals(Objects.toString(row.get("selection_included"), ""))
           || row.get("selection_included") instanceof Number n && n.intValue() != 0;
+      var candidateVersion=trajectoryInputs.version(fieldId,selectedVersion);
+      String frameIssue=TrajectoryReferenceFrames.incompatibility(obj(candidateVersion.get("reference")),target);
+      if(frameIssue!=null){
+        row.put("coordinate_compatible",false);row.put("evaluation_message",frameIssue);
+        row.put("requested_included",explicit&&manuallyIncluded);
+        row.put("usable",false);row.put("included",false);row.put("auto_candidate",false);
+        row.put("relationship_confirmed",explicit);row.put("relationship_source",explicit?"MANUAL":"AVAILABLE");
+        row.put("within_search_range",false);row.put("manual_search_radius_m",radius);
+        row.remove("selection_included");filtered.add(row);continue;
+      }
+      row.put("coordinate_compatible",true);
+      Double[] candidateBounds = bounds(fieldId,selectedVersion,target);
       boolean usable = "READY".equals(Objects.toString(row.get("quality_status"), ""))
           && "CONFIRMED".equals(Objects.toString(row.get("source_review_status"), ""));
-      row.put("usable", usable);
-      row.put("included", explicit && manuallyIncluded && usable);
-      row.put("auto_candidate", auto);
-      row.put("relationship_confirmed", explicit);
-      row.put("candidate_rule", "全井连续最小曲率轨迹水平闭包盒，外扩"+margin+" m；候选关系须人工确认");
+      var decision = NeighborSelectionPolicy.evaluate(refBounds, candidateBounds, margin, radius,
+          explicit ? manuallyIncluded : null, usable);
+      if (!decision.visible()) continue;
+      row.put("usable", usable && decision.inRange());
+      row.put("included", decision.included());
+      row.put("auto_candidate", decision.automatic());
+      row.put("relationship_confirmed", decision.confirmed());
+      row.put("relationship_source", explicit ? "MANUAL" : decision.automatic() ? "AUTO" : "AVAILABLE");
+      row.put("within_search_range", decision.inRange());
+      row.put("horizontal_box_distance_m", decision.distance());
       row.put("candidate_search_radius_m", margin);
+      row.put("manual_search_radius_m", radius);
       row.remove("selection_included");
       filtered.add(row);
     }
@@ -1727,10 +1753,18 @@ public class SourceRegistryController {
     write(fieldId);
     bore(fieldId, wellboreId);
     if (rows.size() > 200) throw new IllegalArgumentException("最多200个邻井井眼");
+    // Use the same geometric/range policy on writes; a crafted request cannot
+    // select a trajectory that the neighbour tree does not permit.
+    var allowed = new HashMap<Long, Map<String, Object>>();
+    for (var neighbor : neighbors(fieldId, wellboreId))
+      allowed.put(id(neighbor.get("wellbore_id")), neighbor);
     for (var r : rows) {
       Long n = id(r.get("wellboreId"));
       bore(fieldId, n);
       if (n.equals(wellboreId)) throw new IllegalArgumentException("不能选择当前井眼");
+      boolean included = Boolean.TRUE.equals(r.get("included"));
+      if (included && (allowed.get(n) == null || !Boolean.TRUE.equals(allowed.get(n).get("usable"))))
+        throw new IllegalArgumentException("邻井超出搜索范围或没有可用轨迹版本");
       String policy = text(r, "versionPolicy", "CURRENT_ACTUAL");
       if(!Set.of("CURRENT_ACTUAL","CURRENT_DESIGN","PINNED").contains(policy))
         throw new IllegalArgumentException("无效邻井版本策略");
@@ -1746,6 +1780,20 @@ public class SourceRegistryController {
         if(hasActual && !"ACTUAL".equals(pv.get("trajectory_kind")))
           throw new IllegalArgumentException("邻井已有可用实钻轨迹，请选择实钻版本");
         if (!n.equals(id(pv.get("wellbore_id")))) throw new IllegalArgumentException("固定版本与邻井井眼不符");
+        if (included) {
+          var heads = db.queryForList("SELECT h.survey_version_id FROM drilling_trajectory_head h "
+              + "JOIN drilling_trajectory_version v ON v.survey_version_id=h.survey_version_id "
+              + "WHERE h.wellbore_id=? AND v.quality_status='READY' ORDER BY h.trajectory_kind", wellboreId);
+          if (heads.isEmpty()) throw new IllegalArgumentException("当前井眼没有可用轨迹版本");
+          var target = obj(trajectoryInputs.version(fieldId, id(heads.get(0).get("survey_version_id"))).get("reference"));
+          Double[] referenceBounds = null;
+          for (var head : heads) referenceBounds = union(referenceBounds, bounds(fieldId, id(head.get("survey_version_id")), target));
+          var defaults = DrillingAlgorithmDefaults.merged(engine.config(fieldId).get("algorithm_defaults_json"));
+          var pinnedRange = NeighborSelectionPolicy.evaluate(referenceBounds, bounds(fieldId, pinned, target),
+              NeighborSelectionPolicy.automaticMargin(defaults), NeighborSelectionPolicy.manualRadius(defaults), true,
+              "READY".equals(pv.get("quality_status")) && "CONFIRMED".equals(pv.get("source_review_status")));
+          if (!pinnedRange.included()) throw new IllegalArgumentException("所选历史版本超出搜索范围或不可用");
+        }
       } else pinned = null;
       db.update(
           "INSERT INTO"
@@ -1755,7 +1803,7 @@ public class SourceRegistryController {
           fieldId,
           wellboreId,
           n,
-          !Boolean.FALSE.equals(r.get("included")),
+          included,
           policy,
           pinned);
     }

@@ -30,6 +30,8 @@ def validate_settings(settings):
         import welleng as we
         from wellpath.anticollision.error_models.iscwsa.model import header
         header(settings)
+        from .tool_parameters import validate_overrides
+        validate_overrides(settings)
         if settings.get('error_model', 'ISCWSA MWD Rev5.11') not in we.error.get_error_models():
             raise ValueError('未知的ISCWSA测斜工具误差代码')
     elif kind == 'constant_covariance':

@@ -14,7 +14,8 @@ from app.adapters.source_documents import inspect_document
 from app.main import app
 from app.tasks.anticollision.evaluation import ErrorModelConfig, scan_pair, scan_network
 from app.tasks.anticollision.parameter_validation import validate_settings
-from app.tasks.replanning.execution import PlanningDeadline, _run_worker
+from app.tasks.replanning.execution import PlanningDeadline, _run_worker, execute_planning
+from app.schemas import PlanningInput
 from app.tasks.replanning.trajectory_planning import plan_trajectory, SteeringState, Target
 from app.shared.trajectory.min_curvature import compute_minimum_curvature, minimum_curvature_increment
 from app.shared.trajectory.revisions import preview_revision
@@ -62,11 +63,28 @@ def test_deadline_kills_worker_instead_of_abandoning_a_thread(tmp_path):
     with pytest.raises(ProcessLookupError):os.kill(pid,0)
 
 
+def test_execute_planning_returns_structured_timeout(monkeypatch):
+    def timeout(*args, **kwargs):
+        raise PlanningDeadline('再规划已达到 30 秒最大等待时间')
+    monkeypatch.setattr('app.tasks.replanning.execution._run_worker', timeout)
+    payload = PlanningInput(start_md=0, start_north=0, start_east=0, start_tvd=0,
+                            start_inclination=10, start_azimuth=0,
+                            target={'north': 0, 'east': 0, 'tvd': 10})
+    result = execute_planning(payload)
+    assert result['status'] == 'TIMEOUT'
+    assert result['solver_converged'] is False
+    assert result['feasible_solution'] is False
+    assert result['stop_reason'] == 'MAX_WAIT_SECONDS'
+    assert result['execution']['timeout_seconds'] == 30
+
+
 def test_real_worker_returns_a_validated_plan():
     point=minimum_curvature_increment(20,20,0,20,0)[0]
     result=_run_worker({'start_md':0,'start_north':0,'start_east':0,'start_tvd':0,'start_inclination':20,'start_azimuth':0,'target':dict(zip(('north','east','tvd'),point)),'native_options':{'trajectory_mode':'straight-arc','n_segments':1}},10)
     assert result['status']=='SUCCESS'
     assert result['solver_metadata']['actual_solver']=='SLSQP'
+    assert result['timing']['worker_json_serialization_seconds'] >= 0
+    assert result['timing']['input_preparation_seconds'] >= 0
 
 
 @pytest.mark.skipif(os.name!='posix',reason='POSIX spawn regression')

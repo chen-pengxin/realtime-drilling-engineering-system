@@ -327,30 +327,45 @@ public class AlgorithmGatewayController
                                        @RequestHeader(value = "Authorization", required = false) String authorization)
             throws IOException, InterruptedException
     {
+        long requestStarted = System.nanoTime();
         String path = request.getRequestURI().substring("/api/algorithm".length());
         if ("/anti-collision/scan".equals(path) || "/anti-collision/network-scan".equals(path)
                 || "/trajectory-plan/solve".equals(path))
         {
+            long gatewayValidationStarted = System.nanoTime();
             Map<String, Object> payload = parseJsonBody(body);
             if ("/anti-collision/scan".equals(path)) validateCollisionBinding(payload);
             else if ("/anti-collision/network-scan".equals(path)) validateCollisionNetworkBinding(payload);
             else validatePlanningBinding(payload);
+            long gatewayValidationFinished = System.nanoTime();
 
             // Persist exactly the fieldId-controlled settings sent to the
             // algorithm service, alongside its returned result.
-            byte[] effectiveBody = applyFieldAlgorithmConfiguration(path, "POST", body);
-            @SuppressWarnings("unchecked") Map<String, Object> effectivePayload = JSON.parseObject(effectiveBody, Map.class);
-            authorizePath(path, "POST", effectiveBody, null);
+            long gatewayConfigurationStarted = System.nanoTime();
+            // Reuse the already parsed request map. Large multi-neighbor
+            // payloads must not be parsed again for configuration and auth.
+            Map<String, Object> gatewayConfigurationTiming = new LinkedHashMap<>();
+            byte[] effectiveBody = applyFieldAlgorithmConfiguration(path, "POST", payload, gatewayConfigurationTiming);
+            Map<String, Object> effectivePayload = payload;
+            long gatewayConfigurationFinished = System.nanoTime();
+            long gatewayAuthorizationStarted = System.nanoTime();
+            authorizePath(path, "POST", effectivePayload, null);
+            long gatewayAuthorizationFinished = System.nanoTime();
             String centerType = path.startsWith("/anti-collision") ? "COLLISION" : "REPLANNING";
+            long gatewaySnapshotStarted = System.nanoTime();
             long executionId = centerSnapshots.start(centerType, effectivePayload);
+            long gatewaySnapshotFinished = System.nanoTime();
             effectivePayload.put("_center_execution_id", executionId);
+            long algorithmStarted = System.nanoTime();
             ResponseEntity<byte[]> response;
-            try { response = forward(request, "POST", effectiveBody, authorization, request.getContentType(), false); }
+            try { response = forward(request, "POST", effectiveBody, authorization, request.getContentType(), false, false); }
             catch (IOException | InterruptedException | RuntimeException ex) { centerSnapshots.fail(executionId, "算法调用失败: " + ex.getClass().getSimpleName()); throw ex; }
             if (!response.getStatusCode().is2xxSuccessful()) centerSnapshots.fail(executionId, "算法服务返回 HTTP " + response.getStatusCode().value());
             if (response.getStatusCode().is2xxSuccessful())
             {
                 Map<String, Object> result = parseJsonBody(response.getBody());
+                long algorithmReturned = System.nanoTime();
+                Map<String, Object> timingForResponse = null;
                 // Network/CPU waits must not hold a database transaction or
                 // connection. Only the short result commit is transactional.
                 try {
@@ -363,9 +378,60 @@ public class AlgorithmGatewayController
                     centerSnapshots.fail(executionId, "结果保存失败，输入快照已保留");
                     throw ex;
                 }
-                if ("/anti-collision/network-scan".equals(path))
+                if ("/trajectory-plan/solve".equals(path))
                 {
+                    @SuppressWarnings("unchecked")
+                    Map<String,Object> timing = result.get("timing") instanceof Map<?,?> existing
+                            ? (Map<String,Object>) existing : new LinkedHashMap<>();
+                    timing.put("gateway_preparation_seconds", (algorithmStarted-requestStarted)/1_000_000_000.0);
+                    timing.put("gateway_validation_seconds", (gatewayValidationFinished-gatewayValidationStarted)/1_000_000_000.0);
+                    timing.put("gateway_configuration_seconds", (gatewayConfigurationFinished-gatewayConfigurationStarted)/1_000_000_000.0);
+                    timing.put("gateway_configuration_breakdown", gatewayConfigurationTiming);
+                    timing.put("gateway_authorization_seconds", (gatewayAuthorizationFinished-gatewayAuthorizationStarted)/1_000_000_000.0);
+                    timing.put("gateway_snapshot_seconds", (gatewaySnapshotFinished-gatewaySnapshotStarted)/1_000_000_000.0);
+                    timing.put("algorithm_http_seconds", (algorithmReturned-algorithmStarted)/1_000_000_000.0);
+                    double persistenceSeconds = (System.nanoTime()-algorithmReturned)/1_000_000_000.0;
+                    double gatewayTotalSeconds = (System.nanoTime()-requestStarted)/1_000_000_000.0;
+                    timing.put("result_persistence_seconds", persistenceSeconds);
+                    timing.put("gateway_total_seconds", gatewayTotalSeconds);
+                    double maxWaitSeconds = effectivePayload.get("native_options") instanceof Map<?,?> options
+                            ? number(options.get("realtime_max_wait_seconds"), 30.0) : 30.0;
+                    timing.put("max_wait_seconds", maxWaitSeconds);
+                    timing.put("time_limit_reached", Boolean.TRUE.equals(result.get("time_limit_reached")));
+                    timing.put("solver_converged", result.get("solver_converged"));
+                    timing.put("feasible_solution", result.get("feasible_solution"));
+                    timing.put("stop_reason", result.get("stop_reason"));
+                    timing.put("gateway_non_algorithm_seconds",
+                            Math.max(0.0, gatewayTotalSeconds - (algorithmReturned-algorithmStarted)/1_000_000_000.0));
+                    result.put("timing", timing);
+                    timingForResponse = timing;
+                }
+                if ("/anti-collision/network-scan".equals(path) || "/trajectory-plan/solve".equals(path))
+                {
+                    long responseSerializationStarted = System.nanoTime();
                     byte[] resultBody = JSON.toJSONBytes(result);
+                    if (timingForResponse != null)
+                    {
+                        // Include JSON serialization in the reported end-to-end
+                        // gateway time. A second short serialization is needed
+                        // because the timing fields are part of the response.
+                        double responseSerializationSeconds =
+                                (System.nanoTime() - responseSerializationStarted) / 1_000_000_000.0;
+                        double gatewayTotalSeconds = (System.nanoTime() - requestStarted) / 1_000_000_000.0;
+                        double maxWaitSeconds = effectivePayload.get("native_options") instanceof Map<?,?> options
+                                ? number(options.get("realtime_max_wait_seconds"), 30.0) : 30.0;
+                        timingForResponse.put("response_serialization_seconds", responseSerializationSeconds);
+                        timingForResponse.put("gateway_total_seconds", gatewayTotalSeconds);
+                        timingForResponse.put("max_wait_seconds", maxWaitSeconds);
+                        timingForResponse.put("time_limit_reached", Boolean.TRUE.equals(result.get("time_limit_reached")));
+                        timingForResponse.put("solver_converged", result.get("solver_converged"));
+                        timingForResponse.put("feasible_solution", result.get("feasible_solution"));
+                        timingForResponse.put("stop_reason", result.get("stop_reason"));
+                        timingForResponse.put("gateway_non_algorithm_seconds",
+                                Math.max(0.0, gatewayTotalSeconds - (algorithmReturned-algorithmStarted)/1_000_000_000.0));
+                        result.put("timing", timingForResponse);
+                        resultBody = JSON.toJSONBytes(result);
+                    }
                     HttpHeaders resultHeaders = new HttpHeaders();
                     resultHeaders.putAll(response.getHeaders());
                     // Persistence and incremental merging may change the JSON bytes.
@@ -399,7 +465,7 @@ public class AlgorithmGatewayController
             throws IOException, InterruptedException
     {
         String fieldId = request.getParameter("field_id");
-        authorizePath("/survey/import", "POST", null, fieldId);
+        authorizePath("/survey/import", "POST", (byte[]) null, fieldId);
         String boundary = "----RuoYiAlgorithm" + java.util.UUID.randomUUID().toString().replace("-", "");
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         Map<String, Object> fieldConfig = currentImportConfig(fieldId);
@@ -467,8 +533,15 @@ public class AlgorithmGatewayController
                                            String contentTypeOverride, boolean applyConfiguration)
             throws IOException, InterruptedException
     {
+        return forward(request, method, body, authorization, contentTypeOverride, applyConfiguration, true);
+    }
+
+    private ResponseEntity<byte[]> forward(HttpServletRequest request, String method, byte[] body, String authorization,
+                                           String contentTypeOverride, boolean applyConfiguration, boolean authorize)
+            throws IOException, InterruptedException
+    {
         String path = request.getRequestURI().substring("/api/algorithm".length());
-        authorizePath(path, method, body, request.getParameter("field_id"));
+        if (authorize) authorizePath(path, method, body, request.getParameter("field_id"));
         byte[] effectiveBody = applyConfiguration ? applyFieldAlgorithmConfiguration(path, method, body) : body;
         String query = request.getQueryString();
         // FastAPI exposes its public routes below /api/algorithm.  Keep the
@@ -478,7 +551,13 @@ public class AlgorithmGatewayController
         String target = algorithmBaseUrl() + path + (query == null ? "" : "?" + query);
         // 使用原始字节转发 multipart、Excel、Word、PDF 等内容，不能先解码为字符串。
         HttpRequest.BodyPublisher publisher = effectiveBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(effectiveBody);
-        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(target)).timeout(path.equals("/trajectory-plan/solve") ? Duration.ofSeconds(330) : Duration.ofMinutes(10))
+        // Replanning may run until convergence, configured iteration/function
+        // limits, or the configured patience limit. The transport deadline is
+        // a small guard above that value for response serialization.
+        long planningTimeout = path.equals("/trajectory-plan/solve")
+                ? planningTransportTimeoutSeconds(effectiveBody) : 0L;
+        HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(target)).timeout(
+                path.equals("/trajectory-plan/solve") ? Duration.ofSeconds(planningTimeout) : Duration.ofMinutes(10))
                 .header("Accept", MediaType.APPLICATION_JSON_VALUE).method(method, publisher);
         String contentType = contentTypeOverride;
         if (contentType != null && !(effectiveBody != null && isJsonPath(path)))
@@ -557,9 +636,13 @@ public class AlgorithmGatewayController
         Long wellId = requiredLong(payload, "well_id");
         Long surveyId = requiredLong(payload, "current_survey_version_id");
         requireWellSurvey(fieldId, wellId, surveyId);
-        String collisionConstraint = textOr(payload.get("collision_constraint"), "SEPARATION_FACTOR");
-        if (!"SEPARATION_FACTOR".equalsIgnoreCase(collisionConstraint))
-            throw new IllegalArgumentException("trajectory planning only supports SEPARATION_FACTOR collision constraints");
+        String collisionConstraint = textOr(payload.get("collision_constraint"),
+                "SEPARATION_FACTOR_AND_CENTER_DISTANCE");
+        if (!"SEPARATION_FACTOR_AND_CENTER_DISTANCE".equalsIgnoreCase(collisionConstraint))
+            throw new IllegalArgumentException("trajectory planning requires separation-factor and center-distance combined constraints");
+        double centerlineMinimum = number(payload.get("centerline_min_distance_m"), 5.0);
+        if (!Double.isFinite(centerlineMinimum) || centerlineMinimum <= 0.0)
+            throw new IllegalArgumentException("centerline_min_distance_m must be a finite positive number");
         Long targetId = optionalLong(payload.get("target_id"));
         if (targetId != null)
         {
@@ -607,7 +690,7 @@ public class AlgorithmGatewayController
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'SUCCESS', ?, ?, CURRENT_TIMESTAMP)
                 """, fieldId, referenceWellId, referenceSurveyId, mode,
                 number(payload.get("step"), 1.0), number(errorModel.get("k"), 1.0), thresholdJson,
-                textOr(errorModel.get("mode"), "ISCWSA"), JSON.toJSONString(result),
+                textOr(errorModel.get("mode"), "ISCWSA"), JSON.toJSONString(CollisionResultStorage.summary(result)),
                 ShiroUtils.getLoginName());
         Long taskId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         if (payload.get("_center_execution_id") instanceof Number execution) centerSnapshots.complete(execution.longValue(), "COLLISION", taskId);
@@ -653,7 +736,7 @@ public class AlgorithmGatewayController
                 VALUES (?, ?, ?, 'BOTH', ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """, fieldId, referenceWellId, referenceSurveyId, number(payload.get("step"), 1.0),
                 number(errorModel.get("k"), 1.0), JSON.toJSONString(thresholds),
-                textOr(errorModel.get("mode"), "ISCWSA"), "COMPLETED".equals(result.get("status"))?"SUCCESS":"INCOMPLETE", JSON.toJSONString(result), ShiroUtils.getLoginName());
+                textOr(errorModel.get("mode"), "ISCWSA"), "COMPLETED".equals(result.get("status"))?"SUCCESS":"INCOMPLETE", JSON.toJSONString(CollisionResultStorage.summary(result)), ShiroUtils.getLoginName());
         Long taskId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
         if (payload.get("_center_execution_id") instanceof Number execution) centerSnapshots.complete(execution.longValue(), "COLLISION", taskId);
         jdbc.update("INSERT INTO anti_collision_task_well(task_id, well_id, survey_version_id, role) VALUES (?, ?, ?, 'REFERENCE')",
@@ -820,10 +903,10 @@ public class AlgorithmGatewayController
         Map<?, ?> reference = map(payload.get("reference"));
         double measuredMd = -1;
         double predictedMd = -1;
-        Set<String> predictionSources = Set.of("TRAINED_MODEL", "PREDICTED_TRAINED_MODEL",
-                "ATTITUDE_EXTRAPOLATION", "PREDICTED_ATTITUDE_EXTRAPOLATION",
-                "TANGENT_EXTRAPOLATION", "TANGENT_EXTRAPOLATION_FALLBACK",
-                "PREDICTED_TANGENT_EXTRAPOLATION", "PREDICTED_TANGENT_EXTRAPOLATION_FALLBACK");
+        // Only the configured model is allowed to create a future-risk alarm.
+        // Geometric extrapolation labels from pre-production payloads are not
+        // treated as predicted drilling positions.
+        Set<String> predictionSources = Set.of("TRAINED_MODEL", "PREDICTED_TRAINED_MODEL");
         for (Object raw : listOf(reference.get("stations")))
         {
             if (!(raw instanceof Map<?, ?> station)) continue;
@@ -963,17 +1046,20 @@ public class AlgorithmGatewayController
         }
 
         String status = textOr(result.get("status"), "BEST_EFFORT").toUpperCase();
-        if (!List.of("SUCCESS", "INFEASIBLE", "BEST_EFFORT").contains(status))
+        // The native worker reports a feasible incumbent separately from
+        // solver convergence, and reports a configured patience stop as
+        // TIMEOUT. Both are valid terminal planning records and must remain
+        // visible to the operator instead of becoming a gateway error.
+        if (!List.of("SUCCESS", "FEASIBLE_NOT_CONVERGED", "TIMEOUT", "INFEASIBLE", "BEST_EFFORT").contains(status))
             throw new IllegalArgumentException("algorithm returned an unsupported planning status: " + status);
         String solver = textOr(payload.get("solver"), "SLSQP").toUpperCase();
-        String scenario = "NATIVE_PROFILE";
         jdbc.update("""
                 INSERT INTO trajectory_plan
-                    (field_id, well_id, current_survey_version_id, target_id, solver, scenario,
+                    (field_id, well_id, current_survey_version_id, target_id, solver,
                      constraint_json, objective_value, terminal_error, status, result_json, create_by, finish_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, fieldId, wellId, surveyId, targetId, solver, scenario,
-                JSON.toJSONString(payload), nullableNumber(result.get("total_length")),
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, fieldId, wellId, surveyId, targetId, solver,
+                JSON.toJSONString(planConstraintSnapshot(payload)), nullableNumber(result.get("total_length")),
                 nullableNumber(result.get("target_error")), status, JSON.toJSONString(result),
                 ShiroUtils.getLoginName());
         Long planId = jdbc.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
@@ -1008,6 +1094,40 @@ public class AlgorithmGatewayController
                     nullableNumber(end.get("north")), nullableNumber(end.get("east")), nullableNumber(end.get("tvd")),
                     nullableNumber(segment.get("dogleg_deg_per_30m")), nullableNumber(segment.get("sliding_ratio")));
         }
+    }
+
+    /**
+     * Store the immutable version/configuration references used by a plan.
+     * The bound request also contains full history and nine neighbor station
+     * arrays for the numerical service; persisting those arrays again in a
+     * JSON column makes the synchronous gateway commit unnecessarily slow and
+     * duplicates data already held by the trajectory-version tables.
+     */
+    private Map<String,Object> planConstraintSnapshot(Map<String,Object> payload)
+    {
+        Map<String,Object> out = new LinkedHashMap<>();
+        if (payload == null) return out;
+        for (Map.Entry<String,Object> entry : payload.entrySet())
+        {
+            String key = entry.getKey();
+            if (Set.of("history", "obstacles", "neighbors", "reference", "neighbor").contains(key)) continue;
+            if ("input_versions".equals(key) && entry.getValue() instanceof List<?> versions)
+            {
+                List<Map<String,Object>> compact = new ArrayList<>();
+                for (Object item : versions)
+                {
+                    if (!(item instanceof Map<?,?> row)) continue;
+                    Map<String,Object> v = new LinkedHashMap<>();
+                    for (String field : List.of("role", "wellbore_id", "survey_version_id", "trajectory_kind", "uncertainty"))
+                        if (row.get(field) != null) v.put(field, row.get(field));
+                    compact.add(v);
+                }
+                out.put(key, compact);
+            }
+            else out.put(key, entry.getValue());
+        }
+        out.put("snapshot_kind", "VERSION_REFERENCES");
+        return out;
     }
 
     private void requireCurrentSurvey(Long fieldId, Long wellId)
@@ -1472,6 +1592,28 @@ public class AlgorithmGatewayController
         catch (NumberFormatException ex) { throw new IllegalArgumentException("numeric algorithm value is invalid"); }
     }
 
+    private static long planningTransportTimeoutSeconds(byte[] body)
+    {
+        double wait = 30.0;
+        try
+        {
+            @SuppressWarnings("unchecked") Map<String, Object> payload =
+                    body == null ? Map.of() : JSON.parseObject(body, Map.class);
+            wait = number(payload.get("execution_timeout_seconds"), wait);
+            if (!Double.isFinite(wait) || wait < 1.0) wait = 30.0;
+        }
+        catch (RuntimeException ignored)
+        {
+            wait = 30.0;
+        }
+        // The HTTP deadline is only a small serialization/transport grace
+        // period above the configured algorithm wait.  Do not impose an
+        // application-level 10 s (or 300 s) ceiling here.
+        double rounded = Math.ceil(wait);
+        if (rounded >= Long.MAX_VALUE - 5.0) return Long.MAX_VALUE;
+        return (long)rounded + 5L;
+    }
+
     private static String textOr(Object value, String fallback)
     {
         return value == null || String.valueOf(value).isBlank() ? fallback : String.valueOf(value);
@@ -1487,9 +1629,29 @@ public class AlgorithmGatewayController
         if (!"POST".equalsIgnoreCase(method) || body == null || body.length == 0 || !isJsonPath(path)) return body;
         if (!(path.startsWith("/anti-collision/") || path.startsWith("/trajectory-plan/"))) return body;
         @SuppressWarnings("unchecked") Map<String, Object> payload = JSON.parseObject(body, Map.class);
+        return applyFieldAlgorithmConfiguration(path, method, payload);
+    }
+
+    private byte[] applyFieldAlgorithmConfiguration(String path, String method, Map<String, Object> payload)
+    {
+        return applyFieldAlgorithmConfiguration(path, method, payload, null);
+    }
+
+    private byte[] applyFieldAlgorithmConfiguration(String path, String method, Map<String, Object> payload,
+            Map<String, Object> stageTiming)
+    {
+        if (!"POST".equalsIgnoreCase(method) || payload == null || !isJsonPath(path))
+            return payload == null ? new byte[0] : JSON.toJSONBytes(payload);
+        if (!(path.startsWith("/anti-collision/") || path.startsWith("/trajectory-plan/")))
+            return JSON.toJSONBytes(payload);
         Long fieldId = fieldId(payload);
-        Map<String, Object> defaults = loadFieldDefaults(fieldId);
-        nativeEngine.requireConfirmed(fieldId);
+        long stage = System.nanoTime();
+        Map<String, Object> defaults = loadFieldDefaults(fieldId, stageTiming);
+        putStageTiming(stageTiming, "field_defaults_total_seconds", stage);
+        stage = System.nanoTime();
+        nativeEngine.requireConfirmed(fieldId, stageTiming);
+        putStageTiming(stageTiming, "require_confirmation_total_seconds", stage);
+        stage = System.nanoTime();
         if (path.startsWith("/anti-collision/")) {
             payload.put("mode","BOTH");
             payload.putIfAbsent("step",value(defaults,"scanStep",1.0));
@@ -1500,6 +1662,10 @@ public class AlgorithmGatewayController
             Set<String> globalBounds=Set.of("max_dogleg_deg_per_30m","min_dogleg_deg_per_30m","min_segment_length","max_segment_length");
             for(String[] keys:new String[][]{{"solver","solver"},{"max_dogleg_deg_per_30m","maxDoglegDegPer30m"},{"min_dogleg_deg_per_30m","minDoglegDegPer30m"},{"min_segment_length","minSegmentLength"},{"max_segment_length","maxSegmentLength"},{"max_toolface_change_deg","maxToolfaceChangeDeg"},{"minimum_sf","minimumSf"},{"target_tolerance_m","targetToleranceM"},{"max_iterations","maxIterations"}})
                 if(!(perSegment&&globalBounds.contains(keys[0]))&&p.get(keys[1])!=null)payload.putIfAbsent(keys[0],p.get(keys[1]));
+            // SF is an engineering-wide planning threshold.  A stale task
+            // draft must not override the confirmed engineering configuration.
+            if (p.get("minimumSf") != null)
+                payload.put("minimum_sf", p.get("minimumSf"));
             Map<String,Object> nativeOptions = new LinkedHashMap<>();
             Object configuredOptions=p.get("nativeOptions");
             if(configuredOptions instanceof Map<?,?> configured) configured.forEach((k,v)->nativeOptions.put(String.valueOf(k),v));
@@ -1511,37 +1677,69 @@ public class AlgorithmGatewayController
                 // other engine budgets remain fieldId configuration values.
                 if(requested.get("trajectory_mode")!=null) nativeOptions.put("trajectory_mode",requested.get("trajectory_mode"));
                 if(requested.get("n_segments")!=null) nativeOptions.put("n_segments",requested.get("n_segments"));
+                if(requested.get("arc_segment_model")!=null) nativeOptions.put("arc_segment_model",requested.get("arc_segment_model"));
             }
+            // Online planning waits for convergence, configured iteration or
+            // function-evaluation limits, or the configured patience value.
+            // Legacy budget keys
+            // are intentionally not forwarded because they used to truncate
+            // the native solver at 3.5/8/10 seconds.
+            nativeOptions.put("realtime_mode", true);
+            double configuredWait = number(p.get("realtimeBudgetSeconds"),
+                    number(p.get("taskTimeoutSeconds"), 30.0));
+            if (!Double.isFinite(configuredWait) || configuredWait < 1.0 || configuredWait != Math.rint(configuredWait))
+                throw new IllegalArgumentException("再规划最大等待时间必须为大于等于1秒的整数");
+            nativeOptions.put("realtime_max_wait_seconds", configuredWait);
+            nativeOptions.remove("realtime_budget_seconds");
+            nativeOptions.remove("realtime_solver_budget_seconds");
             payload.put("native_options",nativeOptions);
             // Geometry and segment layout are owned by the supplied engine
             // profile; legacy task presets cannot override this snapshot.
             payload.remove("scenario");
             payload.remove("segment_count");
-            payload.put("collision_constraint","SEPARATION_FACTOR");
-            int taskSeconds=(int)number(p.get("taskTimeoutSeconds"),120);
-            if(taskSeconds<5||taskSeconds>300)throw new IllegalArgumentException("再规划任务时限必须为5～300秒");
-            payload.put("execution_timeout_seconds",taskSeconds);
+            payload.put("collision_constraint","SEPARATION_FACTOR_AND_CENTER_DISTANCE");
+            // The centre-distance limit is a engineering-wide rule,
+            // paired with the SF threshold in the same planning request.
+            if (nativeOptions.get("centerline_min_distance_m") != null)
+                payload.put("centerline_min_distance_m", nativeOptions.get("centerline_min_distance_m"));
+            // Keep the outer worker deadline aligned with the configured
+            // patience window. Convergence and iteration/function limits are
+            // handled by the native engine before this deadline.
+            payload.put("execution_timeout_seconds",(int)Math.ceil(configuredWait));
             payload.putIfAbsent("scan_step",value(defaults,"scanStep",1.0));
         }
+        putStageTiming(stageTiming, "request_policy_merge_seconds", stage);
+        stage = System.nanoTime();
         // Confirmed fieldId error budgets cannot be silently overridden by a task request.
         payload.put("error_model",errorModel(defaults));
         trajectoryInputs.bind(path,payload,defaults);
+        putStageTiming(stageTiming, "trajectory_input_binding_seconds", stage);
         // Repeated source/settings maps are values, not JSON references.
         // Python and archived snapshots require each version's full budget.
         return JSON.toJSONString(payload,com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect).getBytes(StandardCharsets.UTF_8);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
+
     private Map<String, Object> loadFieldDefaults(Long fieldId)
     {
-        if (fieldId == null || fieldId <= 0) throw new IllegalArgumentException("field_id is required");
-        List<Map<String, Object>> rows = jdbc.queryForList("""
-                SELECT algorithm_defaults_json FROM drilling_field_config
-                 WHERE field_id=? AND status='0' AND effective_to IS NULL
-                 ORDER BY config_version DESC LIMIT 1
-                """, fieldId);
-        if (rows.isEmpty() || rows.get(0).get("algorithm_defaults_json") == null)
-            throw new IllegalArgumentException("an active fieldId configuration is required before this algorithm request");
-        return DrillingAlgorithmDefaults.merged(rows.get(0).get("algorithm_defaults_json"));
+        return loadFieldDefaults(fieldId, null);
+    }
+
+    private Map<String, Object> loadFieldDefaults(Long fieldId, Map<String, Object> stageTiming)
+    {
+        long stage = System.nanoTime();
+        com.ruoyi.framework.security.DrillingDataScope.current().requireAccess(fieldId);
+        putStageTiming(stageTiming, "field_access_seconds", stage);
+        stage = System.nanoTime();
+        Map<String, Object> defaults = engineeringConfigs.defaults();
+        putStageTiming(stageTiming, "engineering_defaults_cache_seconds", stage);
+        return defaults;
+    }
+
+    private static void putStageTiming(Map<String, Object> timings, String key, long started)
+    {
+        if (timings != null) timings.put(key, (System.nanoTime() - started) / 1_000_000_000.0);
     }
 
     private static Long fieldId(Map<String, Object> payload)
@@ -1654,6 +1852,13 @@ public class AlgorithmGatewayController
      */
     private void authorizePath(String path, String method, byte[] body, String fieldIdParameter)
     {
+        @SuppressWarnings("unchecked") Map<String, Object> payload = body == null || body.length == 0
+                ? Map.of() : JSON.parseObject(body, Map.class);
+        authorizePath(path, method, payload, fieldIdParameter);
+    }
+
+    private void authorizePath(String path, String method, Map<String, Object> payload, String fieldIdParameter)
+    {
         // Task, file, and inference APIs in FastAPI are worker-facing global
         // interfaces.  User-facing access must go through the Java domain
         // controllers, which bind every task/file/model to an authorized
@@ -1672,19 +1877,19 @@ public class AlgorithmGatewayController
         {
             ShiroUtils.getSubject().checkPermission(path.startsWith("/anti-collision/tasks")
                     ? "drilling:field:view" : "drilling:collision:run");
-            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromBody(body, "OWNER", "ENGINEER");
+            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromPayload(payload, "OWNER", "ENGINEER");
         }
         else if (path.startsWith("/trajectory-plan"))
         {
             ShiroUtils.getSubject().checkPermission(path.startsWith("/trajectory-plan/tasks")
                     ? "drilling:field:view" : "drilling:plan:run");
-            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromBody(body, "OWNER", "ENGINEER");
+            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromPayload(payload, "OWNER", "ENGINEER");
         }
         else if (path.startsWith("/prediction"))
         {
             ShiroUtils.getSubject().checkPermission("drilling:prediction:list");
             if ("POST".equalsIgnoreCase(method) && path.startsWith("/prediction/start"))
-                requireFieldRoleFromBody(body, "OWNER", "ENGINEER");
+                requireFieldRoleFromPayload(payload, "OWNER", "ENGINEER");
         }
         else if (path.startsWith("/train") || path.startsWith("/resources") || path.startsWith("/models"))
         {
@@ -1706,7 +1911,7 @@ public class AlgorithmGatewayController
         else if (path.startsWith("/realtime"))
         {
             ShiroUtils.getSubject().checkPermission("drilling:well:survey:import");
-            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromBody(body, "OWNER", "ENGINEER");
+            if ("POST".equalsIgnoreCase(method)) requireFieldRoleFromPayload(payload, "OWNER", "ENGINEER");
         }
         else if (path.startsWith("/benchmark"))
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "benchmark comparison is not a system feature");
@@ -1717,7 +1922,7 @@ public class AlgorithmGatewayController
             // tests, but gateway exports must be bound to an accessible
             // fieldId.
             ShiroUtils.getSubject().checkPermission("drilling:field:view");
-            if ("POST".equalsIgnoreCase(method)) requireFieldAccessFromBody(body);
+            if ("POST".equalsIgnoreCase(method)) requireFieldAccessFromPayload(payload);
         }
         else
         {
@@ -1779,6 +1984,12 @@ public class AlgorithmGatewayController
     {
         if (body == null || body.length == 0) throw new IllegalArgumentException("field_id is required");
         @SuppressWarnings("unchecked") java.util.Map<String, Object> payload = JSON.parseObject(body, java.util.Map.class);
+        requireFieldRoleFromPayload(payload, allowedRoles);
+    }
+
+    private void requireFieldRoleFromPayload(Map<String, Object> payload, String... allowedRoles)
+    {
+        if (payload == null || payload.isEmpty()) throw new IllegalArgumentException("field_id is required");
         Object raw = payload.get("field_id");
         if (raw == null) raw = payload.get("fieldId");
         if (raw == null) throw new IllegalArgumentException("field_id is required");
@@ -1792,6 +2003,12 @@ public class AlgorithmGatewayController
     {
         if (body == null || body.length == 0) throw new IllegalArgumentException("field_id is required");
         @SuppressWarnings("unchecked") java.util.Map<String, Object> payload = JSON.parseObject(body, java.util.Map.class);
+        requireFieldAccessFromPayload(payload);
+    }
+
+    private void requireFieldAccessFromPayload(Map<String, Object> payload)
+    {
+        if (payload == null || payload.isEmpty()) throw new IllegalArgumentException("field_id is required");
         Object raw = payload.get("field_id");
         if (raw == null) raw = payload.get("fieldId");
         Long fieldId = optionalLong(raw);

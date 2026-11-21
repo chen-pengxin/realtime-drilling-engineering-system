@@ -27,6 +27,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class IncrementalLearningService {
     private static final Logger log = LoggerFactory.getLogger(IncrementalLearningService.class);
     private final JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
     private final TransactionTemplate transactions;
     private final TrainingTaskCallbackController models;
     @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.centers.CenterTaskSnapshots centerSnapshots;
@@ -220,27 +221,13 @@ public class IncrementalLearningService {
     }
 
     private void activateIfUnchanged(Long fieldId,Object previous,Long modelId) {
-        jdbc.queryForList("SELECT field_id FROM drilling_field WHERE field_id=? FOR UPDATE",fieldId);
-        Map<String,Object> current=jdbc.queryForMap("SELECT * FROM drilling_field_config WHERE field_id=? AND status='0' AND effective_to IS NULL ORDER BY config_version DESC LIMIT 1",fieldId);
-        Map<String,Object> defaults=DrillingAlgorithmDefaults.merged(current.get("algorithm_defaults_json"));
-        @SuppressWarnings("unchecked") Map<String,Object> prediction=(Map<String,Object>)defaults.get("prediction");
-        if (!Objects.equals(String.valueOf(prediction.get("modelVersionId")),String.valueOf(previous))) return;
-        prediction.put("modelVersionId",modelId);
-        Integer next=jdbc.queryForObject("SELECT MAX(config_version)+1 FROM drilling_field_config WHERE field_id=?",Integer.class,fieldId);
-        jdbc.update("""
-            INSERT INTO drilling_field_config(field_id,config_version,coordinate_system,north_reference,length_unit,angle_unit,tvd_positive,origin_north,origin_east,origin_tvd,magnetic_declination,meridian_convergence,algorithm_defaults_json,status,create_by)
-            SELECT field_id,?,coordinate_system,north_reference,length_unit,angle_unit,tvd_positive,origin_north,origin_east,origin_tvd,magnetic_declination,meridian_convergence,?,'1','incremental-learning'
-            FROM drilling_field_config WHERE field_id=? AND config_version=?
-            """,next,JSON.toJSONString(defaults),fieldId,current.get("config_version"));
-        jdbc.update("UPDATE drilling_field_config SET status='1',effective_to=CURRENT_TIMESTAMP WHERE field_id=? AND config_version=?",fieldId,current.get("config_version"));
-        jdbc.update("UPDATE drilling_field_config SET status='0',effective_to=NULL WHERE field_id=? AND config_version=?",fieldId,next);
-        jdbc.update("UPDATE drilling_field SET config_json=? WHERE field_id=?",JSON.toJSONString(defaults),fieldId);
+        engineeringConfigs.activateTrainedModel(previous,modelId);
     }
 
     private Map<String,Object> model(Long fieldId) {
         Map<String,Object> config=jdbc.queryForMap("SELECT algorithm_defaults_json FROM drilling_field_config WHERE field_id=? AND status='0' AND effective_to IS NULL ORDER BY config_version DESC LIMIT 1",fieldId);
-        Map<String,Object> prediction=object(DrillingAlgorithmDefaults.merged(config.get("algorithm_defaults_json")).get("prediction"));
-        List<Map<String,Object>> rows=jdbc.queryForList("SELECT mv.model_version_id,mv.model_name,f.object_key FROM model_version mv JOIN data_file f ON f.file_id=mv.file_id WHERE mv.field_id=? AND mv.model_version_id=? AND mv.status='READY' AND f.status='ACTIVE'",fieldId,prediction.get("modelVersionId"));
+        Map<String,Object> prediction=object(engineeringConfigs.defaults().get("prediction"));
+        List<Map<String,Object>> rows=jdbc.queryForList("SELECT mv.model_version_id,mv.model_name,f.object_key FROM model_version mv JOIN data_file f ON f.file_id=mv.file_id WHERE mv.model_version_id=? AND mv.status='READY' AND f.status='ACTIVE'",prediction.get("modelVersionId"));
         if(rows.isEmpty())throw new IllegalArgumentException("请先在模型仓库启用一个现有模型");
         return rows.get(0);
     }

@@ -57,16 +57,16 @@
     "minSegmentLength": 3.0,
     "maxSegmentLength": 30.0,
     "maxToolfaceChangeDeg": 180.0,
-    "collisionConstraint": "SEPARATION_FACTOR",
+    "collisionConstraint": "SEPARATION_FACTOR_AND_CENTER_DISTANCE",
     "minimumSf": 1.5,
     "targetToleranceM": 0.5,
     "maxIterations": 500,
     "nativeOptions": {
       "solver": {
         "initial_search_attempts": 12,
-        "optimization_starts": 3,
+        "optimization_starts": 1,
         "feasibility_max_nfev": 600,
-        "max_seconds_per_run": 75,
+        "max_seconds_per_run": 30,
         "max_function_evaluations": 3000,
         "retain_feasible_iterates": true,
         "planned_survey_interval_m": 30.0,
@@ -83,28 +83,97 @@
         179.999999
       ],
       "max_segment_bend_deg": 150,
-      "centerline_min_distance_m": 0,
+      "centerline_min_distance_m": 5.0,
       "trajectory_mode": "arc-straight",
-      "n_segments": 3
+      "n_segments": 3,
+      "arc_segment_model": "minimum_curvature"
     },
-    "taskTimeoutSeconds": 300
+    "taskTimeoutSeconds": 30,
+    "realtimeBudgetSeconds": 30,
+    "realtimeExecutionTimeoutSeconds": 30
   },
   "prediction": {
     "predictionStep": 9.0,
     "modelVersionId": null,
     "templateRuntimePath": "",
     "device": "auto",
-    "allowFallback": true,
-    "fallbackMode": "TANGENT_EXTRAPOLATION",
+    "allowFallback": false,
     "popupAlarmEnabled": true,
     "soundAlarmEnabled": true,
     "alertMinimumLevel": "YELLOW",
-    "timeoutSeconds": 30
+    "timeoutSeconds": 1
   },
   "reference": {
     "crs": "",
     "depth_datum": "",
     "depth_datum_elevation_m": null
   },
-  "neighborSearchMarginM": 500.0
+  "neighborSearchMarginM": 500.0,
+  "neighborManualSearchRadiusM": 3000.0,
+  "visualization": {
+    "version": 1,
+    "styles": {
+      "REFERENCE": {
+        "ACTUAL": {
+          "color": "#2563eb",
+          "width": 2.2,
+          "dash": "solid",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "DESIGN": {
+          "color": "#7c3aed",
+          "width": 2.2,
+          "dash": "solid",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "PLANNED": {
+          "color": "#000000",
+          "width": 2.2,
+          "dash": "solid",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "PREDICTED": {
+          "color": "#16a34a",
+          "width": 2.2,
+          "dash": "dash",
+          "opacity": 1,
+          "nodeSize": 5
+        }
+      },
+      "NEIGHBOR": {
+        "ACTUAL": {
+          "color": "#9ca3af",
+          "width": 2.2,
+          "dash": "solid",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "DESIGN": {
+          "color": "#b9a8d0",
+          "width": 2.2,
+          "dash": "dash",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "PLANNED": {
+          "color": "#b9a8d0",
+          "width": 2.2,
+          "dash": "solid",
+          "opacity": 1,
+          "nodeSize": 5
+        },
+        "PREDICTED": {
+          "color": "#b9a8d0",
+          "width": 2.2,
+          "dash": "dash",
+          "opacity": 1,
+          "nodeSize": 5
+        }
+      }
+    },
+    "wellbores": {}
+  }
 }

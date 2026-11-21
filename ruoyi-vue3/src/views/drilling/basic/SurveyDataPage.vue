@@ -46,12 +46,13 @@
           <div class="drilling-toolbar"><el-button icon="Download" :loading="exporting" @click="exportTable">导出轨道归算表</el-button><el-button v-if="sourcePatchSupported" icon="Download" :loading="exporting" @click="exportSourceVersion">按源格式导出当前版本</el-button><el-button v-if="displayedVersion.source_file_id" icon="Document" @click="downloadSource">下载来源原件</el-button></div>
           <el-tabs v-model="detailTab">
             <el-tab-pane label="测斜数据" name="table"><el-table v-loading="loadingStations" :data="stationPageRows" border><el-table-column v-for="c in stationColumns" :key="c[0]" :prop="c[0]" :label="c[1]" min-width="115"><template #default="s">{{ Number(s.row[c[0]]).toFixed(3) }}</template></el-table-column></el-table><pagination v-show="stations.length>0" v-model:page="stationPage" v-model:limit="stationLimit" :total="stations.length" /></el-tab-pane>
-            <el-tab-pane label="三维轨迹" name="3d" lazy><div v-if="detailTab==='3d'" class="trajectory-view"><TrajectoryPlot :trajectories="[{id:'survey',label:'当前版本',points:displayedVersion.plot_stations||stations,color:'#1976b9'}]" view="3d" /></div></el-tab-pane>
+            <el-tab-pane label="三维轨迹" name="3d" lazy><el-button icon="Setting" @click="stylesOpen=true">视图设置</el-button><div v-if="detailTab==='3d'" class="trajectory-view"><TrajectoryPlot :trajectories="plotTrajectories" view="3d" /></div></el-tab-pane>
           </el-tabs>
         </template>
         <el-empty v-else-if="!loadingVersions" :description="selectedBore?'暂无轨迹版本，请先导入完整数据':'选择井眼后查看版本'" />
       </section>
     </div>
+    <el-drawer v-model="stylesOpen" title="可视化设置" size="min(340px, 100vw)"><TrajectoryStyleSettings :trajectories="plotTrajectories" /></el-drawer>
     <SurveyImportDialog ref="importDialog" :field-id="fieldId" :bore="selectedBore" :kind="kind" :versions="versions" :default-reference="defaultReference" @saved="versionSaved" />
     <SurveyVersionDiff ref="diffDialog" :field-id="fieldId" :versions="versions" />
     <SourceLibrary ref="sourceLibrary" :field-id="fieldId" @select="selectSource" />
@@ -98,6 +99,8 @@ import {
   downloadFieldFile
 } from '@/api/drillingField'
 import TrajectoryPlot from '@/components/TrajectoryPlot'
+import TrajectoryStyleSettings from '../layout/TrajectoryStyleSettings.vue'
+import {trajectoryIdentity} from '@/utils/wellboreHierarchy'
 import DrillingPageFrame from '../layout/DrillingPageFrame.vue'
 import {
   useDrillingContext
@@ -128,6 +131,8 @@ const wellOpen = ref(false),
   loadingStations = ref(false),
   exporting = ref(false),
   creatingWell = ref(false)
+const stylesOpen=ref(false)
+const plotTrajectories=computed(()=>[{...trajectoryIdentity(selectedBore.value||{}),id:'survey',kind:displayedVersion.value?.trajectory_kind||kind.value,label:'当前版本',points:displayedVersion.value?.plot_stations||stations.value}])
 const versionPage = ref(1),
   versionLimit = ref(10),
   stationPage = ref(1),

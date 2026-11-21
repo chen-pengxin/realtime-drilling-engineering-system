@@ -17,7 +17,10 @@ function stationsByMd(stations = []) {
     .sort((left, right) => Number(left.md) - Number(right.md))
 }
 
-/** Use the latest measured attitude for model inference or geometric fallback. */
+/**
+ * Historical geometry helper. It is intentionally not used by the live
+ * prediction path; live prediction accepts a trained-model result only.
+ */
 export function extrapolateBit(stations = [], step = 9) {
   const orderedStations = stationsByMd(stations)
   const latest = orderedStations.at(-1)
@@ -70,7 +73,11 @@ export function normalizePredictedBit(response, latest, step = 9) {
   return { ...values, north: Number(north), east: Number(east), tvd: Number(tvd), source: 'PREDICTED_TRAINED_MODEL', predicted: true, model_version: response?.model_version || response?.result?.model_version || null }
 }
 
-/** Use a configured trained model when available, with the field fallback. */
+/** Use the configured trained model only.
+ *
+ * Geometric tangent extrapolation remains available as a pure utility for
+ * historical tooling, but is never an implicit live prediction.
+ */
 export async function predictBitPosition({ fieldId, predictionConfig = {}, stations = [] }) {
   const orderedStations = stationsByMd(stations)
   const latest = orderedStations.at(-1)
@@ -97,9 +104,12 @@ export async function predictBitPosition({ fieldId, predictionConfig = {}, stati
       modelError = error
     }
   }
-  if (predictionConfig.allowFallback === false) return {point:null,source:hasModel?'MODEL_ERROR':'MODEL_NOT_CONFIGURED',modelError:modelError?.message||null}
-  const fallback = extrapolateBit(stations, step)
-  return { point: fallback ? { ...fallback, source: hasModel ? 'TANGENT_EXTRAPOLATION_FALLBACK' : 'TANGENT_EXTRAPOLATION' } : null, source: hasModel ? 'TANGENT_EXTRAPOLATION_FALLBACK' : 'TANGENT_EXTRAPOLATION', modelVersionId: predictionConfig.modelVersionId || null, modelError: modelError?.message || null }
+  return {
+    point: null,
+    source: hasModel ? 'MODEL_ERROR' : 'MODEL_NOT_CONFIGURED',
+    modelVersionId: predictionConfig.modelVersionId || null,
+    modelError: modelError?.message || null
+  }
 }
 
 /** Find the highest risk row in the predicted MD interval. */

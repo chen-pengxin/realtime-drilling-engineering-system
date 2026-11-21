@@ -41,6 +41,7 @@ public class PredictionTaskController
 {
     private final HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(5)).build();
     private final JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
     private final ModelRepositoryController models;
     @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.centers.CenterTaskSnapshots centerSnapshots;
 
@@ -91,7 +92,7 @@ public class PredictionTaskController
         if (fileCount == null || fileCount == 0)
             throw new IllegalArgumentException("input_file_id must reference an active SURVEY or DATASET file in this field");
         Map<String,Object> configRow=jdbc.queryForMap("SELECT * FROM drilling_field_config WHERE field_id=? AND status='0' AND effective_to IS NULL ORDER BY config_version DESC LIMIT 1",fieldId);
-        Map<String,Object> prediction=IncrementalLearningService.object(DrillingAlgorithmDefaults.merged(configRow.get("algorithm_defaults_json")).get("prediction"));
+        Map<String,Object> prediction=IncrementalLearningService.object(engineeringConfigs.defaults().get("prediction"));
         double step=number(payload.get("prediction_step"),number(prediction.get("predictionStep"),9));
         if(!Double.isFinite(step)||step<=0||step>1000)throw new IllegalArgumentException("预测步长必须在 0–1000 m 范围内");
         payload.put("prediction_step",step);
@@ -110,7 +111,7 @@ public class PredictionTaskController
             // contract is ordinary JSON, so the current pose must be a copy.
             inference.put("input",Map.of("contract","drilling.pose-extrapolation.v1","prediction_step",step,"prediction_steps",List.of(9,28,step),"stations",stations,"current_pose",new java.util.LinkedHashMap<>(stations.get(stations.size()-1))));
             long modelId=Long.parseLong(String.valueOf(prediction.get("modelVersionId")));
-            ResponseEntity<String> inferred=models.inferTest(fieldId,modelId,inference);
+            ResponseEntity<String> inferred=models.inferConfigured(modelId,inference);
             if(!inferred.getStatusCode().is2xxSuccessful())return inferred;
             Map<String,Object> modelResult=object(inferred.getBody());
             Map<String,Object> task=new java.util.LinkedHashMap<>();

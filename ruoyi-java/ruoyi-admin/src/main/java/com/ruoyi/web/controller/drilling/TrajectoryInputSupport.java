@@ -1,6 +1,10 @@
 package com.ruoyi.web.controller.drilling;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import com.ruoyi.framework.security.DrillingDataScope;
@@ -10,6 +14,15 @@ import com.ruoyi.framework.security.DrillingDataScope;
 public class TrajectoryInputSupport {
   private final JdbcTemplate db;
   private final NativeEngineSupport engine;
+  /**
+   * Survey reduction is deterministic for an immutable survey version and its
+   * calculation reference.  Replanning repeatedly uses the same nine
+   * neighbors, so keeping the reduced stations avoids another HTTP round trip
+   * for every task.  The cache is bounded by coarse eviction; version IDs are
+   * immutable and a new import receives a new ID.
+   */
+  private final ConcurrentMap<String, List<Map<String, Object>>> reducedCache =
+      new ConcurrentHashMap<>();
   public TrajectoryInputSupport(JdbcTemplate db, NativeEngineSupport engine) { this.db=db; this.engine=engine; }
 
   public Map<String,Object> version(Long fieldId, Long version) {
@@ -22,8 +35,9 @@ public class TrajectoryInputSupport {
       """,fieldId,version);
     if(rows.size()!=1)throw new IllegalArgumentException("所选轨迹版本不属于当前井场");
     var v=rows.get(0);
-    // quality_status is retained as an import diagnostic. It is not a gate
-    // for selecting an immutable trajectory version in this system.
+    // quality_status records import/calculation usability. It is not a
+    // separate quality-management module, but the neighbor selector and
+    // task pages expose only READY and source-confirmed versions.
     v.put("reference",SourceRegistryController.obj(v.get("reference_json")));
     v.put("stations",db.queryForList("SELECT md,inclination,azimuth,north,east,tvd FROM drilling_survey_station WHERE survey_version_id=? ORDER BY md",version));
     return v;
@@ -41,13 +55,68 @@ public class TrajectoryInputSupport {
     var ref=SourceRegistryController.obj(v.get("reference"));
     ref.put("north_reference","GRID_NORTH");ref.put("length_unit","m");ref.put("angle_unit","deg");
     for(var axis:List.of("north","east","tvd"))ref.put("origin_"+axis,rows.get(0).get(axis));
-    var reduced=engine.json("/survey/reduce",Map.of("rows",rows,"reference",ref,"target_reference",target,"preserve_stored",true,"include_table",false));
-    var stations=(List<Map<String,Object>>)reduced.get("stations");
+    var stations = reducedStations(v, rows, ref, target);
     var out=new LinkedHashMap<String,Object>();
     out.put("stations",stations);out.put("canonical_coordinates",true);
     if(defaults!=null)out.put("uncertainty",SurveyVersionMetadata.uncertainty(SourceRegistryController.obj(v.get("reference")),defaults));
     for(var axis:List.of("north","east","tvd"))out.put("origin_"+axis,stations.get(0).get(axis));
     return out;
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<Map<String,Object>> reducedStations(Map<String,Object> version,
+      List<Map<String,Object>> rows, Map<String,Object> reference, Map<String,Object> target) {
+    Object id = version.get("survey_version_id");
+    String key = String.valueOf(id) + ":" + NativeEngineSupport.hash(SourceRegistryController.obj(target).toString());
+    var cached = reducedCache.get(key);
+    if (cached != null) return copyStations(cached);
+
+    // Imported trajectory versions are reduced once during ingestion and the
+    // canonical N/E/TVD coordinates are stored with every station. Re-running
+    // the FastAPI reduction endpoint for every replanning request adds a
+    // network round trip per version (nine neighbors can cost several
+    // seconds). A READY reference plus complete stored coordinates is already
+    // the same minimum-curvature result, so bind it directly and cache it.
+    Object referenceStatus = reference.get("reference_status");
+    boolean canonical = "READY".equalsIgnoreCase(String.valueOf(referenceStatus))
+        || "CONFIRMED".equalsIgnoreCase(String.valueOf(referenceStatus));
+    if (canonical && TrajectoryReferenceFrames.sameFrame(reference,target) && rows.stream().allMatch(row -> row.get("north") != null
+        && row.get("east") != null && row.get("tvd") != null)) {
+      var immutable = copyStations(rows);
+      if (reducedCache.size() >= 512) reducedCache.clear();
+      reducedCache.putIfAbsent(key, immutable);
+      return copyStations(immutable);
+    }
+    var reduced=engine.json("/survey/reduce",Map.of("rows",rows,"reference",reference,"target_reference",target,"preserve_stored",true,"include_table",false));
+    var stations=(List<Map<String,Object>>)reduced.get("stations");
+    var immutable = copyStations(stations);
+    if (reducedCache.size() >= 512) reducedCache.clear();
+    reducedCache.putIfAbsent(key, immutable);
+    return copyStations(immutable);
+  }
+
+  private static List<Map<String,Object>> copyStations(List<Map<String,Object>> rows) {
+    var copy = new ArrayList<Map<String,Object>>(rows.size());
+    for (var row : rows) copy.add(new LinkedHashMap<>(row));
+    return copy;
+  }
+
+  private List<Map<String,Object>> prepareNeighbors(List<Map<String,Object>> versions,
+      Map<String,Object> target, Map<String,Object> defaults) {
+    if (versions.isEmpty()) return List.of();
+    var futures = new ArrayList<CompletableFuture<Map<String,Object>>>(versions.size());
+    for (var version : versions)
+      futures.add(CompletableFuture.supplyAsync(() -> prepare(version, target, defaults)));
+    var result = new ArrayList<Map<String,Object>>(versions.size());
+    for (var future : futures) {
+      try { result.add(future.join()); }
+      catch (CompletionException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof RuntimeException runtime) throw runtime;
+        throw ex;
+      }
+    }
+    return result;
   }
 
   @SuppressWarnings("unchecked")
@@ -64,12 +133,14 @@ public class TrajectoryInputSupport {
       // model.  Stored measured history is always the authority.
       if (md<=last+1e-7) continue;
       if (md<=previous) throw new IllegalArgumentException("预测扩展测深必须严格递增");
-      if (!(r.get("predicted") instanceof Boolean b && b) && !(r.get("source")!=null && String.valueOf(r.get("source")).toUpperCase().contains("PREDICT")))
-        throw new IllegalArgumentException("新增扫描点必须明确标记为预测结果");
+      String source = r.get("source") == null ? "" : String.valueOf(r.get("source")).toUpperCase(Locale.ROOT);
+      boolean trainedModelPoint = "TRAINED_MODEL".equals(source) || "PREDICTED_TRAINED_MODEL".equals(source);
+      if (!(r.get("predicted") instanceof Boolean b && b) || !trainedModelPoint)
+        throw new IllegalArgumentException("新增扫描点必须来自已配置模型的预测结果");
       for(String k:List.of("inclination","azimuth","north","east","tvd")) if(r.get(k)==null) throw new IllegalArgumentException("预测点缺少 "+k);
       var row=new LinkedHashMap<String,Object>();
       for(String k:List.of("md","inclination","azimuth","north","east","tvd")) row.put(k,r.get(k));
-      row.put("source", r.get("source")); row.put("predicted", true);
+      row.put("source", "PREDICTED_TRAINED_MODEL"); row.put("predicted", true);
       actual.add(row); previous=md;
     }
     // Re-run the supplied minimum-curvature reducer on the complete sequence;
@@ -114,15 +185,21 @@ public class TrajectoryInputSupport {
       for(var k:List.of("md","north","east","tvd","inclination","azimuth"))payload.put("start_"+k,last.get(k));
       var selected=(List<Map<String,Object>>)payload.getOrDefault("obstacle_versions",List.of());
       if(!selected.isEmpty()) {
-        var obstacles=new ArrayList<Map<String,Object>>();
-        for(var item:selected){var v=version(fieldId,SourceRegistryController.id(item.get("survey_version_id")));if(v.get("wellbore_id").equals(reference.get("wellbore_id")))throw new IllegalArgumentException("当前井眼不能作为自身邻井");var obstacle=prepare(v,target,defaults);obstacle.put("well_id",v.get("well_id"));obstacle.put("survey_version_id",v.get("survey_version_id"));obstacles.add(obstacle);versions.add(snapshot("NEIGHBOR",v,target,defaults));}
+        var obstacleVersions=new ArrayList<Map<String,Object>>();
+        for(var item:selected){var v=version(fieldId,SourceRegistryController.id(item.get("survey_version_id")));if(v.get("wellbore_id").equals(reference.get("wellbore_id")))throw new IllegalArgumentException("当前井眼不能作为自身邻井"); obstacleVersions.add(v); versions.add(snapshot("NEIGHBOR",v,target,defaults));}
+        var preparedNeighbors = prepareNeighbors(obstacleVersions, target, defaults);
+        var obstacles=new ArrayList<Map<String,Object>>(preparedNeighbors.size());
+        for (int i=0; i<preparedNeighbors.size(); i++) { var obstacle=preparedNeighbors.get(i); var v=obstacleVersions.get(i); obstacle.put("well_id",v.get("well_id")); obstacle.put("survey_version_id",v.get("survey_version_id")); obstacles.add(obstacle); }
         payload.put("obstacles",obstacles);
       } else if(payload.get("obstacles") instanceof List<?> list && !list.isEmpty())throw new IllegalArgumentException("邻井约束必须提供明确的 obstacle_versions，不接受客户端自报轨迹");
     } else {
       payload.put("reference",prepared);
       if(path.endsWith("/network-scan")) {
-        var neighbors=(List<Map<String,Object>>)payload.get("neighbors");var bound=new ArrayList<Map<String,Object>>();
-        for(var item:neighbors){var v=version(fieldId,SourceRegistryController.id(item.get("survey_version_id")));if(v.get("wellbore_id").equals(reference.get("wellbore_id")))throw new IllegalArgumentException("不可扫描同一井眼的两个版本");var n=prepare(v,target,defaults);n.put("well_id",v.get("well_id"));n.put("survey_version_id",v.get("survey_version_id"));bound.add(n);versions.add(snapshot("NEIGHBOR",v,target,defaults));}
+        var neighbors=(List<Map<String,Object>>)payload.get("neighbors");var neighborVersions=new ArrayList<Map<String,Object>>();
+        for(var item:neighbors){var v=version(fieldId,SourceRegistryController.id(item.get("survey_version_id")));if(v.get("wellbore_id").equals(reference.get("wellbore_id")))throw new IllegalArgumentException("不可扫描同一井眼的两个版本"); neighborVersions.add(v); versions.add(snapshot("NEIGHBOR",v,target,defaults));}
+        var bound=new ArrayList<Map<String,Object>>();
+        var preparedNeighbors = prepareNeighbors(neighborVersions, target, defaults);
+        for (int i=0; i<preparedNeighbors.size(); i++) { var n=preparedNeighbors.get(i); var v=neighborVersions.get(i); n.put("well_id",v.get("well_id")); n.put("survey_version_id",v.get("survey_version_id")); bound.add(n); }
         payload.put("neighbors",bound);
       } else {var v=version(fieldId,SourceRegistryController.id(payload.get("neighbor_survey_version_id")));payload.put("neighbor",prepare(v,target,defaults));versions.add(snapshot("NEIGHBOR",v,target,defaults));}
     }

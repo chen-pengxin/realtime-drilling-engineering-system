@@ -1,0 +1,53 @@
+{
+  "endpoint": "POST /api/algorithm/trajectory-plan/solve",
+  "conditions": {
+    "scenarios": "A/B/C",
+    "reference_well": "井1",
+    "neighbor_count": 9,
+    "solver": "SLSQP",
+    "trajectory_model": "minimum_curvature",
+    "error_model": "iscwsa_rev0",
+    "final_verification_step_m": 1.0,
+    "worker": "persistent",
+    "response_curve_step_m": 5.0
+  },
+  "budget_seconds": 10.0,
+  "measurements": [
+    {
+      "scenario": "A",
+      "gateway_preparation_seconds": 0.200811625,
+      "algorithm_http_seconds": 6.804875208,
+      "execution_total_seconds": 6.528425333,
+      "result_persistence_seconds": 0.135717709,
+      "gateway_total_seconds": 7.154364958,
+      "response_bytes": 1743802,
+      "status": "SUCCESS",
+      "sla_met": true,
+      "headroom_seconds": 2.845635042
+    },
+    {
+      "scenario": "B",
+      "gateway_preparation_seconds": 0.170745791,
+      "algorithm_http_seconds": 6.693049042,
+      "execution_total_seconds": 6.502896875,
+      "result_persistence_seconds": 0.103471583,
+      "gateway_total_seconds": 6.975049125,
+      "response_bytes": 1824463,
+      "status": "SUCCESS",
+      "sla_met": true,
+      "headroom_seconds": 3.024950875
+    },
+    {
+      "scenario": "C",
+      "gateway_preparation_seconds": 0.218175125,
+      "algorithm_http_seconds": 6.809950125,
+      "execution_total_seconds": 6.475014041,
+      "result_persistence_seconds": 0.095064,
+      "gateway_total_seconds": 7.1330905,
+      "response_bytes": 1875535,
+      "status": "SUCCESS",
+      "sla_met": true,
+      "headroom_seconds": 2.8669095
+    }
+  ]
+}

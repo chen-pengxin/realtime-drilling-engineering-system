@@ -3,7 +3,7 @@
     <el-descriptions v-if="versionTarget" :column="1" border class="version-summary"><el-descriptions-item label="资料名称">{{ fileDisplayName(versionTarget) }}</el-descriptions-item><el-descriptions-item label="最新文件版次">第 {{ versionTarget.latest_edition_no }} 版</el-descriptions-item><el-descriptions-item label="更新范围" :span="2">保存新原件并保留历史文件；轨迹数据版本和当前使用版本保持不变。</el-descriptions-item></el-descriptions>
     <el-form label-width="100px" :disabled="uploading" @submit.prevent>
       <el-form-item label="关联对象" required>
-        <el-tree-select v-model="defaultNodeId" :data="targetTree" node-key="node_id" :props="treeProps" check-strictly filterable :render-after-expand="false" :disabled="!!versionTarget" placeholder="展开区块、井场，选择井或井眼" class="target-select" />
+        <el-tree-select v-model="defaultNodeId" :data="targetTree" node-key="node_id" :props="treeProps" check-strictly filterable :render-after-expand="false" :disabled="!!versionTarget" placeholder="选择所属井场、井、井眼或资料目录" class="target-select" />
         <el-button v-if="!versionTarget" :disabled="!defaultNodeId || !rows.length" @click="applyTarget">应用到全部文件</el-button>
       </el-form-item>
       <el-form-item label="工程层级"><span class="engineering-path">{{ nodePath(defaultNodeId) || '请选择关联对象' }}</span></el-form-item>
@@ -39,6 +39,7 @@ import { ElMessage } from 'element-plus'
 import { uploadSurveySource } from '@/api/drillingRegistry'
 import { libraryDocument } from '@/api/engineeringLibrary'
 import { fileDisplayName } from '@/utils/fileNames'
+import { catalogFileTargetAllowed, catalogUploadError } from '@/utils/engineeringCatalog'
 
 const props = defineProps({ nodes: { type: Array, default: () => [] }, documentRoles: Object })
 const emit = defineEmits(['uploaded'])
@@ -48,7 +49,7 @@ const treeProps = { label: 'label', children: 'children', disabled: 'disabled' }
 const nodeMap = computed(() => new Map(props.nodes.map(n => [Number(n.node_id), n])))
 const targetTree = computed(() => {
   const available = props.nodes.filter(n => n.node_type === 'BLOCK' || Number(n.field_id) === Number(activeFieldId.value))
-  const nodes = available.map(n => ({ ...n, children: [], disabled: !['WELL','WELLBORE','PLAN','SURVEY'].includes(n.node_type) || n.properties?.reference_only }))
+  const nodes = available.map(n => ({ ...n, children: [], disabled: !catalogFileTargetAllowed(n) }))
   const map = new Map(nodes.map(n => [Number(n.node_id), n])), roots = []
   nodes.forEach(n => { const parent = map.get(Number(n.parent_id)); if (parent) parent.children.push(n); else roots.push(n) })
   return roots.filter(n => n.node_type !== 'BLOCK' || n.children.length)
@@ -63,7 +64,7 @@ let serial = 0
 function show(node) {
   versionTarget.value = null
   activeFieldId.value = node?.field_id
-  defaultNodeId.value = ['WELL','WELLBORE','PLAN','SURVEY'].includes(node?.node_type) && !node?.properties?.reference_only ? Number(node.node_id) : null
+  defaultNodeId.value = catalogFileTargetAllowed(node) ? Number(node.node_id) : null
   rows.value = []; error.value = ''; open.value = true
 }
 async function showVersion(row) {
@@ -89,12 +90,10 @@ function selectFiles(event) {
 function removeRow(row) { rows.value = rows.value.filter(r => r.id !== row.id) }
 function invalid(row) {
   const node = nodeFor(row.nodeId)
-  if (!node || !['WELL','WELLBORE','PLAN','SURVEY'].includes(node.node_type)) return '请选择井或井眼'
+  const targetError = catalogUploadError(node, row.role, ['TRAJECTORY_DATA','TRAJECTORY_REPORT'].includes(row.role) ? row.kind : '')
+  if (targetError) return targetError
   if (row.displayName?.length > 255 || /[\u0000-\u001f\u007f]/.test(row.displayName || '')) return '系统名称最多255个字符，不能包含控制字符'
   if (row.file.size > 256 * 1024 * 1024) return '单文件不能超过 256 MB'
-  if (row.role === 'TRAJECTORY_DATA' && !node.wellbore_id) return '轨迹数据请选择具体井眼'
-  if (row.role === 'TRAJECTORY_DATA' && !row.kind) return '请选择设计方案或实钻测斜'
-  if (['TRAJECTORY_DATA','TRAJECTORY_REPORT'].includes(row.role) && row.kind && !node.wellbore_id) return '设计或实钻资料请选择具体井眼'
   return ''
 }
 async function submit() {

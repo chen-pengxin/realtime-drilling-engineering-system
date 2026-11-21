@@ -1,5 +1,5 @@
 <template>
-  <CenterList ref="list" title="任务历史" module="history" :types="taskTypes" :statuses="options(['QUEUED','RUNNING','SUCCESS','SUCCEEDED','FAILED','STOPPED','LOST','MODEL_NOT_CONFIGURED','INFEASIBLE','BEST_EFFORT'])" extension="json">
+  <CenterList ref="list" title="任务历史" module="history" :types="taskTypes" :statuses="options(['QUEUED','RUNNING','SUCCESS','FEASIBLE_NOT_CONVERGED','TIMEOUT','SUCCEEDED','FAILED','STOPPED','LOST','MODEL_NOT_CONFIGURED','INFEASIBLE','BEST_EFFORT'])" extension="json">
     <el-table-column prop="title" label="任务" min-width="180" />
     <el-table-column prop="record_type" label="类型" min-width="120"><template #default="{row}">{{ label(row.record_type) }}</template></el-table-column>
     <el-table-column prop="well_id" label="井编号" width="100" />

@@ -67,16 +67,42 @@ final class DrillingAlgorithmDefaults
                 && prediction.get("modelVersionId") == null)
         {
             // A configured model must be explicitly clearable when a field
-            // switches back to geometric extrapolation.
+            // returns to the unconfigured state. Clearing a model never
+            // enables a geometric prediction fallback.
             ((Map<String, Object>) result.get("prediction")).put("modelVersionId", null);
         }
         Map<String, Object> planning = (Map<String, Object>) result.get("planning");
         planning.remove("segmentCount");
+        // Replanning has one safety contract.  Historical snapshots that
+        // stored the former SF-only value are migrated in memory so the
+        // configuration shown to the operator and the request sent to the
+        // native engine cannot disagree.
+        Object planningConstraint = planning.get("collisionConstraint");
+        if (!"SEPARATION_FACTOR_AND_CENTER_DISTANCE".equalsIgnoreCase(
+                String.valueOf(planningConstraint)))
+            planning.put("collisionConstraint", "SEPARATION_FACTOR_AND_CENTER_DISTANCE");
         Object nativeValue = planning.get("nativeOptions");
         if (nativeValue instanceof Map<?, ?> nativeOptions)
         {
             ((Map<String, Object>) nativeOptions).remove("scenario_inclination_change_deg");
             ((Map<String, Object>) nativeOptions).remove("scenario_azimuth_change_deg");
+            // Configurations created before the combined replanning rule did
+            // not have a centre-distance limit and stored zero.  Promote that
+            // legacy value to the current engineering default so an old
+            // snapshot cannot silently disable the second hard constraint.
+            Object centre = ((Map<?, ?>) nativeOptions).get("centerline_min_distance_m");
+            if (centre instanceof Number number && number.doubleValue() <= 0.0)
+                ((Map<String, Object>) nativeOptions).put("centerline_min_distance_m", 5.0);
+        }
+        // A live prediction is valid only when it comes from the configured
+        // trained model. Never revive the removed geometric fallback from an
+        // old field snapshot or a client payload.
+        if (result.get("prediction") instanceof Map<?, ?> prediction)
+        {
+            ((Map<String, Object>) prediction).put("allowFallback", false);
+            // This pre-production display option is removed from the
+            // effective snapshot so old rows cannot revive it.
+            ((Map<String, Object>) prediction).remove("fallbackMode");
         }
         return result;
     }

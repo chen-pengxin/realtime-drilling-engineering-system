@@ -109,7 +109,7 @@ def main():
                         'segment_bounds': [{'length_m':[r['minLength'],r['maxLength']],
                                             'dls_deg_per_30m':[r['minDls'],r['maxDls']]} for r in cfg['segmentBounds']],
                         'native_options': options, 'solver': 'SLSQP',
-                        'collision_constraint':'SEPARATION_FACTOR', 'obstacle_versions': payload['neighbors']}
+                        'collision_constraint':'SEPARATION_FACTOR_AND_CENTER_DISTANCE', 'obstacle_versions': payload['neighbors']}
                 started = time.monotonic()
                 result = request('POST', '/api/algorithm/trajectory-plan/solve', json=plan)
                 metadata = result['solver_metadata']

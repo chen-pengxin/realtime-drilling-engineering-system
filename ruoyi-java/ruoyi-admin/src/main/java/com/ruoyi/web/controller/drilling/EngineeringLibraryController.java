@@ -27,6 +27,9 @@ public class EngineeringLibraryController {
   @ExceptionHandler(ResponseStatusException.class)
   public org.springframework.http.ResponseEntity<Map<String,Object>> conflict(ResponseStatusException e){return org.springframework.http.ResponseEntity.status(e.getStatusCode()).body(Map.of("code",e.getStatusCode().value(),"msg",Objects.requireNonNullElse(e.getReason(),"请求被拒绝")));}
 
+  @ExceptionHandler(IllegalArgumentException.class)
+  public org.springframework.http.ResponseEntity<Map<String,Object>> invalid(IllegalArgumentException e){return org.springframework.http.ResponseEntity.badRequest().body(Map.of("code",400,"msg",Objects.requireNonNullElse(e.getMessage(),"请检查工程资料信息")));}
+
   @GetMapping("/tree") @RequiresPermissions("drilling:well:list")
   public List<Map<String,Object>> tree(@PathVariable Long fieldId){
     DrillingDataScope.current().requireAccess(fieldId);
@@ -49,7 +52,7 @@ public class EngineeringLibraryController {
   public Map<String,Object> updateNode(@PathVariable Long fieldId,@PathVariable Long nodeId,@RequestBody Map<String,Object>b){var old=library.nodeInField(fieldId,nodeId,true);if(nodeId<0)throw new IllegalArgumentException("区块和井场请在当前目录中直接管理");return library.updateNode(nodeId,b);}
   @PostMapping("/nodes/{nodeId}/documents") @RequiresPermissions("drilling:file:add") @Transactional
   @ResponseStatus(HttpStatus.CREATED)
-  public Map<String,Object> attachDocument(@PathVariable Long fieldId,@PathVariable Long nodeId,@RequestBody Map<String,Object>b){var n=library.nodeInField(fieldId,nodeId,true);if(nodeId<0)throw new IllegalArgumentException("请先选择井场、井、井眼或成果节点");return library.attachFile(nodeId,EngineeringLibraryService.id(b.get("sourceId")),b);}
+  public Map<String,Object> attachDocument(@PathVariable Long fieldId,@PathVariable Long nodeId,@RequestBody Map<String,Object>b){var n=library.fileTarget(fieldId,nodeId);return library.attachFile(EngineeringLibraryService.id(n.get("node_id")),EngineeringLibraryService.id(b.get("sourceId")),b);}
   @PostMapping("/nodes/{nodeId}/revisions") @RequiresPermissions("drilling:well:survey:import") @Transactional
   @ResponseStatus(HttpStatus.CREATED)
   public Map<String,Object> createRevision(@PathVariable Long fieldId,@PathVariable Long nodeId,@RequestBody Map<String,Object>b){var n=library.nodeInField(fieldId,nodeId,true);if(nodeId<0)throw new IllegalArgumentException("请先选择设计或实测成果节点");return library.createRevision(nodeId,b);}

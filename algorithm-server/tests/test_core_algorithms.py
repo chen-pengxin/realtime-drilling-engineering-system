@@ -58,20 +58,21 @@ def test_prediction_not_configured_result_keeps_empty_future_fields():
     assert task.result["model_evaluation"] is None
 
 
-def test_planning_contract_only_accepts_separation_factor_constraint():
+def test_planning_contract_requires_combined_collision_constraint():
     target = {"north": 0, "east": 0, "tvd": 100}
     payload = PlanningInput(
         start_md=0, start_north=0, start_east=0, start_tvd=0,
         start_inclination=0, start_azimuth=0, target=target, minimum_sf=1.8,
     )
-    assert payload.collision_constraint == "SEPARATION_FACTOR"
+    assert payload.collision_constraint == "SEPARATION_FACTOR_AND_CENTER_DISTANCE"
+    assert payload.centerline_min_distance_m == 5.0
     assert payload.scan_step == 1.0
     assert payload.minimum_sf == 1.8
     with pytest.raises(ValueError):
         PlanningInput(
             start_md=0, start_north=0, start_east=0, start_tvd=0,
             start_inclination=0, start_azimuth=0, target=target,
-            collision_constraint="SPACING",
+            collision_constraint="SEPARATION_FACTOR",
         )
 
 

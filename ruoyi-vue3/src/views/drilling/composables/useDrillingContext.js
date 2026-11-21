@@ -16,10 +16,11 @@ const loading = ref(false)
 let contextRequest = 0
 
 import nativeDefaults from './native-defaults.json'
+import { normalizeTrajectoryStyles } from '@/utils/trajectoryStyles'
 const defaults=()=>JSON.parse(JSON.stringify(nativeDefaults))
 
 const configForm = reactive({
-  coordinateSystem: 'LOCAL_ENU', northReference: 'GRID_NORTH', lengthUnit: 'm', angleUnit: 'deg', tvdPositive: 'D',
+  engineeringConfigVersion:null, coordinateSystem: 'LOCAL_ENU', northReference: 'GRID_NORTH', lengthUnit: 'm', angleUnit: 'deg', tvdPositive: 'D',
   originNorth: 0, originEast: 0, originTvd: 0, magneticDeclination: 0, meridianConvergence: 0, algorithmDefaults: defaults()
 })
 
@@ -31,7 +32,7 @@ function mergeDefaults(raw) {
   try { if (typeof raw === 'string') parsed = JSON.parse(raw) } catch (_) { parsed = null }
   if (!parsed) return base
   const model=parsed.errorModel?.settings ? parsed.errorModel : base.errorModel
-  return {...base,...parsed, reference:{...base.reference,...parsed.reference}, thresholds:{...base.thresholds,...parsed.thresholds},errorModel:{...base.errorModel,...model},planning:{...base.planning,...parsed.planning,nativeOptions:{...base.planning.nativeOptions,...parsed.planning?.nativeOptions}},prediction:{...base.prediction,...parsed.prediction}}
+  return {...base,...parsed, visualization:normalizeTrajectoryStyles(parsed.visualization || base.visualization), reference:{...base.reference,...parsed.reference}, thresholds:{...base.thresholds,...parsed.thresholds},errorModel:{...base.errorModel,...model},planning:{...base.planning,...parsed.planning,nativeOptions:{...base.planning.nativeOptions,...parsed.planning?.nativeOptions}},prediction:{...base.prediction,...parsed.prediction}}
 
 }
 
@@ -62,7 +63,7 @@ async function loadFieldContext(options = {}) {
     wells.value = wellRows || []
     fieldFiles.value = [...(files || []), ...(templateFiles || [])]
     Object.assign(configForm, {
-      coordinateSystem: config.coordinate_system, northReference: config.north_reference, lengthUnit: config.length_unit,
+      engineeringConfigVersion: config.engineering_config_version, coordinateSystem: config.coordinate_system, northReference: config.north_reference, lengthUnit: config.length_unit,
       angleUnit: config.angle_unit, tvdPositive: config.tvd_positive, originNorth: Number(config.origin_north || 0),
       originEast: Number(config.origin_east || 0), originTvd: Number(config.origin_tvd || 0),
       magneticDeclination: Number(config.magnetic_declination || 0), meridianConvergence: Number(config.meridian_convergence || 0),

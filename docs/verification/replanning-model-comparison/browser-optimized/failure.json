@@ -1,0 +1,5 @@
+{
+  "error": "AssertionError [ERR_ASSERTION]: isolated bootstrap login failed\n\n500 !== 0\n",
+  "rows": [],
+  "errors": []
+}

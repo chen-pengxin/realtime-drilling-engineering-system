@@ -1,6 +1,7 @@
 """The supplied test wells are ordinary editable engineering inputs."""
 import pytest
-from tools.import_test_cases import load_case, case_defaults
+from tools.import_test_cases import load_case, case_defaults, case_reference, matches_stored_case
+from app.shared.trajectory.reduction import reduce_trajectory
 
 
 @pytest.mark.parametrize('letter', list('ABC'))
@@ -31,3 +32,32 @@ def test_case_defaults_keep_native_input_and_allow_real_replanning(letter):
     assert len(planning['segmentBounds']) == problem['n_segments']
     assert planning['segmentBounds'][1]['maxLength'] == 2200
     assert planning['constraintMode'] == 'PER_SEGMENT'
+
+
+@pytest.mark.parametrize('letter', list('ABC'))
+def test_same_case_local_surveys_share_a_frame_without_changing_stored_geometry(letter):
+    _, tracks = load_case(letter)
+    reference = next(t['rows'] for t in tracks if t['number'] == 1 and t['kind'] == 'ACTUAL')
+    neighbor = next(t['rows'] for t in tracks if t['number'] == 2 and t['kind'] == 'ACTUAL')
+    source, target = case_reference(letter, neighbor), case_reference(letter, reference)
+    result = reduce_trajectory(neighbor, source, target_reference=target, preserve_stored=True)
+    assert [[s.north, s.east, s.tvd] for s in result] == [[r[k] for k in ('north', 'east', 'tvd')] for r in neighbor]
+    assert not source['crs']
+    assert source['local_frame_id'] == target['local_frame_id']
+    other = 'B' if letter == 'A' else 'A'
+    with pytest.raises(ValueError, match='不同的局部坐标基准'):
+        reduce_trajectory(neighbor, source, target_reference=case_reference(other, reference), preserve_stored=True)
+    with pytest.raises(ValueError, match='CRS'):
+        reduce_trajectory(neighbor, source, target_reference={'crs':'EPSG:23031','depth_datum_elevation_m':25}, preserve_stored=True)
+
+
+def test_legacy_case_frames_require_all_points_to_match_at_database_precision():
+    _, tracks = load_case('A')
+    source = tracks[0]['rows']
+    stored = [{k:round(v,6) for k,v in row.items()} for row in source]
+    assert matches_stored_case(stored, source)
+    changed = [dict(row) for row in stored]
+    changed[-1]['north'] += 0.000002
+    assert not matches_stored_case(changed, source)
+    assert not matches_stored_case(stored[:-1], source)
+    assert not matches_stored_case([], [])

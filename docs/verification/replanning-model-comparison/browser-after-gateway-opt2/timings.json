@@ -1,0 +1,143 @@
+{
+  "scope": "isolated_verification_only",
+  "viewport": [
+    1700,
+    1080
+  ],
+  "browser": "157.0.4341.60",
+  "rows": [
+    {
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5546324941615,
+      "position_error_m": 0.4900012614672653,
+      "minimum_sf": 15.226861035324697,
+      "iterations": 73,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 15.388799999997019,
+      "graph_render_complete_seconds": 15.714399999991059,
+      "graph_afterplots_seconds": [
+        15.714399999991059,
+        15.714399999991059,
+        15.714399999991059
+      ],
+      "table_tab_render_seconds": 2.3797000000029804,
+      "complete_visible_seconds": 18.09409999999404,
+      "gateway_non_algorithm_seconds": 1.288568584,
+      "timing": {
+        "optimization_wall_seconds": 7.019045041000936,
+        "trajectory_table_seconds": 0.03723458299646154,
+        "execution_total_seconds": 12.8518388329976,
+        "initialization_seconds": 1.158588750011404,
+        "result_persistence_seconds": 0.901085708,
+        "gateway_snapshot_seconds": 0.227497916,
+        "algorithm_http_seconds": 13.849906833,
+        "final_verification_seconds": 0.8428164170036325,
+        "gateway_preparation_seconds": 0.387482709,
+        "gateway_authorization_seconds": 0.001875125,
+        "total_seconds": 9.429306958001689,
+        "gateway_configuration_breakdown": {
+          "field_access_seconds": 0.000538458,
+          "engineering_defaults_cache_seconds": 0.000224292,
+          "field_defaults_total_seconds": 0.000766041,
+          "confirmation_config_and_access_seconds": 0.000931792,
+          "confirmation_survey_revision_seconds": 0.000255375,
+          "confirmation_cache_miss": 0,
+          "confirmation_profile_build_seconds": 0.000822875,
+          "confirmation_database_check_seconds": 0.000780541,
+          "confirmation_total_seconds": 0.002843917,
+          "require_confirmation_total_seconds": 0.002845708,
+          "request_policy_merge_seconds": 0.000029708,
+          "trajectory_input_binding_seconds": 0.127707333
+        },
+        "input_preparation_seconds": 1.3154809590050718,
+        "worker_json_serialization_seconds": 0.1244935830036411,
+        "gateway_configuration_seconds": 0.157168542,
+        "algorithm_total_seconds": 9.429306958001689,
+        "optimization_seconds": 7.018876707996242,
+        "preparation_seconds": 0.1470175830036169,
+        "collision_result_adaptation_seconds": 0.08527354200487025,
+        "gateway_validation_seconds": 0.000937875,
+        "feasibility_construction_seconds": 1.15862083400134,
+        "gateway_total_seconds": 15.138475417,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.13880724999762606
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "fa31e031eb6388fcd229ac51351389566296bc6fc2d3f5070b1d0c5bd6d59a15"
+    },
+    {
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5612370269173,
+      "position_error_m": 0.49000001167874735,
+      "minimum_sf": 15.261817107033258,
+      "iterations": 77,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 19.426,
+      "graph_render_complete_seconds": 19.73970000000298,
+      "graph_afterplots_seconds": [
+        19.73970000000298,
+        19.73970000000298,
+        19.73970000000298
+      ],
+      "table_tab_render_seconds": 2.56070000000298,
+      "complete_visible_seconds": 22.30040000000596,
+      "gateway_non_algorithm_seconds": 1.2727782500000018,
+      "timing": {
+        "optimization_wall_seconds": 10.478002042000298,
+        "trajectory_table_seconds": 0.00238754200108815,
+        "execution_total_seconds": 17.039039875002345,
+        "initialization_seconds": 1.5315450839989353,
+        "result_persistence_seconds": 0.734716792,
+        "gateway_snapshot_seconds": 0.257454083,
+        "algorithm_http_seconds": 18.05585275,
+        "final_verification_seconds": 0.9145205840031849,
+        "gateway_preparation_seconds": 0.538061333,
+        "gateway_authorization_seconds": 0.002266958,
+        "total_seconds": 13.361718500003917,
+        "gateway_configuration_breakdown": {
+          "field_access_seconds": 0.0005675,
+          "engineering_defaults_cache_seconds": 0.000213208,
+          "field_defaults_total_seconds": 0.000783042,
+          "confirmation_config_and_access_seconds": 0.001380917,
+          "confirmation_survey_revision_seconds": 0.0004095,
+          "confirmation_cache_miss": 0,
+          "confirmation_profile_build_seconds": 0.001097166,
+          "confirmation_database_check_seconds": 0.000588209,
+          "confirmation_total_seconds": 0.003542916,
+          "require_confirmation_total_seconds": 0.003544667,
+          "request_policy_merge_seconds": 0.000033458,
+          "trajectory_input_binding_seconds": 0.215820916
+        },
+        "input_preparation_seconds": 1.462876542005688,
+        "worker_json_serialization_seconds": 0.1447529580036644,
+        "gateway_configuration_seconds": 0.276824833,
+        "algorithm_total_seconds": 13.361718500003917,
+        "optimization_seconds": 10.477810957992915,
+        "preparation_seconds": 0.16618600000219885,
+        "collision_result_adaptation_seconds": 0.09658312500687316,
+        "gateway_validation_seconds": 0.001510125,
+        "feasibility_construction_seconds": 1.5315873330109753,
+        "gateway_total_seconds": 19.328631,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.17181320900272112
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "9daf1eae9ca0a73e40fa3fe71073dcb029557c83e334ffef0035ae520ce2b25d"
+    }
+  ],
+  "errors": []
+}

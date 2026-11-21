@@ -44,7 +44,7 @@ export const errorParameterMetadata = Object.freeze({
   md_break_1_m: ['第一分界井深', 'm'], md_break_2_m: ['第二分界井深', 'm'],
   radius_low_m: ['浅部井段不确定半径', 'm'], radius_mid_m: ['基准不确定半径', 'm'],
   slope_after_m2_m: ['半径随井深增长率', 'm/m'],
-  error_model: ['测量工具误差配置', ''], radius_m: ['井眼物理半径', 'm'],
+  tool_error_parameters: ['工具误差项幅值', ''],error_model: ['测量工具误差配置', ''], radius_m: ['井眼物理半径', 'm'],
   latitude: ['纬度', '°'], longitude: ['经度', '°'], altitude: ['海拔高程', 'm'],
   b_total: ['总磁场强度', 'nT'], dip: ['磁倾角', '°'], declination: ['磁偏角', '°'],
   convergence: ['子午线收敛角', '°'], azi_reference: ['方位基准', ''], dp_basis: ['深度误差传播方法', ''],
@@ -128,6 +128,7 @@ export function errorParameterRows(configuration = {}) {
   }
   if (kind === 'iscwsa') {
     if (settings.error_model !== undefined) append('error_model', settings.error_model, '测量工具误差配置')
+    if(settings.tool_error_parameters)append('tool_error_parameters',settings.tool_error_parameters,'工具误差项幅值')
     for (const [key, value] of Object.entries(settings.header || {})) {
       if (!['vertical_section_azimuth', 'xcl_representation'].includes(key)) append(key, value, '测量环境参数')
     }

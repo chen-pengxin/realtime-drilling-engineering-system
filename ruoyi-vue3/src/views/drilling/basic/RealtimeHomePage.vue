@@ -28,10 +28,10 @@
             <TrajectoryPlot v-if="sceneTrajectories.length" :trajectories="sceneTrajectories" :hidden="hidden" view="3d" :grid="grid" :nearest-pair="nearestPair" :risk-segments="riskSegments" />
             <div v-else class="panel-empty">暂无实时轨迹数据</div>
           </div>
-          <div class="scene-footer"><span>候选邻井 {{ network?.candidate_count ?? 0 }} 口</span><span>最近中心距 {{ nearestDistance }}</span><span>全井网风险 <b :class="`risk-text-${riskLevel.toLowerCase()}`">{{ riskLevelText }}</b></span></div>
+          <div class="scene-footer"><span>参与邻井 {{ network?.neighbor_count ?? 0 }} 口</span><span v-if="neighborNotice">{{neighborNotice}}</span><span>最近中心距 {{ nearestDistance }}</span><span>全井网风险 <b :class="`risk-text-${riskLevel.toLowerCase()}`">{{ riskLevelText }}</b></span></div>
         </main>
 
-        <aside v-if="settingsOpen" class="live-settings"><div class="panel-heading"><h3>可视化设置</h3><el-button text icon="Close" aria-label="关闭可视化设置" @click="settingsOpen=false" /></div><el-collapse :model-value="['tracks','display']"><el-collapse-item title="轨迹显示" name="tracks"><TrajectoryVisibility v-model="hidden" :trajectories="sceneTrajectories" /></el-collapse-item><el-collapse-item title="显示设置" name="display"><el-checkbox v-model="grid">坐标网格</el-checkbox></el-collapse-item></el-collapse></aside>
+        <aside v-if="settingsOpen" class="live-settings"><div class="panel-heading"><h3>可视化设置</h3><el-button text icon="Close" aria-label="关闭可视化设置" @click="settingsOpen=false" /></div><el-collapse :model-value="['styles','display']"><el-collapse-item title="轨迹显示" name="tracks"><TrajectoryVisibility v-model="hidden" :trajectories="sceneTrajectories" /></el-collapse-item><el-collapse-item title="轨迹样式" name="styles"><TrajectoryStyleSettings :trajectories="sceneTrajectories" /></el-collapse-item><el-collapse-item title="显示设置" name="display"><el-checkbox v-model="grid">坐标网格</el-checkbox></el-collapse-item></el-collapse></aside>
         <aside class="projection-panel">
           <section class="projection"><div class="panel-heading"><h3>垂直剖面</h3><el-input-number v-model="profileAzimuth" :min="0" :max="360" :precision="1" controls-position="right" aria-label="剖面方位角" style="width:110px"/></div><TrajectoryPlot :trajectories="sceneTrajectories" :hidden="hidden" view="vertical" :azimuth="profileAzimuth" :grid="grid" :risk-segments="riskSegments" /></section>
           <section class="projection"><div class="panel-heading"><h3>水平投影</h3><span>E–N</span></div><TrajectoryPlot :trajectories="sceneTrajectories" :hidden="hidden" view="horizontal" :grid="grid" :risk-segments="riskSegments" /></section>
@@ -43,7 +43,9 @@
 
 <script setup>
 import TrajectoryVisibility from '../layout/TrajectoryVisibility.vue'
+import TrajectoryStyleSettings from '@/views/drilling/layout/TrajectoryStyleSettings.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
+import {wellborePath} from '@/utils/wellboreHierarchy'
 import {defineAsyncComponent} from 'vue'
 import EmbeddedDrilling from '../layout/EmbeddedDrilling.vue'
 import {useManagementTabs} from '../composables/useManagementTabs'
@@ -56,15 +58,15 @@ import DrillingPageFrame from '../layout/DrillingPageFrame.vue'
 import TrajectoryPlot from '@/components/TrajectoryPlot'
 import { useLiveDrilling } from '../composables/useLiveDrilling'
 import { enableCollisionAlarmSound, playCollisionAlarm } from '@/utils/realtimeCollision'
-const live=useLiveDrilling(),{bores,boreId,bore,detail:surveyVersion,latest:latestReading,network,prediction,futureRisk,trajectories:sceneTrajectories,loading,error:liveError}=live
+const live=useLiveDrilling(),{bores,boreId,bore,detail:surveyVersion,latest:latestReading,network,prediction,futureRisk,trajectories:sceneTrajectories,loading,error:liveError,neighborNotice}=live
 const settingsOpen=ref(false),hidden=ref([]),grid=ref(true)
 const screenRef=ref(null),fullscreen=ref(false),alarmSoundEnabled=ref(false),profileAzimuth=ref(0)
-const boreLabel=b=>[b?.block_name,b?.field_name,b?.well_name||b?.well_code,b?.wellbore_name||b?.wellbore_code].filter(Boolean).join(' / ')
+const boreLabel=wellborePath
 const selectedWellName=computed(()=>bore.value?boreLabel(bore.value):'暂无正钻井眼')
 const refreshedAt=computed(()=>live.refreshedAt.value?new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(live.refreshedAt.value):'—')
 const riskLevel=computed(()=>futureRisk.value?.level||network.value?.operational_risk_level||'未评价')
 const riskLevelText=computed(()=>({RED:'危险',ORANGE:'警告',YELLOW:'关注',BLUE:'安全',UNKNOWN:'未完成评价'}[riskLevel.value]||riskLevel.value))
-const riskLabel=computed(()=>network.value?`全井网风险 · ${riskLevelText.value}`:'等待有效评价')
+const riskLabel=computed(()=>network.value?`全井网风险 · ${riskLevelText.value}`:'未评价')
 const connectionLabel=computed(()=>liveError.value?'待处理':network.value?'数据已同步':latestReading.value?'已接收测斜':'等待数据')
 const connectionType=computed(()=>liveError.value?'warning':network.value?'success':'info')
 const surveyVersionLabel=computed(()=>surveyVersion.value?`v${surveyVersion.value.version_no} · MD ${formatValue(surveyVersion.value.max_md)} m`:'—')

@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,7 +20,12 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class NativeEngineSupport {
   private static final String BOOT = UUID.randomUUID().toString();
+  private static final long CONFIRMATION_CACHE_NANOS = java.time.Duration.ofMinutes(5).toNanos();
+  private final ConcurrentMap<String, CachedConfirmation> confirmationCache = new ConcurrentHashMap<>();
+
+  private record CachedConfirmation(long expiresAtNanos, Map<String, Object> value) {}
   private final JdbcTemplate jdbc;
+  @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
   private final HttpClient http =
       HttpClient.newBuilder()
           .version(HttpClient.Version.HTTP_1_1)
@@ -130,11 +137,35 @@ public class NativeEngineSupport {
                 + " DESC LIMIT 1",
             fieldId);
     if (rows.isEmpty()) throw new IllegalArgumentException("井场没有有效配置");
-    return rows.get(0);
+    return engineeringConfigs.effective(rows.get(0));
   }
 
   public Map<String, Object> confirmation(Long fieldId) {
+    return confirmation(fieldId, null);
+  }
+
+  /**
+   * Resolve the mandatory engineering confirmation.  The optional timings map
+   * is used by the planning gateway to explain preparation latency without
+   * exposing database or authorization internals to the algorithm service.
+   */
+  public Map<String, Object> confirmation(Long fieldId, Map<String, Object> timings) {
+    long phase = System.nanoTime();
     var c = config(fieldId);
+    putTiming(timings, "confirmation_config_and_access_seconds", phase);
+    phase = System.nanoTime();
+    long configVersion = ((Number) c.getOrDefault("engineering_config_version", 0)).longValue();
+    long surveyRevision = surveyRevision(fieldId);
+    putTiming(timings, "confirmation_survey_revision_seconds", phase);
+    String session = hash(BOOT + ":" + ShiroUtils.getSessionId());
+    String cacheKey = fieldId + ":" + ShiroUtils.getUserId() + ":" + session + ":" + configVersion + ":" + surveyRevision;
+    var cached = confirmationCache.get(cacheKey);
+    if (cached != null && cached.expiresAtNanos() > System.nanoTime()) {
+      if (timings != null) timings.put("confirmation_cache_hit", true);
+      return cached.value();
+    }
+    if (timings != null) timings.put("confirmation_cache_hit", false);
+    phase = System.nanoTime();
     String snapshot =
         JSON.toJSONString(DrillingAlgorithmDefaults.merged(c.get("algorithm_defaults_json")));
     var configuration=JSON.parseObject(snapshot,Map.class);
@@ -149,9 +180,10 @@ public class NativeEngineSupport {
       var key=SurveyVersionMetadata.canonical(Map.of("model_version",profile.get("model_version"),"settings",profile.get("settings"),"tool",profile.get("tool")));
       profiles.putIfAbsent(key,profile);
     }
+    putTiming(timings, "confirmation_profile_build_seconds", phase);
+    phase = System.nanoTime();
     var safetyPolicy=new LinkedHashMap<String,Object>(modelPayload(configuration));
     String configHash = hash(SurveyVersionMetadata.canonical(Map.of("policy",safetyPolicy,"surveyProfiles",profiles.keySet())));
-    String session = hash(BOOT + ":" + ShiroUtils.getSessionId());
     int count =
         jdbc.queryForObject(
             "SELECT COUNT(*) FROM drilling_engine_confirmation WHERE field_id=? AND user_id=? AND"
@@ -161,19 +193,35 @@ public class NativeEngineSupport {
             ShiroUtils.getUserId(),
             session,
             configHash);
-    return Map.of(
+    putTiming(timings, "confirmation_database_check_seconds", phase);
+    Map<String, Object> result = Map.of(
         "confirmed",
         count > 0,
         "configHash",
         configHash,
         "configVersion",
-        c.get("config_version"),
+        c.get("engineering_config_version"),
         "configuration",
         configuration,
         "surveyProfiles",
         new ArrayList<>(profiles.values()),
         "sessionHash",
         session);
+    confirmationCache.put(cacheKey, new CachedConfirmation(System.nanoTime() + CONFIRMATION_CACHE_NANOS, result));
+    return result;
+  }
+
+  private static void putTiming(Map<String, Object> timings, String key, long started) {
+    if (timings == null) return;
+    if (started == 0L) timings.put(key, 0.0);
+    else timings.put(key, (System.nanoTime() - started) / 1_000_000_000.0);
+  }
+
+  private long surveyRevision(Long fieldId) {
+    Map<String, Object> row = jdbc.queryForMap("SELECT COALESCE(MAX(v.survey_version_id),0) AS revision "
+        + "FROM drilling_trajectory_version v JOIN drilling_field_wellbore x ON x.wellbore_id=v.wellbore_id "
+        + "WHERE x.field_id=?", fieldId);
+    return ((Number) row.getOrDefault("revision", 0)).longValue();
   }
 
   public void confirm(Long fieldId, String expectedHash) {
@@ -197,11 +245,18 @@ public class NativeEngineSupport {
         c.get("configVersion"),
         JSON.toJSONString(Map.of("configuration",c.get("configuration"),"surveyProfiles",c.get("surveyProfiles")),
             com.alibaba.fastjson.serializer.SerializerFeature.DisableCircularReferenceDetect));
+    confirmationCache.entrySet().removeIf(entry -> entry.getKey().startsWith(fieldId + ":" + ShiroUtils.getUserId() + ":"));
   }
 
   public void requireConfirmed(Long fieldId) {
-    if (!Boolean.TRUE.equals(confirmation(fieldId).get("confirmed")))
+    requireConfirmed(fieldId, null);
+  }
+
+  public void requireConfirmed(Long fieldId, Map<String, Object> timings) {
+    long started = System.nanoTime();
+    if (!Boolean.TRUE.equals(confirmation(fieldId, timings).get("confirmed")))
       throw new ResponseStatusException(HttpStatus.PRECONDITION_REQUIRED, "请先核对并确认当前误差模型、SF口径和参数");
+    putTiming(timings, "confirmation_total_seconds", started);
   }
 
   public void validate(Map<String, Object> defaults) {

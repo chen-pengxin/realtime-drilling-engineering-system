@@ -2,8 +2,8 @@
   <el-dialog v-model="open" title="修订测量参数" width="min(980px, calc(100vw - 24px))" append-to-body :close-on-click-modal="false" :before-close="close">
     <el-form label-width="140px" :disabled="saving">
       <el-row :gutter="20"><el-col :span="12"><el-form-item label="测斜工具" required><el-input v-model="tool.name" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="工具型号 / 代码"><el-input v-model="tool.code" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="仪器编号"><el-input v-model="tool.serial_number" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="标定日期"><el-input v-model="tool.calibration_date" maxlength="120" /></el-form-item></el-col></el-row>
-      <el-form-item label="轨道不确定性模型" required><el-select :model-value="profile.model_version" @change="selectModel"><el-option v-for="model in catalog.models" :key="model.name" :value="model.name" :label="errorModelName(model.settings.uncertainty_model?.type||model.name)" /></el-select></el-form-item>
-      <ParameterFields v-model="profile.settings" />
+      <el-form-item label="轨道不确定性模型" required><el-input :model-value="errorModelName(profile.model_version)" readonly /></el-form-item>
+      <ErrorModelSettings v-model="profile.settings" />
       <el-form-item label="修订原因" required><el-input v-model="note" type="textarea" maxlength="500" show-word-limit /></el-form-item>
       <el-form-item label="启用新版本"><el-switch v-model="activate" /></el-form-item>
       <el-checkbox v-model="checked">已核对本版本全井段的测斜工具及误差参数</el-checkbox>
@@ -17,7 +17,7 @@ import {ref,watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {registry,engineCatalog} from '@/api/drillingRegistry'
 import {errorModelName} from '@/utils/engineeringErrorModels'
-import ParameterFields from '../../layout/ParameterFields.vue'
+import ErrorModelSettings from '../../layout/ErrorModelSettings.vue'
 const props=defineProps({fieldId:Number,currentVersionId:Number}),emit=defineEmits(['saved'])
 const open=ref(false),saving=ref(false),checked=ref(false),note=ref(''),error=ref(''),activate=ref(true),tool=ref({}),profile=ref({settings:{}}),catalog=ref({models:[]})
 let version

@@ -1,10 +1,10 @@
 import request from '@/utils/request'
 const root=p=>`/api/drilling/fields/${p}/registry`
 export const registry=(p,path,method='get',data,params,options={})=>request({url:root(p)+path,method,data,params,timeout:path==='/engine-confirmation'?20000:240000,...options})
-export const listWellbores=p=>registry(p,'/wellbores')
-export const boreVersions=(p,b,kind)=>registry(p,`/wellbores/${b}/versions`,'get',undefined,{kind})
-export const trajectoryVersion=(p,v,viewReferenceId)=>registry(p,`/versions/${v}`,'get',undefined,{viewReferenceId,viewStep:10})
-export const boreNeighbors=(p,b)=>registry(p,`/wellbores/${b}/neighbors`)
+export const listWellbores=(p,options={})=>registry(p,'/wellbores','get',undefined,undefined,options)
+export const boreVersions=(p,b,kind,options={})=>registry(p,`/wellbores/${b}/versions`,'get',undefined,{kind},options)
+export const trajectoryVersion=(p,v,viewReferenceId,options={})=>registry(p,`/versions/${v}`,'get',undefined,{viewReferenceId,viewStep:10},options)
+export const boreNeighbors=(p,b,options={})=>registry(p,`/wellbores/${b}/neighbors`,'get',undefined,undefined,options)
 export const activateTrajectoryVersion=(p,v,expectedCurrentVersionId)=>registry(p,`/versions/${v}/activate`,'put',{expectedCurrentVersionId})
 export const compareTrajectoryVersions=(p,from,to)=>registry(p,`/versions/${from}/compare`,'get',undefined,{otherId:to})
 function sourceUploadData(data,association={}){for(const key of ['nodeId','wellboreId','documentRole','trajectoryKind','documentId','expectedEditionNo','displayName']){const value=association[key];if(value!=null&&value!=='')data.append(key,value)}return data}
@@ -14,6 +14,7 @@ export const sourceReview=(p,s)=>registry(p,`/sources/${s}/review`)
 export const confirmSourceReview=(p,s,data)=>registry(p,`/sources/${s}/review`,'put',data)
 export const previewSurveyRevision=(p,e,data)=>registry(p,`/extractions/${e}/preview`,'post',data)
 export const commitSurveyRevision=(p,e,data)=>registry(p,`/extractions/${e}/commit`,'post',data)
+export const engineToolParameters=name=>request({url:'/api/algorithm/engine/tool-parameters',params:{name}})
 export const engineCatalog=()=>request({url:'/api/algorithm/engine/catalog'})
 export const downloadBlob=(blob,name)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 export function surveyInput(version){const rows=version?.stations||[];const p=rows[0]||{};return {origin_north:Number(p.north||0),origin_east:Number(p.east||0),origin_tvd:Number(p.tvd||0),stations:rows.map(r=>({md:Number(r.md),inclination:Number(r.inclination),azimuth:Number(r.azimuth)}))}}

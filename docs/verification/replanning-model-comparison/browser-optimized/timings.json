@@ -1,0 +1,111 @@
+{
+  "scope": "isolated_verification_only",
+  "viewport": [
+    1700,
+    1080
+  ],
+  "browser": "153.0.8010.12",
+  "rows": [
+    {
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5546324941615,
+      "position_error_m": 0.4900012614672653,
+      "minimum_sf": 15.226861035324697,
+      "iterations": 73,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 14.93090000000596,
+      "graph_render_complete_seconds": 15.20240000000596,
+      "graph_afterplots_seconds": [
+        15.20240000000596,
+        15.20240000000596,
+        15.20240000000596
+      ],
+      "table_tab_render_seconds": 1.6260999999940395,
+      "timing": {
+        "optimization_wall_seconds": 4.876149667004938,
+        "trajectory_table_seconds": 0.03217641699302476,
+        "execution_total_seconds": 8.801080207995255,
+        "initialization_seconds": 0.797616833995562,
+        "result_persistence_seconds": 1.00017925,
+        "gateway_snapshot_seconds": 0.205620542,
+        "algorithm_http_seconds": 9.906118375,
+        "final_verification_seconds": 0.7533340829977533,
+        "gateway_preparation_seconds": 3.287465708,
+        "gateway_authorization_seconds": 0.002006375,
+        "total_seconds": 6.769936999990023,
+        "input_preparation_seconds": 1.044541790994117,
+        "worker_json_serialization_seconds": 0.11547695900662802,
+        "gateway_configuration_seconds": 3.078786125,
+        "algorithm_total_seconds": 6.769936999990023,
+        "optimization_seconds": 4.875982624987955,
+        "preparation_seconds": 0.10550412499287631,
+        "collision_result_adaptation_seconds": 0.07645891699939966,
+        "gateway_validation_seconds": 0.00103925,
+        "feasibility_construction_seconds": 0.7976449999987381,
+        "gateway_total_seconds": 14.193764791,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.12793104199226946
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "fa31e031eb6388fcd229ac51351389566296bc6fc2d3f5070b1d0c5bd6d59a15"
+    },
+    {
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5612370269173,
+      "position_error_m": 0.49000001167874735,
+      "minimum_sf": 15.261817107033258,
+      "iterations": 77,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 15.61609999999404,
+      "graph_render_complete_seconds": 15.85479999999702,
+      "graph_afterplots_seconds": [
+        15.85470000000298,
+        15.85479999999702,
+        15.85479999999702
+      ],
+      "table_tab_render_seconds": 1.6302999999970198,
+      "timing": {
+        "optimization_wall_seconds": 6.573826249994454,
+        "trajectory_table_seconds": 0.0016960829962044954,
+        "execution_total_seconds": 11.406765749998158,
+        "initialization_seconds": 0.9220875000028173,
+        "result_persistence_seconds": 0.823968791,
+        "gateway_snapshot_seconds": 0.165709541,
+        "algorithm_http_seconds": 12.345617834,
+        "final_verification_seconds": 0.7039673750114162,
+        "gateway_preparation_seconds": 2.326697958,
+        "gateway_authorization_seconds": 0.002097833,
+        "total_seconds": 8.518766832989058,
+        "input_preparation_seconds": 1.0776447499956703,
+        "worker_json_serialization_seconds": 0.10185591700428631,
+        "gateway_configuration_seconds": 2.158249667,
+        "algorithm_total_seconds": 8.518766832989058,
+        "optimization_seconds": 6.573676959000295,
+        "preparation_seconds": 0.11675558300339617,
+        "collision_result_adaptation_seconds": 0.07865999999921769,
+        "gateway_validation_seconds": 0.000638708,
+        "feasibility_construction_seconds": 0.9221326670085546,
+        "gateway_total_seconds": 15.49628475,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.12102729199978057
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "9daf1eae9ca0a73e40fa3fe71073dcb029557c83e334ffef0035ae520ce2b25d"
+    }
+  ],
+  "errors": []
+}

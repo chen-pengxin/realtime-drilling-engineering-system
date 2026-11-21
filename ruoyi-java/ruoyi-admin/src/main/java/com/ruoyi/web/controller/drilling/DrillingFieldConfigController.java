@@ -24,6 +24,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 public class DrillingFieldConfigController
 {
     private final JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
     @org.springframework.beans.factory.annotation.Autowired private NativeEngineSupport nativeEngine;
     @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.centers.BusinessEventService versionEvents;
 
@@ -37,15 +38,7 @@ public class DrillingFieldConfigController
     public List<Map<String, Object>> list(@PathVariable Long fieldId)
     {
         requireFieldAccess(fieldId);
-        return jdbc.queryForList("""
-                SELECT field_id, config_version, coordinate_system, north_reference,
-                       length_unit, angle_unit, tvd_positive, origin_north, origin_east,
-                       origin_tvd, magnetic_declination, meridian_convergence,
-                       algorithm_defaults_json, effective_from, effective_to, status,
-                       create_by, create_time, update_by, update_time
-                  FROM drilling_field_config WHERE field_id=?
-                 ORDER BY config_version DESC
-                """, fieldId);
+        return jdbc.queryForList("SELECT config_version,CASE WHEN config_version=(SELECT MAX(config_version) FROM drilling_engineering_config) THEN '0' ELSE '1' END AS status,create_time,create_by FROM drilling_engineering_config ORDER BY config_version DESC");
     }
 
     @GetMapping("/current")
@@ -62,8 +55,8 @@ public class DrillingFieldConfigController
                  WHERE field_id=? AND status='0' AND effective_to IS NULL
                  ORDER BY config_version DESC LIMIT 1
                 """, fieldId);
-        if (!rows.isEmpty()) return rows.get(0);
-        return jdbc.queryForMap("""
+        if (!rows.isEmpty()) return engineeringConfigs.effective(rows.get(0));
+        return engineeringConfigs.effective(jdbc.queryForMap("""
                 SELECT field_id, 1 AS config_version, coordinate_system,
                        'TRUE_NORTH' AS north_reference, length_unit, angle_unit, tvd_positive,
                        0 AS origin_north, 0 AS origin_east, 0 AS origin_tvd,
@@ -71,7 +64,7 @@ public class DrillingFieldConfigController
                        config_json AS algorithm_defaults_json, create_time AS effective_from,
                        NULL AS effective_to, status
                   FROM drilling_field WHERE field_id=? AND status='0'
-                """, fieldId);
+                """, fieldId));
     }
 
     @PostMapping
@@ -81,60 +74,13 @@ public class DrillingFieldConfigController
     public Map<String, Object> createVersion(@PathVariable Long fieldId, @RequestBody Map<String, Object> body)
     {
         requireFieldRole(fieldId, "OWNER");
-        lockField(fieldId);
-        Map<String, Object> current = currentConfig(fieldId);
-        String algorithmDefaultsJson = DrillingAlgorithmDefaults.snapshot(
-                body.containsKey("algorithmDefaults") ? body.get("algorithmDefaults") : current.get("algorithm_defaults_json"));
-        // Persist a complete snapshot even when a client submits only the
-        // fields it changed.  The gateway uses this snapshot as authority.
-        validateAlgorithmDefaults(JSON.parseObject(algorithmDefaultsJson));
-        nativeEngine.validate(JSON.parseObject(algorithmDefaultsJson,Map.class));
-        validatePredictionResources(fieldId, JSON.parseObject(algorithmDefaultsJson));
-        Map<String, Object> validation = new java.util.HashMap<>(body);
-        validation.put("coordinateSystem", text(body, "coordinateSystem", String.valueOf(current.get("coordinate_system"))));
-        validation.put("northReference", text(body, "northReference", String.valueOf(current.get("north_reference"))));
-        validation.put("lengthUnit", text(body, "lengthUnit", String.valueOf(current.get("length_unit"))));
-        validation.put("angleUnit", text(body, "angleUnit", String.valueOf(current.get("angle_unit"))));
-        validation.put("tvdPositive", text(body, "tvdPositive", String.valueOf(current.get("tvd_positive"))));
-        validation.put("algorithmDefaults", JSON.parseObject(algorithmDefaultsJson));
-        validate(validation);
-        Integer version = jdbc.queryForObject(
-                "SELECT COALESCE(MAX(config_version), 0) + 1 FROM drilling_field_config WHERE field_id=?",
-                Integer.class, fieldId);
-        jdbc.update("""
-                UPDATE drilling_field_config SET status='1', effective_to=CURRENT_TIMESTAMP,
-                       update_by=?, update_time=CURRENT_TIMESTAMP
-                 WHERE field_id=? AND status='0' AND effective_to IS NULL
-                """, currentUserName(), fieldId);
-        jdbc.update("""
-                INSERT INTO drilling_field_config
-                    (field_id, config_version, coordinate_system, north_reference,
-                     length_unit, angle_unit, tvd_positive, origin_north, origin_east,
-                     origin_tvd, magnetic_declination, meridian_convergence,
-                     algorithm_defaults_json, status, create_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', ?)
-                """, fieldId, version, text(body, "coordinateSystem", String.valueOf(current.get("coordinate_system"))),
-                text(body, "northReference", String.valueOf(current.get("north_reference"))),
-                text(body, "lengthUnit", String.valueOf(current.get("length_unit"))),
-                text(body, "angleUnit", String.valueOf(current.get("angle_unit"))),
-                text(body, "tvdPositive", String.valueOf(current.get("tvd_positive"))),
-                numberOrCurrent(body, "originNorth", current.get("origin_north")),
-                numberOrCurrent(body, "originEast", current.get("origin_east")),
-                numberOrCurrent(body, "originTvd", current.get("origin_tvd")),
-                numberOrCurrent(body, "magneticDeclination", current.get("magnetic_declination")),
-                numberOrCurrent(body, "meridianConvergence", current.get("meridian_convergence")),
-                algorithmDefaultsJson, currentUserName());
-        // Keep the field summary aligned with the active version for list screens.
-        jdbc.update("""
-                UPDATE drilling_field SET coordinate_system=?, length_unit=?, angle_unit=?,
-                       tvd_positive=?, config_json=?, update_by=?, update_time=CURRENT_TIMESTAMP
-                 WHERE field_id=?
-                """, text(body, "coordinateSystem", String.valueOf(current.get("coordinate_system"))), text(body, "lengthUnit", String.valueOf(current.get("length_unit"))),
-                text(body, "angleUnit", String.valueOf(current.get("angle_unit"))), text(body, "tvdPositive", String.valueOf(current.get("tvd_positive"))),
-                algorithmDefaultsJson, currentUserName(), fieldId);
-        versionEvents.versionChange(fieldId,currentUserName(),"CREATE","CONFIG","CONFIG:"+version,Map.of("previous_version",current.get("config_version"),"version",version));
-        return jdbc.queryForMap("SELECT * FROM drilling_field_config WHERE field_id=? AND config_version=?",
-                fieldId, version);
+        var defaults=DrillingAlgorithmDefaults.merged(body.get("algorithmDefaults"));
+        validateAlgorithmDefaults(defaults);
+        nativeEngine.validate(defaults);
+        validatePredictionResources(fieldId,defaults);
+        var expected=body.get("engineeringConfigVersion");
+        Long version=expected==null?null:Long.valueOf(expected.toString());
+        return engineeringConfigs.save(defaults,version,currentUserName());
     }
 
     @PutMapping("/{version}/activate")
@@ -143,31 +89,10 @@ public class DrillingFieldConfigController
     public Map<String, Object> activate(@PathVariable Long fieldId, @PathVariable Integer version)
     {
         requireFieldRole(fieldId, "OWNER");
-        lockField(fieldId);
-        Integer count = jdbc.queryForObject("SELECT COUNT(*) FROM drilling_field_config WHERE field_id=? AND config_version=?",
-                Integer.class, fieldId, version);
-        if (count == null || count == 0) throw new IllegalArgumentException("configuration version not found");
-        jdbc.update("""
-                UPDATE drilling_field_config SET status='1', effective_to=CURRENT_TIMESTAMP,
-                       update_by=?, update_time=CURRENT_TIMESTAMP
-                 WHERE field_id=? AND status='0'
-                """, currentUserName(), fieldId);
-        jdbc.update("""
-                UPDATE drilling_field_config SET status='0', effective_from=CURRENT_TIMESTAMP,
-                       effective_to=NULL, update_by=?, update_time=CURRENT_TIMESTAMP
-                 WHERE field_id=? AND config_version=?
-                """, currentUserName(), fieldId, version);
-        jdbc.update("""
-                UPDATE drilling_field SET coordinate_system=(SELECT coordinate_system FROM drilling_field_config WHERE field_id=? AND config_version=?),
-                       length_unit=(SELECT length_unit FROM drilling_field_config WHERE field_id=? AND config_version=?),
-                       angle_unit=(SELECT angle_unit FROM drilling_field_config WHERE field_id=? AND config_version=?),
-                       tvd_positive=(SELECT tvd_positive FROM drilling_field_config WHERE field_id=? AND config_version=?),
-                       update_by=?, update_time=CURRENT_TIMESTAMP WHERE field_id=?
-                """, fieldId, version, fieldId, version, fieldId, version, fieldId, version,
-                currentUserName(), fieldId);
-        versionEvents.versionChange(fieldId,currentUserName(),"ACTIVATE","CONFIG","CONFIG:"+version,Map.of("version",version));
-        return jdbc.queryForMap("SELECT * FROM drilling_field_config WHERE field_id=? AND config_version=?",
-                fieldId, version);
+        var saved=jdbc.queryForMap("SELECT algorithm_defaults_json FROM drilling_engineering_config WHERE config_version=?",version);
+        var defaults=DrillingAlgorithmDefaults.merged(saved.get("algorithm_defaults_json"));
+        validateAlgorithmDefaults(defaults);nativeEngine.validate(defaults);validatePredictionResources(fieldId,defaults);
+        return engineeringConfigs.save(defaults,((Number)engineeringConfigs.current().get("config_version")).longValue(),currentUserName());
     }
 
     @DeleteMapping("/{version}")
@@ -176,19 +101,7 @@ public class DrillingFieldConfigController
     public void archive(@PathVariable Long fieldId, @PathVariable Integer version)
     {
         requireFieldRole(fieldId, "OWNER");
-        lockField(fieldId);
-        int changed = jdbc.update("""
-                UPDATE drilling_field_config SET status='1', effective_to=COALESCE(effective_to, CURRENT_TIMESTAMP),
-                       update_by=?, update_time=CURRENT_TIMESTAMP
-                 WHERE field_id=? AND config_version=? AND NOT (status='0' AND effective_to IS NULL)
-                """, currentUserName(), fieldId, version);
-        if (changed == 0)
-        {
-            Integer exists = jdbc.queryForObject("SELECT COUNT(*) FROM drilling_field_config WHERE field_id=? AND config_version=?",
-                    Integer.class, fieldId, version);
-            if (exists == null || exists == 0) throw new IllegalArgumentException("configuration version not found");
-            throw new IllegalArgumentException("activate another configuration before archiving the current version");
-        }
+        throw new IllegalArgumentException("工程参数历史版本不可删除");
     }
 
     /** Read the active version and fall back to the field summary. */
@@ -251,8 +164,8 @@ public class DrillingFieldConfigController
             catch (NumberFormatException ex) { throw new IllegalArgumentException("prediction.modelVersionId must be a positive integer"); }
             Integer count = jdbc.queryForObject("""
                     SELECT COUNT(*) FROM model_version mv JOIN data_file f ON f.file_id=mv.file_id
-                     WHERE mv.model_version_id=? AND mv.field_id=? AND mv.status='READY' AND f.status='ACTIVE'
-                    """, Integer.class, id, fieldId);
+                     WHERE mv.model_version_id=? AND mv.status='READY' AND f.status='ACTIVE'
+                    """, Integer.class, id);
             if (count == null || count == 0)
                 throw new IllegalArgumentException("prediction.modelVersionId must refer to a READY model in this field");
         }
@@ -265,10 +178,10 @@ public class DrillingFieldConfigController
             String runtimePath = String.valueOf(rawTemplate);
             Integer count = jdbc.queryForObject("""
                     SELECT COUNT(*) FROM training_template t JOIN data_file f ON f.file_id=t.file_id
-                     WHERE t.field_id=? AND t.runtime_path=? AND t.status='ACTIVE'
+                     WHERE t.runtime_path=? AND t.status='ACTIVE'
                        AND f.field_id=t.field_id AND f.file_category='TEMPLATE'
                        AND f.is_template='1' AND f.status='ACTIVE'
-                    """, Integer.class, fieldId, runtimePath);
+                    """, Integer.class, runtimePath);
             if (count == null || count == 0)
                 throw new IllegalArgumentException("prediction.templateRuntimePath must refer to an active template in this field");
         }
@@ -335,10 +248,15 @@ public class DrillingFieldConfigController
         }
         if (!(value instanceof Map<?, ?> defaults))
             throw new IllegalArgumentException("algorithmDefaults must be an object");
+        TrajectoryVisualizationSettings.validate(defaults.get("visualization"));
         Object mode = defaults.get("evaluationMode");
         if (mode != null && !"BOTH".equalsIgnoreCase(String.valueOf(mode)))
             throw new IllegalArgumentException("evaluationMode must be BOTH; the system always calculates spacing and separation factor together");
         if (defaults.containsKey("scanStep")) positive(defaults, "scanStep", 1.0);
+        var neighborSettings = new java.util.LinkedHashMap<String, Object>();
+        defaults.forEach((key, item) -> neighborSettings.put(String.valueOf(key), item));
+        NeighborSelectionPolicy.automaticMargin(neighborSettings);
+        NeighborSelectionPolicy.manualRadius(neighborSettings);
         Map<?, ?> thresholds = nestedMap(defaults.get("thresholds"), "thresholds");
         if (thresholds != null)
         {
@@ -374,6 +292,10 @@ public class DrillingFieldConfigController
             if (max < min) throw new IllegalArgumentException("planning.maxSegmentLength must be >= minSegmentLength");
             double toolface = nonNegative(planning, "maxToolfaceChangeDeg", 180.0);
             if (toolface > 360) throw new IllegalArgumentException("planning.maxToolfaceChangeDeg must be <= 360");
+            String collisionConstraint = String.valueOf(defaultIfNull(
+                    planning.get("collisionConstraint"), "SEPARATION_FACTOR_AND_CENTER_DISTANCE"));
+            if (!"SEPARATION_FACTOR_AND_CENTER_DISTANCE".equalsIgnoreCase(collisionConstraint))
+                throw new IllegalArgumentException("planning.collisionConstraint must combine separation factor and center distance");
             positive(planning, "minimumSf", 1.5);
             positive(planning, "targetToleranceM", 0.5);
             Map<?, ?> nativeOptions = nestedMap(planning.get("nativeOptions"), "planning.nativeOptions");
@@ -382,12 +304,31 @@ public class DrillingFieldConfigController
                 String trajectoryMode = String.valueOf(defaultIfNull(nativeOptions.get("trajectory_mode"), "arc-straight"));
                 if (!List.of("arc", "arc-straight", "straight-arc").contains(trajectoryMode))
                     throw new IllegalArgumentException("planning.nativeOptions.trajectory_mode must be arc, arc-straight or straight-arc");
+                String arcSegmentModel = String.valueOf(defaultIfNull(nativeOptions.get("arc_segment_model"), "minimum_curvature"));
+                if (!List.of("minimum_curvature", "constant_toolface").contains(arcSegmentModel))
+                    throw new IllegalArgumentException("planning.nativeOptions.arc_segment_model must be minimum_curvature or constant_toolface");
                 double segmentCount = number(nativeOptions, "n_segments", 3);
                 if (!Double.isFinite(segmentCount) || segmentCount < 1 || segmentCount > 5 || segmentCount != Math.rint(segmentCount))
                     throw new IllegalArgumentException("planning.nativeOptions.n_segments must be an integer between 1 and 5");
+                double centerlineMinimum = number(nativeOptions, "centerline_min_distance_m", 5.0);
+                if (!Double.isFinite(centerlineMinimum) || centerlineMinimum <= 0.0)
+                    throw new IllegalArgumentException("planning.nativeOptions.centerline_min_distance_m must be greater than zero");
             }
             String solver = String.valueOf(defaultIfNull(planning.get("solver"), "SLSQP"));
             if (!List.of("SLSQP", "trust-constr", "COBYLA", "COBYQA").contains(solver)) throw new IllegalArgumentException("求解器必须来自wellpath-engine支持列表");
+            double taskTimeout=number(planning,"taskTimeoutSeconds",30);
+            if (!Double.isFinite(taskTimeout)||taskTimeout<1||taskTimeout!=Math.rint(taskTimeout)) throw new IllegalArgumentException("再规划最大等待时间必须为大于等于1秒的整数");
+            // Thirty seconds is only the initial default.  The value is an
+            // engineering setting, not an acceptance limit: it may be
+            // increased or decreased and is shared by the gateway and the
+            // algorithm worker.  The two legacy fields remain accepted for
+            // migration and are validated with the same rule.
+            double realtimeBudget=number(planning,"realtimeBudgetSeconds",taskTimeout);
+            double realtimeExecution=number(planning,"realtimeExecutionTimeoutSeconds",realtimeBudget);
+            if(!Double.isFinite(realtimeBudget)||realtimeBudget<1||realtimeBudget!=Math.rint(realtimeBudget))
+                throw new IllegalArgumentException("再规划最大等待时间必须为大于等于1秒的整数");
+            if(!Double.isFinite(realtimeExecution)||realtimeExecution<1||realtimeExecution!=Math.rint(realtimeExecution))
+                throw new IllegalArgumentException("再规划执行等待时间必须为大于等于1秒的整数");
             double maxIterations = number(planning, "maxIterations", 500);
             if (!Double.isFinite(maxIterations) || maxIterations < 1 || maxIterations > 5000 || maxIterations != Math.rint(maxIterations))
                 throw new IllegalArgumentException("planning.maxIterations must be an integer between 1 and 5000");
@@ -396,7 +337,7 @@ public class DrillingFieldConfigController
         if (prediction != null)
         {
             positive(prediction, "predictionStep", 9.0);
-            double timeout = number(prediction, "timeoutSeconds", 30.0);
+            double timeout = number(prediction, "timeoutSeconds", 1.0);
             if (!Double.isFinite(timeout) || timeout < 1 || timeout > 300 || timeout != Math.rint(timeout))
                 throw new IllegalArgumentException("prediction.timeoutSeconds must be an integer between 1 and 300");
             Object modelVersionId = prediction.get("modelVersionId");
@@ -405,9 +346,8 @@ public class DrillingFieldConfigController
             String device = String.valueOf(defaultIfNull(prediction.get("device"), "auto")).toLowerCase();
             if (!List.of("auto", "cpu", "cuda:0").contains(device))
                 throw new IllegalArgumentException("prediction.device must be auto, cpu or cuda:0");
-            String fallback = String.valueOf(defaultIfNull(prediction.get("fallbackMode"), "TANGENT_EXTRAPOLATION"));
-            if (!"TANGENT_EXTRAPOLATION".equalsIgnoreCase(fallback))
-                throw new IllegalArgumentException("prediction.fallbackMode must be TANGENT_EXTRAPOLATION");
+            if (Boolean.TRUE.equals(prediction.get("allowFallback")))
+                throw new IllegalArgumentException("未配置或推理失败时不得使用几何外推，allowFallback 必须为 false");
             String alert = String.valueOf(defaultIfNull(prediction.get("alertMinimumLevel"), "YELLOW")).toUpperCase();
             if (!List.of("YELLOW", "ORANGE", "RED").contains(alert))
                 throw new IllegalArgumentException("prediction.alertMinimumLevel must be YELLOW, ORANGE or RED");

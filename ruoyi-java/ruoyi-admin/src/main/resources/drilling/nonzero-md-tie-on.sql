@@ -15,6 +15,6 @@ JOIN (
          '$.evaluation_message','当前版本可用于跨井评价')
  WHERE v.quality_status='REFERENCE_REQUIRED'
    AND JSON_UNQUOTE(JSON_EXTRACT(v.reference_json,'$.reference_status'))='MD0_HISTORY_REQUIRED'
-   AND NOT EXISTS(SELECT 1 FROM drilling_schema_version WHERE version_code='V50');
+   AND NOT EXISTS(SELECT 1 FROM drilling_schema_version WHERE version_code='V56');
 INSERT IGNORE INTO drilling_schema_version(version_code,script_name,status,applied_by,notes)
- VALUES('V50','V50__allow_nonzero_md_tie_on.sql','APPLIED','application','Use first real station as local tie-on; MD=0 is not required');
+ VALUES('V56','V56__allow_nonzero_md_tie_on.sql','APPLIED','application','Use first real station as local tie-on; MD=0 is not required');

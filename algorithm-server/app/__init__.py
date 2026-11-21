@@ -44,3 +44,6 @@ def ensure_native_profiles():
 
 
 ensure_native_profiles()
+
+from .tasks.anticollision.tool_parameters import install_tool_parameter_adapter
+install_tool_parameter_adapter()

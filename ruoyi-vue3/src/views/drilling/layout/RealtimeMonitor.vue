@@ -16,7 +16,12 @@ async function refresh(){if(!disposed&&ctx.fieldId.value&&canMonitor())await liv
 watch(ctx.fieldId,()=>{if(open)ElMessageBox.close();clearLiveDrilling();shown='';refresh()})
 // Page navigation shares the same live snapshot and in-flight scan. Clearing
 // it here used to start concurrent full scans for an unchanged wellbore.
-watch(()=>route.path,refresh)
+watch(()=>route.path,(path,previous)=>{
+  if(!isEngineeringEvaluationRoute(path)&&isEngineeringEvaluationRoute(previous||'')){
+    clearLiveDrilling();shown='';return
+  }
+  refresh()
+})
 watch([futureRisk,engineConfirmationOpen,live.loading,()=>route.path],async ([risk])=>{
   const config=live.configuration.value?.prediction||{},rank={YELLOW:1,ORANGE:2,RED:3}[config.alertMinimumLevel||'YELLOW']||1
   // A refresh clears its transient snapshot before the next response. It is
@@ -40,6 +45,6 @@ watch([futureRisk,engineConfirmationOpen,live.loading,()=>route.path],async ([ri
 watch([ctx.fieldId,engineConfirmationOpen,()=>route.path],()=>{if(open&&(!canMonitor()||engineConfirmationOpen.value))ElMessageBox.close()})
 function confirmed(){if(canMonitor())live.refresh({force:true})}
 function onVisibilityChange(){if(!document.hidden)refresh()}
-onMounted(()=>{refresh();timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',onVisibilityChange);window.addEventListener('drilling-engine-confirmed',confirmed);window.addEventListener('drilling-survey-updated',confirmed);window.addEventListener('drilling-survey-version-changed',confirmed)})
-onBeforeUnmount(()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',onVisibilityChange);clearLiveDrilling();window.removeEventListener('drilling-engine-confirmed',confirmed);window.removeEventListener('drilling-survey-updated',confirmed);window.removeEventListener('drilling-survey-version-changed',confirmed)})
+onMounted(()=>{refresh();timer=setInterval(refresh,30000);document.addEventListener('visibilitychange',onVisibilityChange);window.addEventListener('drilling-engine-confirmed',confirmed);window.addEventListener('drilling-survey-updated',confirmed);window.addEventListener('drilling-survey-version-changed',confirmed);window.addEventListener('drilling-neighbors-changed',confirmed)})
+onBeforeUnmount(()=>{disposed=true;clearInterval(timer);document.removeEventListener('visibilitychange',onVisibilityChange);clearLiveDrilling();window.removeEventListener('drilling-engine-confirmed',confirmed);window.removeEventListener('drilling-survey-updated',confirmed);window.removeEventListener('drilling-survey-version-changed',confirmed);window.removeEventListener('drilling-neighbors-changed',confirmed)})
 </script>

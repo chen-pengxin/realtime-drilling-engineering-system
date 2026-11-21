@@ -28,6 +28,20 @@ from .schemas import (CollisionInput, CollisionNetworkInput, IncrementalSurveyIn
 
 app = FastAPI(title="Drilling Trajectory Algorithm Service", version="0.1.0")
 realtime_ingest = RealtimeIngestService()
+
+
+@app.on_event("startup")
+def warm_replanning_workers():
+    # Process imports and native numerical modules are paid during service
+    # startup, so the 30-second online wait measures the numerical task.
+    from .tasks.replanning.execution import warm_planning_workers
+    warm_planning_workers()
+
+
+@app.on_event("shutdown")
+def close_replanning_workers():
+    from .tasks.replanning.execution import close_planning_workers
+    close_planning_workers()
 def _stations(value: SurveyInput):
     rows=compute_minimum_curvature([s.model_dump() for s in value.stations], (value.origin_north, value.origin_east, value.origin_tvd))
     if value.canonical_coordinates:
@@ -469,7 +483,8 @@ def engine_catalog():
     from wellpath.anticollision.error_models.registry import MODEL_NAMES,load_model_settings
     from wellpath.optimization.runner import ALGORITHMS
     from .tasks.replanning.native_profiles import ensure_native_profiles
-    return {'engine':'wellpath-engine','version':'1.0.0','default_model':'iscwsa_rev0','default_solver':'SLSQP','models':[{'name':n,'settings':load_model_settings(n)} for n in MODEL_NAMES],'algorithms':list(ALGORITHMS),'trajectory_modes':list(ensure_native_profiles()),'segment_counts':[1,2,3,4,5],'sf_methods':[
+    return {'engine':'wellpath-engine','version':'1.0.0','default_model':'iscwsa_rev0','default_solver':'SLSQP','models':[{'name':n,'settings':load_model_settings(n)} for n in MODEL_NAMES],'algorithms':list(ALGORITHMS),'trajectory_modes':list(ensure_native_profiles()),'segment_counts':[1,2,3,4,5],
+      'arc_segment_models':['minimum_curvature','constant_toolface'],'default_arc_segment_model':'minimum_curvature','sf_methods':[
       # ``name`` is an engine contract used by the request payload.  The
       # catalog deliberately exposes only the engineering formula and symbol
       # definitions; internal branch names are not user-facing labels.
@@ -477,6 +492,12 @@ def engine_catalog():
       {'name':'directional_sum','formula':'SF = D / [K × (√(uᵀC₁u) + √(uᵀC₂u))]','definition':'K 为不确定性放大系数；u 为两井中心连线单位向量；C₁、C₂ 为两井位置协方差矩阵。'},
       {'name':'project_rss','formula':'SF = max(D − b, 0) / [K × √(uᵀ(C₁+C₂)u + σpa²)]','definition':'K 为不确定性放大系数；D 为两井中心距；b 为井径与附加裕量；σpa 为附加位置标准差；u 为中心连线单位向量。'}],
       'visualization':{'renderer':'plotly','axes':['N (m)','E (m)','TVD (m)'],'tvd_reversed':True,'aspectmode':'data','marker':'circle','source':'wellpath.reports.planning.plot_run / ellipsoid'}}
+
+@app.get('/api/algorithm/engine/tool-parameters')
+def engine_tool_parameters(name: str = 'ISCWSA MWD Rev5.11'):
+    from .tasks.anticollision.tool_parameters import tool_terms
+    import welleng as we
+    return {'models': we.error.get_error_models(), 'name': name, 'terms': tool_terms(name)}
 
 @app.post('/api/algorithm/engine/validate')
 def validate_engine(payload: dict):
@@ -489,6 +510,7 @@ def validate_engine(payload: dict):
       options=payload['native_options']
       from .tasks.replanning.native_profiles import ensure_native_profiles
       if options.get('trajectory_mode') not in ensure_native_profiles():raise ValueError('不支持的原生轨迹模型')
+      if options.get('arc_segment_model','minimum_curvature') not in ('minimum_curvature','constant_toolface'):raise ValueError('不支持的圆弧段模型')
       if not isinstance(options.get('n_segments'),int) or isinstance(options.get('n_segments'),bool) or options['n_segments'] not in range(1,6):raise ValueError('原生轨迹段数必须为1至5段')
     from .tasks.anticollision.parameter_validation import validate_settings
     kind=validate_settings(settings)

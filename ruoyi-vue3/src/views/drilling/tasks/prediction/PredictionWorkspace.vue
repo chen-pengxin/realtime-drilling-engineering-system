@@ -30,12 +30,12 @@
       </el-descriptions>
       <el-alert v-if="!modelReady" title="MODEL_NOT_CONFIGURED · 未生成预测结果" type="info" :closable="false" class="pose-error">请先在模型仓库启用模型。</el-alert>
       <section class="pose-panel pose-view">
-        <div class="pose-panel-header"><h3>预测结果</h3><el-button :disabled="!predicted.length" @click="exportResults">导出预测 CSV</el-button></div>
-        <div class="pose-legend"><span><i style="background:#075985"></i>实测轨迹</span><span><i style="background:#9a3412"></i>模型预测</span><span>坐标 N / E / TVD · m</span></div>
+        <div class="pose-panel-header"><h3>预测结果</h3><div><el-button icon="Setting" @click="settingsOpen=true">视图设置</el-button><el-button :disabled="!predicted.length" @click="exportResults">导出预测 CSV</el-button></div></div>
+        <div class="pose-legend"><span><i :style="{background:actualStyle.color,opacity:actualStyle.opacity}"></i>实测轨迹</span><span><i :style="{background:predictedStyle.color,opacity:predictedStyle.opacity}"></i>模型预测</span><span>坐标 N / E / TVD · m</span></div>
         <el-tabs v-model="activeView">
           <el-tab-pane label="3D 轨迹" name="3d"><div v-if="activeView==='3d'" class="pose-scene"><TrajectoryPlot v-if="trajectories.length" :trajectories="trajectories" view="3d"/><el-empty v-else description="暂无井眼轨迹" class="pose-empty" /></div></el-tab-pane>
-          <el-tab-pane label="2D 投影" name="2d"><PredictionPlots v-if="activeView==='2d' && measured.length" :measured="showMeasured ? measured : []" :predicted="showPredicted ? predicted : []"/><div v-else-if="activeView==='2d'" class="pose-empty">暂无测斜数据</div></el-tab-pane>
-          <el-tab-pane label="姿态趋势" name="attitude"><PredictionPlots v-if="activeView==='attitude' && measured.length" :measured="measured" :predicted="predicted" attitude/><div v-else-if="activeView==='attitude'" class="pose-empty">暂无姿态数据</div></el-tab-pane>
+          <el-tab-pane label="2D 投影" name="2d"><PredictionPlots v-if="activeView==='2d' && measured.length" :wellbore="selectedBore" :measured="showMeasured ? measured : []" :predicted="showPredicted ? predicted : []"/><div v-else-if="activeView==='2d'" class="pose-empty">暂无测斜数据</div></el-tab-pane>
+          <el-tab-pane label="姿态趋势" name="attitude"><PredictionPlots v-if="activeView==='attitude' && measured.length" :wellbore="selectedBore" :measured="measured" :predicted="predicted" attitude/><div v-else-if="activeView==='attitude'" class="pose-empty">暂无姿态数据</div></el-tab-pane>
           <el-tab-pane label="预测轨迹表" name="table"><div class="pose-table"><el-table empty-text="未生成预测结果" :data="predicted" max-height="520"><el-table-column v-for="column in columns" :key="column.key" :label="column.label" min-width="100"><template #default="{row}">{{ formatNumber(row[column.key]) }}</template></el-table-column></el-table></div></el-tab-pane>
           <el-tab-pane label="预测历史" name="history"><div class="pose-table"><el-table :data="history" max-height="520"><el-table-column prop="create_time" label="时间" min-width="160"/><el-table-column prop="model_version" label="模型版本" width="100"/><el-table-column prop="prediction_step" label="预测距离（m）" width="130"/><el-table-column prop="status" label="状态" min-width="150"/><el-table-column label="结果" width="80"><template #default="{row}"><el-button link type="primary" @click="showHistory(row)">查看</el-button></template></el-table-column></el-table></div></el-tab-pane>
         </el-tabs>
@@ -49,6 +49,7 @@
       <section class="pose-panel"><header class="pose-panel-header"><h3>自动增量更新</h3><el-tag :type="learning?.policy?.enabled?'success':'info'">{{ learning?.policy?.enabled?'已开启':'未开启' }}</el-tag></header><div class="pose-panel-body"><dl class="pose-facts"><div><dt>状态</dt><dd>{{ learningStatus(learning?.state?.status) }}</dd></div><div><dt>新增样本</dt><dd>{{ learning?.state?.newSamples ?? 0 }} / {{ learning?.policy?.minimumNewSamples ?? 10 }}</dd></div><div><dt>已训练至</dt><dd>{{ formatNumber(learning?.state?.trainedThroughMd,1) }} m</dd></div></dl><p v-if="learning?.state?.error" class="pose-muted">{{ learning.state.error }}</p></div></section>
     </aside>
   </div>
+  <el-drawer v-model="settingsOpen" title="可视化设置" size="min(340px, 100vw)"><TrajectoryStyleSettings :trajectories="styleTrajectories" /></el-drawer>
   <footer class="pose-bottom"><span>当前井 <b>{{ currentWell?.well_code || '—' }}</b></span><span>实测站点 <b>{{ measured.length }}</b> · 预测站点 <b>{{ predicted.length }}</b></span><span>数据刷新 <b>{{ updatedAt }}</b></span></footer>
 </template>
 <script setup>
@@ -61,20 +62,27 @@ import TrajectoryPlot from '@/components/TrajectoryPlot'
 import PredictionPlots from './PredictionPlots.vue'
 import { useDrillingContext } from '../../composables/useDrillingContext'
 import { decode, downloadBlob, formatNumber, getIncrementalLearning, learningStatus } from './api'
-import {trajectoryColors} from '@/utils/trajectoryColors'
+import {trajectoryIdentity} from '@/utils/wellboreHierarchy'
+import TrajectoryStyleSettings from '../../layout/TrajectoryStyleSettings.vue'
+import useTrajectoryAppearance from '@/store/modules/trajectoryAppearance'
 const { fieldId, wells, configForm, loadFields, loadFieldContext } = useDrillingContext()
 const bores=ref([]),boreId=ref(null),measuredPlot=ref([]),wellId=ref(null), versionId=ref(null), versions=ref([]), measured=ref([]), task=ref(null), models=ref([]), history=ref([]), learning=ref(null)
 const boreLabel=b=>[b?.block_name,b?.field_name,b?.well_name||b?.well_code,b?.wellbore_name||b?.wellbore_code].filter(Boolean).join(' / ')
 const busy=ref(false), error=ref(''), autoFollow=ref(true), showMeasured=ref(true), showPredicted=ref(true), activeView=ref('3d'), updatedAt=ref('—')
 const form=reactive({step:9,device:'auto'})
 let generation=0, refreshGeneration=0, timer, mounted=false, refreshing=false, following=false, lastAutomaticInput=''
+const settingsOpen=ref(false),appearance=useTrajectoryAppearance()
+const selectedBore=computed(()=>bores.value.find(b=>Number(b.wellbore_id)===Number(boreId.value))||{})
+const actualStyle=computed(()=>appearance.styleFor({...trajectoryIdentity(selectedBore.value),kind:'ACTUAL'}))
+const predictedStyle=computed(()=>appearance.styleFor({...trajectoryIdentity(selectedBore.value),kind:'PREDICTED'}))
+const styleTrajectories=computed(()=>['ACTUAL','PREDICTED'].map(kind=>({...trajectoryIdentity(selectedBore.value),kind})))
 const currentWell=computed(()=>wells.value.find(row=>Number(row.well_id)===Number(wellId.value)))
 const currentVersion=computed(()=>versions.value.find(row=>Number(row.survey_version_id)===Number(versionId.value)))
 const latest=computed(()=>measured.value.at(-1))
 const activeModel=computed(()=>models.value.find(row=>Number(row.model_version_id)===Number(configForm.algorithmDefaults.prediction.modelVersionId)))
 const modelReady=computed(()=>Boolean(activeModel.value && configForm.algorithmDefaults.prediction.templateRuntimePath))
 const predicted=computed(()=>{const result=task.value?.result;return result?.predicted_stations || (result?.predicted_pose?[result.predicted_pose]:[])})
-const trajectories=computed(()=>{const lines=[];if(showMeasured.value&&measured.value.length>1)lines.push({id:'measured',kind:'ACTUAL',label:'实测井眼轨迹',color:trajectoryColors.ACTUAL,points:measuredPlot.value.length?measuredPlot.value:measured.value});if(showPredicted.value&&predicted.value.length)lines.push({id:'predicted',kind:'PREDICTED',label:'模型预测轨迹',color:trajectoryColors.PREDICTED,points:[...measured.value.slice(-1),...predicted.value]});return lines})
+const trajectories=computed(()=>{const lines=[];if(showMeasured.value&&measured.value.length>1)lines.push({...trajectoryIdentity(selectedBore.value),id:'measured',kind:'ACTUAL',label:'实测井眼轨迹',points:measuredPlot.value.length?measuredPlot.value:measured.value});if(showPredicted.value&&predicted.value.length)lines.push({...trajectoryIdentity(selectedBore.value),id:'predicted',kind:'PREDICTED',label:'模型预测轨迹',points:[...measured.value.slice(-1),...predicted.value]});return lines})
 const columns=[{key:'md',label:'MD（m）'},{key:'inclination',label:'井斜（°）'},{key:'azimuth',label:'方位（°）'},{key:'north',label:'N（m）'},{key:'east',label:'E（m）'},{key:'tvd',label:'TVD（m）'}]
 function clearPrediction() {
   generation++

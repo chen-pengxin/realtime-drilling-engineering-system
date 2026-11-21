@@ -1,0 +1,683 @@
+{
+  "metadata": {
+    "scope": "verification_only",
+    "created_utc": "2026-11-18T08:38:44.797420+00:00",
+    "python": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+    "numpy": "2.5.5",
+    "scipy": "1.18.1",
+    "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm",
+    "repetitions": 3,
+    "config_sha256": "e96ee7ed1db4afc52f7ca0fb4251350c765df1df7115630d6e5dd793c5425c8a",
+    "source_sha256": {
+      "src/wellpath/geometry/segments.py": "26641cc95f511b325fb6bca62697bf39d9e62b053b387d2ce7bfaefc01708b43",
+      "src/wellpath/geometry/arc.py": "4445bdbde45ab4d1028e3311e742f19204329391fe2e1885ecfed64c8747bc77",
+      "src/wellpath/planning/replanning_problem.py": "8f816e5aad351915245f957f6fc3c61ce6158963f2203d2271a46704c3ebcbca",
+      "src/wellpath/workflows/scenario_replanning.py": "03740d91748c80531f338509cbd9e4f9aa47d36a0deeb367c176527e82b47ca5"
+    },
+    "configuration": {
+      "scenarios": [
+        "A",
+        "B",
+        "C"
+      ],
+      "algorithms": [
+        "SLSQP",
+        "trust-constr",
+        "COBYLA",
+        "COBYQA"
+      ],
+      "trajectory_mode": "arc-straight",
+      "n_segments": 3,
+      "uncertainty_model": {
+        "type": "iscwsa_rev0",
+        "propagation_basis": "minimum_curvature",
+        "parameters": {
+          "accel_bias_mps2": 0.004,
+          "accel_scale": 0.0005,
+          "mag_bias_nt": 70.0,
+          "mag_scale": 0.0016,
+          "sag_deg": 0.2,
+          "misalignment_x_deg": 0.06,
+          "misalignment_y_deg": 0.06,
+          "amid_constant_deg": 0.25,
+          "amid_direction_deg": 0.6,
+          "declination_sigma_deg": 0.36,
+          "dbh_deg_nt": 5000.0,
+          "dip_sigma_deg": 0.2,
+          "total_field_sigma_nt": 130.0,
+          "depth_random_m": 0.35,
+          "depth_system_m": 0.0,
+          "depth_scale": 0.00024,
+          "depth_stretch_per_m": 2.2e-07,
+          "b_total_nt": 48000.0,
+          "dip_deg": 58.0,
+          "declination_deg": 2.0,
+          "gravity": 9.80665,
+          "toolface_deg": 0.0,
+          "asz_divide_by_gravity": true
+        }
+      },
+      "start_cov_nev_m2": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "sf_method": "major_axis_sum",
+      "k_sigma": 1.0,
+      "sf_threshold": 1.5,
+      "optimization_sf_buffer": 0.03,
+      "centerline_min_distance_m": 5.0,
+      "centerline_buffer_m": 0.1,
+      "dls_upper_deg_per_30m": 5.999,
+      "arc_dls_lower_deg_per_30m": 0.02,
+      "arc_length_bounds_m": [
+        10.0,
+        1800.0
+      ],
+      "straight_length_bounds_m": [
+        10.0,
+        2200.0
+      ],
+      "toolface_bounds_deg": [
+        -180.0,
+        180.0
+      ],
+      "inclination_bounds_deg": [
+        0.1,
+        95.0
+      ],
+      "max_segment_bend_deg": 150.0,
+      "target_position_tolerance_m": 0.5,
+      "target_inclination_tolerance_deg": 0.5,
+      "target_azimuth_tolerance_deg": 0.5,
+      "optimization_target_radius_m": 0.49,
+      "history_survey_interval_m": 30.0,
+      "planned_survey_max_step_m": 30.0,
+      "optimization_cells_per_segment": 24,
+      "neighbor_optimization_step_m": 10.0,
+      "final_scan_step_m": 1.0,
+      "solver": {
+        "random_seed": 20261112,
+        "initial_search_attempts": 12,
+        "optimization_starts": 1,
+        "feasibility_max_nfev": 600,
+        "maxiter": 350,
+        "max_function_evaluations": 3000,
+        "max_seconds_per_run": 75.0,
+        "algorithm_options": {
+          "trust-constr": {
+            "maxiter": 300,
+            "gtol": 1e-07
+          },
+          "COBYQA": {
+            "maxiter": 1500
+          },
+          "COBYLA": {
+            "maxiter": 3000,
+            "rhobeg": 0.04,
+            "tol": 1e-07
+          }
+        },
+        "retain_feasible_iterates": true
+      }
+    }
+  },
+  "rows": [
+    {
+      "repetition": 1,
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9096675000037067,
+      "optimization_wall_seconds": 4.242011208989425,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3159123330115108,
+      "optimization_seconds": 4.241888499993365,
+      "final_verification_seconds": 0.2877175419998821,
+      "result_output_seconds": 0.02164683300361503,
+      "total_seconds": 7.776983708012267,
+      "total_length_m": 1861.554633702617,
+      "position_error_m": 0.49000058521980555,
+      "minimum_sf": 15.226371217850891,
+      "iterations": 78
+    },
+    {
+      "repetition": 1,
+      "scene": "B",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9043919579999056,
+      "optimization_wall_seconds": 13.642099750009947,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.30377779199625365,
+      "optimization_seconds": 13.641975333011942,
+      "final_verification_seconds": 0.2839729580009589,
+      "result_output_seconds": 0.021498957998119295,
+      "total_seconds": 17.15577216699603,
+      "total_length_m": 1879.2667508063862,
+      "position_error_m": 0.4899999971120826,
+      "minimum_sf": 16.96628825410072,
+      "iterations": 256
+    },
+    {
+      "repetition": 1,
+      "scene": "C",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9014529999985825,
+      "optimization_wall_seconds": 5.464966333995108,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3175763339968398,
+      "optimization_seconds": 5.46484899999632,
+      "final_verification_seconds": 0.2838689170021098,
+      "result_output_seconds": 0.02180133300134912,
+      "total_seconds": 8.989691668000887,
+      "total_length_m": 1892.3280069699115,
+      "position_error_m": 0.49000000525111265,
+      "minimum_sf": 14.515897982677966,
+      "iterations": 101
+    },
+    {
+      "repetition": 1,
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.8978948340081843,
+      "optimization_wall_seconds": 5.38878962500894,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4190286659868434,
+      "optimization_seconds": 5.388672000000952,
+      "final_verification_seconds": 0.28988566699263174,
+      "result_output_seconds": 0.023830666003050283,
+      "total_seconds": 9.019548374999431,
+      "total_length_m": 1861.5612375113867,
+      "position_error_m": 0.4900000394331571,
+      "minimum_sf": 15.261323692960206,
+      "iterations": 73
+    },
+    {
+      "repetition": 1,
+      "scene": "B",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.895853709007497,
+      "optimization_wall_seconds": 19.076269124998362,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3991216249996796,
+      "optimization_seconds": 19.076146833991515,
+      "final_verification_seconds": 0.28691199999593664,
+      "result_output_seconds": 0.02381474999128841,
+      "total_seconds": 22.68209895900509,
+      "total_length_m": 1879.2673700877335,
+      "position_error_m": 0.4900000751580901,
+      "minimum_sf": 16.970812603062097,
+      "iterations": 265
+    },
+    {
+      "repetition": 1,
+      "scene": "C",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.903649999992922,
+      "optimization_wall_seconds": 7.164392459002556,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4156405419926159,
+      "optimization_seconds": 7.164266332998523,
+      "final_verification_seconds": 0.2846319160016719,
+      "result_output_seconds": 0.024197624996304512,
+      "total_seconds": 10.7926481669856,
+      "total_length_m": 1892.4195974581273,
+      "position_error_m": 0.49000020028629443,
+      "minimum_sf": 14.423335496891017,
+      "iterations": 95
+    },
+    {
+      "repetition": 2,
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.8964064169995254,
+      "optimization_wall_seconds": 5.350486750001437,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4311721659905743,
+      "optimization_seconds": 5.350367708000704,
+      "final_verification_seconds": 0.2863899579970166,
+      "result_output_seconds": 0.024248624991741963,
+      "total_seconds": 8.988829832989722,
+      "total_length_m": 1861.5612375113867,
+      "position_error_m": 0.4900000394331571,
+      "minimum_sf": 15.261323692960206,
+      "iterations": 73
+    },
+    {
+      "repetition": 2,
+      "scene": "B",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.913204707991099,
+      "optimization_wall_seconds": 19.008158374999766,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4002470420091413,
+      "optimization_seconds": 19.00798374999431,
+      "final_verification_seconds": 0.2865217500075232,
+      "result_output_seconds": 0.023810375001630746,
+      "total_seconds": 22.632143750000978,
+      "total_length_m": 1879.2673700877335,
+      "position_error_m": 0.4900000751580901,
+      "minimum_sf": 16.970812603062097,
+      "iterations": 265
+    },
+    {
+      "repetition": 2,
+      "scene": "C",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9732095829967875,
+      "optimization_wall_seconds": 7.1725979579932755,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4161458750022575,
+      "optimization_seconds": 7.1724773330061,
+      "final_verification_seconds": 0.3018468749942258,
+      "result_output_seconds": 0.023740958000416867,
+      "total_seconds": 10.887669082992943,
+      "total_length_m": 1892.4195974581273,
+      "position_error_m": 0.49000020028629443,
+      "minimum_sf": 14.423335496891017,
+      "iterations": 95
+    },
+    {
+      "repetition": 2,
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.934798333008075,
+      "optimization_wall_seconds": 4.298510084001464,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.31511424999916926,
+      "optimization_seconds": 4.298391375006759,
+      "final_verification_seconds": 0.2862133750022622,
+      "result_output_seconds": 0.02135370799805969,
+      "total_seconds": 7.856014374017832,
+      "total_length_m": 1861.554633702617,
+      "position_error_m": 0.49000058521980555,
+      "minimum_sf": 15.226371217850891,
+      "iterations": 78
+    },
+    {
+      "repetition": 2,
+      "scene": "B",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.926224334005383,
+      "optimization_wall_seconds": 13.670717333006905,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3042224169912515,
+      "optimization_seconds": 13.670591500005685,
+      "final_verification_seconds": 0.2917297500098357,
+      "result_output_seconds": 0.02266679199237842,
+      "total_seconds": 17.215587041995605,
+      "total_length_m": 1879.2667508063862,
+      "position_error_m": 0.4899999971120826,
+      "minimum_sf": 16.96628825410072,
+      "iterations": 256
+    },
+    {
+      "repetition": 2,
+      "scene": "C",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9150792909931624,
+      "optimization_wall_seconds": 5.547003999992739,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3167082500003744,
+      "optimization_seconds": 5.546887000004062,
+      "final_verification_seconds": 0.30463433401018847,
+      "result_output_seconds": 0.023334249999606982,
+      "total_seconds": 9.106786915988778,
+      "total_length_m": 1892.3280069699115,
+      "position_error_m": 0.49000000525111265,
+      "minimum_sf": 14.515897982677966,
+      "iterations": 101
+    },
+    {
+      "repetition": 3,
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.9510143749939743,
+      "optimization_wall_seconds": 4.283219459000975,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3153250830073375,
+      "optimization_seconds": 4.2830972079973435,
+      "final_verification_seconds": 0.293057791001047,
+      "result_output_seconds": 0.021847083000466228,
+      "total_seconds": 7.864489583007526,
+      "total_length_m": 1861.554633702617,
+      "position_error_m": 0.49000058521980555,
+      "minimum_sf": 15.226371217850891,
+      "iterations": 78
+    },
+    {
+      "repetition": 3,
+      "scene": "B",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 2.934172666995437,
+      "optimization_wall_seconds": 14.062728249991778,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.3034398329909891,
+      "optimization_seconds": 14.062584458006313,
+      "final_verification_seconds": 0.3829667500103824,
+      "result_output_seconds": 0.028493334000813775,
+      "total_seconds": 17.71182999998564,
+      "total_length_m": 1879.2667508063862,
+      "position_error_m": 0.4899999971120826,
+      "minimum_sf": 16.96628825410072,
+      "iterations": 256
+    },
+    {
+      "repetition": 3,
+      "scene": "C",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 4.09807633300079,
+      "optimization_wall_seconds": 7.205629417003365,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.4536742089985637,
+      "optimization_seconds": 7.2054555420036195,
+      "final_verification_seconds": 0.37556908300030045,
+      "result_output_seconds": 0.028800750005757436,
+      "total_seconds": 12.161795792009798,
+      "total_length_m": 1892.3280069699115,
+      "position_error_m": 0.49000000525111265,
+      "minimum_sf": 14.515897982677966,
+      "iterations": 101
+    },
+    {
+      "repetition": 3,
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 3.8418953329965007,
+      "optimization_wall_seconds": 6.069849375009653,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.5476397500024177,
+      "optimization_seconds": 6.069720083003631,
+      "final_verification_seconds": 0.3141427499940619,
+      "result_output_seconds": 0.027176583011168987,
+      "total_seconds": 10.80085641599726,
+      "total_length_m": 1861.5612375113867,
+      "position_error_m": 0.4900000394331571,
+      "minimum_sf": 15.261323692960206,
+      "iterations": 73
+    },
+    {
+      "repetition": 3,
+      "scene": "B",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 3.273761500007822,
+      "optimization_wall_seconds": 21.75727708400518,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.42905404198972974,
+      "optimization_seconds": 21.757146165997256,
+      "final_verification_seconds": 0.31895624999015126,
+      "result_output_seconds": 0.026965124998241663,
+      "total_seconds": 25.80614479200449,
+      "total_length_m": 1879.2673700877335,
+      "position_error_m": 0.4900000751580901,
+      "minimum_sf": 16.970812603062097,
+      "iterations": 265
+    },
+    {
+      "repetition": 3,
+      "scene": "C",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "solver": "SLSQP",
+      "feasible": true,
+      "preparation_seconds": 3.3995255420013564,
+      "optimization_wall_seconds": 8.055490874990937,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "initial_feasibility_seconds": 0.48830166600237135,
+      "optimization_seconds": 8.055359625010169,
+      "final_verification_seconds": 0.31955299999390263,
+      "result_output_seconds": 0.0265650840010494,
+      "total_seconds": 12.28957733300922,
+      "total_length_m": 1892.4195974581273,
+      "position_error_m": 0.49000020028629443,
+      "minimum_sf": 14.423335496891017,
+      "iterations": 95
+    }
+  ],
+  "summary_medians": [
+    {
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.934798333008075,
+      "initial_feasibility_seconds": 0.3153250830073375,
+      "optimization_seconds": 4.2830972079973435,
+      "optimization_wall_seconds": 4.283219459000975,
+      "final_verification_seconds": 0.2877175419998821,
+      "result_output_seconds": 0.02164683300361503,
+      "total_seconds": 7.856014374017832,
+      "total_length_m": 1861.554633702617,
+      "position_error_m": 0.49000058521980555,
+      "minimum_sf": 15.226371217850891,
+      "total_seconds_range": [
+        7.776983708012267,
+        7.864489583007526
+      ]
+    },
+    {
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.8978948340081843,
+      "initial_feasibility_seconds": 0.4311721659905743,
+      "optimization_seconds": 5.388672000000952,
+      "optimization_wall_seconds": 5.38878962500894,
+      "final_verification_seconds": 0.28988566699263174,
+      "result_output_seconds": 0.024248624991741963,
+      "total_seconds": 9.019548374999431,
+      "total_length_m": 1861.5612375113867,
+      "position_error_m": 0.4900000394331571,
+      "minimum_sf": 15.261323692960206,
+      "total_seconds_range": [
+        8.988829832989722,
+        10.80085641599726
+      ]
+    },
+    {
+      "scene": "B",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.926224334005383,
+      "initial_feasibility_seconds": 0.30377779199625365,
+      "optimization_seconds": 13.670591500005685,
+      "optimization_wall_seconds": 13.670717333006905,
+      "final_verification_seconds": 0.2917297500098357,
+      "result_output_seconds": 0.02266679199237842,
+      "total_seconds": 17.215587041995605,
+      "total_length_m": 1879.2667508063862,
+      "position_error_m": 0.4899999971120826,
+      "minimum_sf": 16.96628825410072,
+      "total_seconds_range": [
+        17.15577216699603,
+        17.71182999998564
+      ]
+    },
+    {
+      "scene": "B",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.913204707991099,
+      "initial_feasibility_seconds": 0.4002470420091413,
+      "optimization_seconds": 19.076146833991515,
+      "optimization_wall_seconds": 19.076269124998362,
+      "final_verification_seconds": 0.28691199999593664,
+      "result_output_seconds": 0.02381474999128841,
+      "total_seconds": 22.68209895900509,
+      "total_length_m": 1879.2673700877335,
+      "position_error_m": 0.4900000751580901,
+      "minimum_sf": 16.970812603062097,
+      "total_seconds_range": [
+        22.632143750000978,
+        25.80614479200449
+      ]
+    },
+    {
+      "scene": "C",
+      "arc_segment_model": "minimum_curvature",
+      "model_label": "最小曲率平面圆弧",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.9150792909931624,
+      "initial_feasibility_seconds": 0.3175763339968398,
+      "optimization_seconds": 5.546887000004062,
+      "optimization_wall_seconds": 5.547003999992739,
+      "final_verification_seconds": 0.30463433401018847,
+      "result_output_seconds": 0.023334249999606982,
+      "total_seconds": 9.106786915988778,
+      "total_length_m": 1892.3280069699115,
+      "position_error_m": 0.49000000525111265,
+      "minimum_sf": 14.515897982677966,
+      "total_seconds_range": [
+        8.989691668000887,
+        12.161795792009798
+      ]
+    },
+    {
+      "scene": "C",
+      "arc_segment_model": "constant_toolface",
+      "model_label": "恒工具面恒曲率空间曲线",
+      "feasible_runs": 3,
+      "converged_runs": 3,
+      "preparation_seconds": 2.9732095829967875,
+      "initial_feasibility_seconds": 0.4161458750022575,
+      "optimization_seconds": 7.1724773330061,
+      "optimization_wall_seconds": 7.1725979579932755,
+      "final_verification_seconds": 0.3018468749942258,
+      "result_output_seconds": 0.024197624996304512,
+      "total_seconds": 10.887669082992943,
+      "total_length_m": 1892.4195974581273,
+      "position_error_m": 0.49000020028629443,
+      "minimum_sf": 14.423335496891017,
+      "total_seconds_range": [
+        10.7926481669856,
+        12.28957733300922
+      ]
+    }
+  ]
+}

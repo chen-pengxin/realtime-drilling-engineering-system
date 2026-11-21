@@ -68,9 +68,9 @@ def endpoint(module, action=''):
 ref = {'well_id': wells[0], 'survey_version_id': fixture['versions'][0], 'stations': [{k: s[k] for k in ['md', 'inclination', 'azimuth']} for s in fixture['trajectories'][0]]}
 neighbor = {'well_id': wells[1], 'survey_version_id': fixture['versions'][1], 'stations': [{k: s[k] for k in ['md', 'inclination', 'azimuth']} for s in fixture['trajectories'][1]], 'origin_east': 20}
 scan = call('POST', '/api/algorithm/anti-collision/network-scan', json={'field_id': field, 'reference_well_id': wells[0], 'reference_survey_version_id': fixture['versions'][0], 'reference': ref, 'neighbors': [neighbor], 'step': 10, 'mode': 'BOTH'})
-# A real extrapolated station produces its own predicted-segment alarm, retaining
+# A model-produced station produces its own predicted-segment alarm, retaining
 # the measured/predicted boundary and exact neighbor for the replanning link.
-future_ref = dict(ref, stations=ref['stations'] + [{'md': 110, 'inclination': 5, 'azimuth': 90, 'source': 'TANGENT_EXTRAPOLATION'}])
+future_ref = dict(ref, stations=ref['stations'] + [{'md': 110, 'inclination': 5, 'azimuth': 90, 'source': 'PREDICTED_TRAINED_MODEL', 'predicted': True}])
 if 'nearNeighbor' not in fixture:
     close_well = call('POST', f'/api/drilling/fields/{field}/wells', 201, json={'wellCode': 'NEAR-' + tag, 'wellName': '近邻井', 'wellType': 'OFFSET'})['well_id']
     close_stations = [{'md': 0, 'inclination': 0, 'azimuth': 0}, {'md': 120, 'inclination': 5, 'azimuth': 90}]

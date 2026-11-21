@@ -43,6 +43,7 @@ import com.ruoyi.common.utils.ShiroUtils;
 public class ModelRepositoryController
 {
     private final JdbcTemplate jdbc;
+    @org.springframework.beans.factory.annotation.Autowired private EngineeringConfigService engineeringConfigs;
     @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.centers.BusinessEventService versionEvents;
     private final HttpClient client = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(5)).build();
 
@@ -93,7 +94,7 @@ public class ModelRepositoryController
         requireEngineer(fieldId);
         jdbc.queryForList("SELECT field_id FROM drilling_field WHERE field_id=? FOR UPDATE",fieldId);
         Map<String,Object> current=jdbc.queryForMap("SELECT algorithm_defaults_json FROM drilling_field_config WHERE field_id=? AND status='0' AND effective_to IS NULL ORDER BY config_version DESC LIMIT 1",fieldId);
-        Map<String,Object> prediction=IncrementalLearningService.object(DrillingAlgorithmDefaults.merged(current.get("algorithm_defaults_json")).get("prediction"));
+        Map<String,Object> prediction=IncrementalLearningService.object(engineeringConfigs.defaults().get("prediction"));
         if(String.valueOf(modelVersionId).equals(String.valueOf(prediction.get("modelVersionId"))))throw new IllegalArgumentException("请先切换正在使用的预测模型");
         if(jdbc.update("UPDATE model_version SET status='ARCHIVED' WHERE field_id=? AND model_version_id=?",fieldId,modelVersionId)==0)throw new IllegalArgumentException("model not found");
         versionEvents.versionChange(fieldId,ShiroUtils.getLoginName(),"ARCHIVE","MODEL","MODEL:"+modelVersionId,Map.of("status","ARCHIVED"));
@@ -194,11 +195,15 @@ public class ModelRepositoryController
                                             @RequestBody Map<String, Object> body) throws IOException, InterruptedException
     {
         requireFieldAccess(fieldId);
+        return infer(modelVersionId,fieldId,body);
+    }
+
+    private ResponseEntity<String> infer(Long modelVersionId,Long fieldId,Map<String,Object> body) throws IOException,InterruptedException {
         Map<String, Object> model = jdbc.queryForMap("""
             SELECT f.object_key, f.status AS file_status, mv.status AS model_status
               FROM model_version mv JOIN data_file f ON f.file_id=mv.file_id
-             WHERE mv.model_version_id=? AND mv.field_id=?
-            """, modelVersionId, fieldId);
+             WHERE mv.model_version_id=? AND (? IS NULL OR mv.field_id=?)
+            """, modelVersionId, fieldId, fieldId);
         if (!"READY".equalsIgnoreCase(String.valueOf(model.get("model_status")))
                 || !"ACTIVE".equalsIgnoreCase(String.valueOf(model.get("file_status"))))
             throw new IllegalArgumentException("model version is not ready");
@@ -209,10 +214,10 @@ public class ModelRepositoryController
         Integer registeredTemplate = jdbc.queryForObject("""
             SELECT COUNT(*) FROM training_template t
               JOIN data_file f ON f.file_id=t.file_id
-             WHERE t.field_id=? AND t.runtime_path=? AND t.status='ACTIVE'
+             WHERE (? IS NULL OR t.field_id=?) AND t.runtime_path=? AND t.status='ACTIVE'
                AND f.field_id=t.field_id AND f.file_category='TEMPLATE'
                AND f.is_template='1' AND f.status='ACTIVE'
-            """, Integer.class, fieldId, script);
+            """, Integer.class, fieldId, fieldId, script);
         if (registeredTemplate == null || registeredTemplate == 0)
             throw new IllegalArgumentException("inference script must be an active template registered in this field");
         Map<String, Object> forwarded = new java.util.HashMap<>();
@@ -221,13 +226,19 @@ public class ModelRepositoryController
         forwarded.put("input", body.get("input") instanceof Map<?, ?> ? body.get("input") : Map.of());
         forwarded.put("device", text(body.get("device")) == null ? "cpu" : text(body.get("device")));
         Object timeout = body.get("timeout_seconds");
-        forwarded.put("timeout_seconds", timeout == null ? 30 : timeout);
+        forwarded.put("timeout_seconds", timeout == null ? 1 : timeout);
         HttpRequest request = HttpRequest.newBuilder(URI.create(algorithmBaseUrl() + "/infer"))
                 .timeout(Duration.ofMinutes(6)).header("Accept", MediaType.APPLICATION_JSON_VALUE)
                 .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .POST(HttpRequest.BodyPublishers.ofString(JSON.toJSONString(forwarded))).build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         return ResponseEntity.status(response.statusCode()).contentType(MediaType.APPLICATION_JSON).body(response.body());
+    }
+
+    // Called only by an authorized prediction task, after its source version is bound.
+    // A shared engineering model is usable from every authorized wellbore.
+    ResponseEntity<String> inferConfigured(Long modelId, Map<String,Object> body) throws IOException, InterruptedException {
+        return infer(modelId,null,body);
     }
 
     private String algorithmBaseUrl()

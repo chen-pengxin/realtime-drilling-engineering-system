@@ -1,0 +1,141 @@
+{
+  "scope": "isolated_verification_only",
+  "viewport": [
+    1700,
+    1080
+  ],
+  "browser": "157.0.4341.60",
+  "rows": [
+    {
+      "scene": "A",
+      "arc_segment_model": "minimum_curvature",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5546324941615,
+      "position_error_m": 0.4900012614672653,
+      "minimum_sf": 15.226861035324697,
+      "iterations": 73,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 12.18660000000894,
+      "graph_render_complete_seconds": 12.442900000005961,
+      "graph_afterplots_seconds": [
+        12.442900000005961,
+        12.442900000005961,
+        12.442900000005961
+      ],
+      "table_tab_render_seconds": 1.636,
+      "timing": {
+        "optimization_wall_seconds": 4.511766833005822,
+        "trajectory_table_seconds": 0.0309320420055883,
+        "execution_total_seconds": 9.71940104199166,
+        "initialization_seconds": 0.7633707909990335,
+        "result_persistence_seconds": 1.036556125,
+        "gateway_snapshot_seconds": 0.261820208,
+        "algorithm_http_seconds": 10.420938958,
+        "final_verification_seconds": 0.7171278329915367,
+        "gateway_preparation_seconds": 0.603685459,
+        "gateway_authorization_seconds": 0.001716083,
+        "total_seconds": 6.322617124998942,
+        "gateway_configuration_breakdown": {
+          "field_access_seconds": 0.000638167,
+          "engineering_defaults_cache_seconds": 0.000519459,
+          "field_defaults_total_seconds": 0.001170667,
+          "confirmation_config_and_access_seconds": 0.0014745,
+          "confirmation_survey_revision_seconds": 0.000353875,
+          "confirmation_cache_hit": 0,
+          "confirmation_total_seconds": 0.001903583,
+          "require_confirmation_total_seconds": 0.001910792,
+          "request_policy_merge_seconds": 0.000308208,
+          "trajectory_input_binding_seconds": 0.318358042
+        },
+        "input_preparation_seconds": 0.9447775000007823,
+        "worker_json_serialization_seconds": 0.11943370799417607,
+        "gateway_configuration_seconds": 0.339081041,
+        "algorithm_total_seconds": 6.322617124998942,
+        "optimization_seconds": 4.511616750009125,
+        "preparation_seconds": 0.10244375000183936,
+        "collision_result_adaptation_seconds": 0.07435025001177564,
+        "gateway_validation_seconds": 0.001046208,
+        "feasibility_construction_seconds": 0.7633991250040708,
+        "gateway_total_seconds": 12.061180667,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.12205924998852424
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "fa31e031eb6388fcd229ac51351389566296bc6fc2d3f5070b1d0c5bd6d59a15",
+      "complete_visible_seconds": 14.07890000000596,
+      "gateway_non_algorithm_seconds": 1.6402417089999997
+    },
+    {
+      "scene": "A",
+      "arc_segment_model": "constant_toolface",
+      "status": "SUCCESS",
+      "total_length_m": 1861.5612370269173,
+      "position_error_m": 0.49000001167874735,
+      "minimum_sf": 15.261817107033258,
+      "iterations": 77,
+      "solver_success": true,
+      "solver_messages": [
+        "Optimization terminated successfully"
+      ],
+      "trajectory_rows": 1864,
+      "obstacle_versions": 9,
+      "response_seconds": 13.628,
+      "graph_render_complete_seconds": 13.8735,
+      "graph_afterplots_seconds": [
+        13.8735,
+        13.8735,
+        13.8735
+      ],
+      "table_tab_render_seconds": 1.6907000000029802,
+      "timing": {
+        "optimization_wall_seconds": 6.683046333011589,
+        "trajectory_table_seconds": 0.002034832999925129,
+        "execution_total_seconds": 11.564791958007845,
+        "initialization_seconds": 0.9167905000067549,
+        "result_persistence_seconds": 0.734128834,
+        "gateway_snapshot_seconds": 0.16028125,
+        "algorithm_http_seconds": 12.370364833,
+        "final_verification_seconds": 0.7289202910033055,
+        "gateway_preparation_seconds": 0.287828208,
+        "gateway_authorization_seconds": 0.001454917,
+        "total_seconds": 8.670569708003313,
+        "gateway_configuration_breakdown": {
+          "field_access_seconds": 0.000564959,
+          "engineering_defaults_cache_seconds": 0.000212083,
+          "field_defaults_total_seconds": 0.000781875,
+          "confirmation_config_and_access_seconds": 0.000882167,
+          "confirmation_survey_revision_seconds": 0.000248459,
+          "confirmation_cache_miss": 0,
+          "confirmation_profile_build_seconds": 0.000617375,
+          "confirmation_database_check_seconds": 0.002887375,
+          "confirmation_total_seconds": 0.004693583,
+          "require_confirmation_total_seconds": 0.00469525,
+          "request_policy_merge_seconds": 5.175e-05,
+          "trajectory_input_binding_seconds": 0.109956
+        },
+        "input_preparation_seconds": 0.9547176659980323,
+        "worker_json_serialization_seconds": 0.10714400000870228,
+        "gateway_configuration_seconds": 0.124640125,
+        "algorithm_total_seconds": 8.670569708003313,
+        "optimization_seconds": 6.682856332990923,
+        "preparation_seconds": 0.13808283300022595,
+        "collision_result_adaptation_seconds": 0.07432454200170469,
+        "gateway_validation_seconds": 0.001449541,
+        "feasibility_construction_seconds": 0.9168158329994185,
+        "gateway_total_seconds": 13.392322,
+        "collision_review_seconds": 0,
+        "result_serialization_seconds": 0.1266602910036454
+      },
+      "background_scan_suppressed": false,
+      "input_sha256": "9daf1eae9ca0a73e40fa3fe71073dcb029557c83e334ffef0035ae520ce2b25d",
+      "complete_visible_seconds": 15.56420000000298,
+      "gateway_non_algorithm_seconds": 1.021957167
+    }
+  ],
+  "errors": []
+}

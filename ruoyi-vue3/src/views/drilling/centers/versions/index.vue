@@ -1,5 +1,5 @@
 <template>
-  <CenterList ref="list" title="版本与变更记录" module="versions" :types="options(['CONFIG','SURVEY','MODEL','PLAN'])" :statuses="options(['CURRENT','HISTORY','READY','ARCHIVED','SUCCESS','BEST_EFFORT','INFEASIBLE'])" extension="json">
+  <CenterList ref="list" title="版本与变更记录" module="versions" :types="options(['CONFIG','SURVEY','MODEL','PLAN'])" :statuses="options(['CURRENT','HISTORY','READY','ARCHIVED','SUCCESS','FEASIBLE_NOT_CONVERGED','TIMEOUT','BEST_EFFORT','INFEASIBLE'])" extension="json">
     <template #toolbar="{selected,fieldId}"><el-col :span="1.5"><el-button type="primary" plain icon="Switch" :disabled="selected.length!==2||loading" @click="compare(selected,fieldId)">版本比较</el-button></el-col><el-col :span="1.5"><el-button icon="Document" :disabled="!fieldId" @click="changes(fieldId)">变更记录</el-button></el-col></template>
     <el-table-column prop="title" label="对象名称" min-width="200" />
     <el-table-column prop="record_type" label="类型" width="120"><template #default="{row}">{{ label(row.record_type) }}</template></el-table-column>

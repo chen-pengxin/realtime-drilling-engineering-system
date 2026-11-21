@@ -37,10 +37,10 @@
           <el-col :sm="12" :xs="24"><el-form-item label="工具型号 / 代码"><el-input v-model="reference.survey_tool.code" maxlength="120" /></el-form-item></el-col>
           <el-col :sm="12" :xs="24"><el-form-item label="仪器编号"><el-input v-model="reference.survey_tool.serial_number" maxlength="120" /></el-form-item></el-col>
           <el-col :sm="12" :xs="24"><el-form-item label="标定日期"><el-input v-model="reference.survey_tool.calibration_date" placeholder="按原件记录" maxlength="120" /></el-form-item></el-col>
-          <el-col :sm="12" :xs="24"><el-form-item label="误差模型" required><el-select :model-value="reference.uncertainty.model_version" @change="selectModel"><el-option v-for="m in catalog.models" :key="m.name" :value="m.name" :label="errorModelName(m.settings.uncertainty_model?.type||m.name)" /></el-select></el-form-item></el-col>
+          <el-col :sm="12" :xs="24"><el-form-item label="误差模型" required><el-input :model-value="errorModelName(configForm.algorithmDefaults.errorModel.modelVersion)" readonly /></el-form-item></el-col>
           <el-col :sm="12" :xs="24"><el-form-item label="参数来源">{{ parameterSourceLabel }}</el-form-item></el-col>
         </el-row>
-        <ParameterFields v-model="reference.uncertainty.settings" />
+        <ErrorModelSettings v-model="reference.uncertainty.settings" />
         <el-table v-if="reference.survey_metadata_evidence?.length" :data="reference.survey_metadata_evidence" border max-height="180"><el-table-column prop="text" label="原件参数记录" min-width="260"/><el-table-column prop="line" label="解析文本行" width="110" /></el-table>
       </el-collapse-item></el-collapse>
       <el-row :gutter="20" class="version-fields">
@@ -92,7 +92,7 @@ import {
 } from '@/api/drillingRegistry'
 import SourceLibrary from './SourceLibrary.vue'
 import SourceReview from './SourceReview.vue'
-import ParameterFields from '../../layout/ParameterFields.vue'
+import ErrorModelSettings from '../../layout/ErrorModelSettings.vue'
 import { errorModelName } from '@/utils/engineeringErrorModels'
 import { wellboreName } from '@/utils/wellboreHierarchy'
 import { fileDisplayName } from '@/utils/fileNames'
@@ -100,7 +100,6 @@ import { useDrillingContext } from '../../composables/useDrillingContext'
 const { configForm } = useDrillingContext()
 const catalog=ref({models:[]}),metadataConfirmed=ref(false)
 const confirmedSourceReference=ref({})
-engineCatalog().then(value=>catalog.value=value).catch(()=>{})
 const props = defineProps({
   fieldId: Number,
   bore: Object,
@@ -147,7 +146,7 @@ const changeLabels = {
 }
 const angles = p => p ? `${Number(p.inclination).toFixed(3)} / ${Number(p.azimuth).toFixed(3)}` : '—'
 const currentId = computed(() => props.versions.find(v => Number(v.is_active))?.survey_version_id ?? null)
-const parameterSourceLabel=computed(()=>({DOCUMENT_AND_REVIEW:'原件记录及人工核对',FIELD_SNAPSHOT:'井场参数快照',PARENT_VERSION:'父版本参数',MANUAL:'人工设置'}[reference.uncertainty?.parameter_source]||'版本参数'))
+const parameterSourceLabel=computed(()=>({DOCUMENT_AND_REVIEW:'原件记录及人工核对',FIELD_SNAPSHOT:'工程默认参数',ENGINEERING_DEFAULT:'工程默认参数',PARENT_VERSION:'父版本参数',MANUAL:'人工设置'}[reference.uncertainty?.parameter_source]||'版本参数'))
 function selectModel(name){const model=catalog.value.models.find(m=>m.name===name);if(model)reference.uncertainty={model_version:name,settings:JSON.parse(JSON.stringify(model.settings)),parameter_source:'MANUAL'}}
 let requestNo = 0,
   opening = false,
@@ -198,7 +197,8 @@ function resetReference() {
   reference.survey_tool=JSON.parse(JSON.stringify(source.survey_tool||inherited?.survey_tool||{}))
   const profile=source.uncertainty||inherited?.uncertainty
   reference.uncertainty=profile?{...JSON.parse(JSON.stringify(profile)),parameter_source:source.uncertainty?'DOCUMENT_AND_REVIEW':'PARENT_VERSION'}:{model_version:defaults.modelVersion,settings:JSON.parse(JSON.stringify(defaults.settings)),parameter_source:'FIELD_SNAPSHOT'}
-  if(source.uncertainty_model_hint&&!profile){const model=catalog.value.models.find(m=>m.name===source.uncertainty_model_hint);if(model){reference.uncertainty.model_version=model.name;reference.uncertainty.settings=JSON.parse(JSON.stringify(model.settings))}}
+  if(source.uncertainty_model_hint===defaults.modelVersion&&!profile){const model=catalog.value.models.find(m=>m.name===source.uncertainty_model_hint);if(model){reference.uncertainty.model_version=model.name;reference.uncertainty.settings=JSON.parse(JSON.stringify(model.settings))}}
+  if(reference.uncertainty.model_version!==defaults.modelVersion)reference.uncertainty={model_version:defaults.modelVersion,settings:JSON.parse(JSON.stringify(defaults.settings)),parameter_source:'ENGINEERING_DEFAULT'}
   if(source.uncertainty_parameters){const spec=reference.uncertainty.settings.uncertainty_model||{};const values=spec.parameters||spec;for(const [key,value] of Object.entries(source.uncertainty_parameters))if(key in values)values[key]=value;reference.uncertainty.parameter_source='DOCUMENT_AND_REVIEW'}
   // A named modern ISCWSA tool has an explicit registry code; do not infer it
   // merely from the generic words MWD or gyro.
@@ -360,9 +360,18 @@ async function show(mode = 'FULL', parent, source) {
   referencePanels.value = ['reference','instrument'];
   metadataConfirmed.value=false;
   open.value = true;
-  await loadParent();
-  await Promise.resolve();
-  opening = false
+  busy.value = true;
+  try {
+    // The directory mounts this dialog without opening it. Fetch model
+    // metadata only when importing, so browsing/creating wells needs no engine.
+    if (!catalog.value.models.length) catalog.value = await engineCatalog();
+    await loadParent();
+  } catch (e) {
+    error.value = e.response?.data?.msg || e.message
+  } finally {
+    busy.value = false;
+    opening = false
+  }
   if(source)await loadSource(source)
 }
 watch(open, value => {

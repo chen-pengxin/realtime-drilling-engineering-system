@@ -207,18 +207,37 @@ class PlanningInput(BaseModel):
     max_toolface_change_deg: float = Field(default=180.0, ge=0, le=360)
     scan_step: float = Field(default=1.0, gt=0)
     minimum_sf: float = Field(default=1.5, gt=0)
-    collision_constraint: str = Field(default="SEPARATION_FACTOR", pattern="^SEPARATION_FACTOR$")
+    # Replanning must keep both safety measures active.  The native engine
+    # checks the separation factor and the continuous centreline distance in
+    # the same constraint vector; exposing one combined contract prevents a
+    # caller from accidentally disabling either one.
+    collision_constraint: str = Field(
+        default="SEPARATION_FACTOR_AND_CENTER_DISTANCE",
+        pattern="^SEPARATION_FACTOR_AND_CENTER_DISTANCE$",
+    )
+    centerline_min_distance_m: float = Field(default=5.0, gt=0)
     target_tolerance_m: float = Field(default=0.5, gt=0)
     target_inclination: float | None = Field(default=None, gt=0, lt=180)
     target_azimuth: float | None = None
     history: SurveyInput | None = None
     segment_bounds: list[dict] = Field(default_factory=list)
-    native_options: dict = Field(default_factory=lambda: {'trajectory_mode': 'arc-straight', 'n_segments': 3})
+    native_options: dict = Field(default_factory=lambda: {
+        'trajectory_mode': 'arc-straight',
+        'n_segments': 3,
+        # The supplied well_control_iscwsa engine exposes both nominal
+        # curved-segment constructions.  The production default remains the
+        # minimum-curvature planar arc for backwards-compatible plans.
+        'arc_segment_model': 'minimum_curvature',
+    })
     error_model: ErrorModelInput = ErrorModelInput()
     obstacles: list[ObstacleSurveyInput] = Field(default_factory=list, max_length=100)
     random_seed: int = 17
     max_iterations: int = Field(default=500, ge=1, le=5000)
-    execution_timeout_seconds: int = Field(default=120, ge=5, le=300)
+    # Online replanning waits for convergence, iteration/function-evaluation
+    # limits, or the configured patience window. Thirty seconds is only the
+    # default; the value is not capped at ten seconds (or another acceptance
+    # threshold) by the application contract.
+    execution_timeout_seconds: int = Field(default=30, ge=1)
     input_versions: list[dict[str, object]] = Field(default_factory=list, max_length=101)
 
     @model_validator(mode='after')
@@ -234,6 +253,9 @@ class PlanningInput(BaseModel):
         modes = ensure_native_profiles()
         if mode not in modes:
             raise ValueError(f'trajectory_mode must be one of {modes}')
+        arc_model = self.native_options.get('arc_segment_model', 'minimum_curvature')
+        if arc_model not in ('minimum_curvature', 'constant_toolface'):
+            raise ValueError('arc_segment_model must be minimum_curvature or constant_toolface')
         if not isinstance(count, int) or isinstance(count, bool) or count not in range(1, 6):
             raise ValueError('n_segments must be an integer from the supplied planning profiles (1-5)')
         if len(self.segment_bounds) > count:
@@ -268,7 +290,7 @@ class InferenceInput(BaseModel):
     script: str = Field(min_length=1, max_length=200)
     input: dict[str, object] = Field(default_factory=dict)
     device: str = "cpu"
-    timeout_seconds: int = Field(default=30, ge=1, le=300)
+    timeout_seconds: int = Field(default=1, ge=1, le=300)
 
 
 class PredictionStartInput(BaseModel):
