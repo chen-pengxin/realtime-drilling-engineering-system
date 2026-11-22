@@ -66,6 +66,23 @@ services:
       - ../database/migrations/V54__disable_prediction_geometry_fallback.sql:/docker-entrypoint-initdb.d/55-disable-prediction-geometry-fallback.sql:ro
       - ../database/migrations/V55__expand_trajectory_plan_status.sql:/docker-entrypoint-initdb.d/56-expand-trajectory-plan-status.sql:ro
       - ../database/migrations/V56__allow_nonzero_md_tie_on.sql:/docker-entrypoint-initdb.d/57-allow-nonzero-md-tie-on.sql:ro
+      - ../database/migrations/V57__engineering_project_management_labels.sql:/docker-entrypoint-initdb.d/58-engineering-project-management-labels.sql:ro
+      - ../database/migrations/V58__hide_redundant_file_audit_menu.sql:/docker-entrypoint-initdb.d/59-hide-redundant-file-audit-menu.sql:ro
+      - ../database/migrations/V59__wellbore_targets.sql:/docker-entrypoint-initdb.d/60-wellbore-targets.sql:ro
+      - ../database/migrations/V60__trajectory_system_display_names.sql:/docker-entrypoint-initdb.d/61-trajectory-system-display-names.sql:ro
+      - ../database/migrations/V61__trajectory_editable_points_and_engineering_fields.sql:/docker-entrypoint-initdb.d/62-trajectory-editable-points-and-engineering-fields.sql:ro
+      - ../database/migrations/V62__trajectory_target_point_notes.sql:/docker-entrypoint-initdb.d/63-trajectory-target-point-notes.sql:ro
+      - ../database/migrations/V63__target_point_metrics.sql:/docker-entrypoint-initdb.d/64-target-point-metrics.sql:ro
+      - ../database/migrations/V64__catalog_form_fields.sql:/docker-entrypoint-initdb.d/65-catalog-form-fields.sql:ro
+      - ../database/migrations/V65__parallel_solver_default.sql:/docker-entrypoint-initdb.d/66-parallel-solver-default.sql:ro
+      # System-management schema is intentionally mounted after the engineering
+      # migrations. These scripts are idempotent and must be present on a fresh
+      # Compose database because the merged login/security code queries them.
+      - ../database/migrations/V50__system_management.sql:/docker-entrypoint-initdb.d/67-system-management.sql:ro
+      - ../database/migrations/V51__management_navigation_and_lock.sql:/docker-entrypoint-initdb.d/68-management-navigation-and-lock.sql:ro
+      - ../database/migrations/V52__business_permissions_menu_order.sql:/docker-entrypoint-initdb.d/69-business-permissions-menu-order.sql:ro
+      - ../database/migrations/V53__notice_management_menu_name.sql:/docker-entrypoint-initdb.d/70-notice-management-menu-name.sql:ro
+      - ../database/migrations/V54__engineering_display_states.sql:/docker-entrypoint-initdb.d/71-engineering-display-states.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
       interval: 10s
