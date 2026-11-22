@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS drilling_account_lock(user_id BIGINT PRIMARY KEY,locked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,locked_by BIGINT NOT NULL);
+INSERT IGNORE INTO sys_menu(menu_id,menu_name,parent_id,order_num,url,target,menu_type,visible,is_refresh,perms,icon,create_by,create_time) VALUES(7902,'首页',0,0,'/index','','C','0','1','','dashboard','system',NOW());
+INSERT IGNORE INTO drilling_menu_setting(menu_id,route_path,module_key,builtin) VALUES(7902,'/index','',TRUE);
+UPDATE sys_dict_data SET status='1' WHERE dict_type='drilling_ui_risk_level' AND dict_value IN ('LOW','MEDIUM','HIGH');
+INSERT INTO sys_dict_data(dict_sort,dict_label,dict_value,dict_type,status,remark) SELECT 1,'危险','RED','drilling_ui_risk_level','0','防碰评价、实时大屏' WHERE NOT EXISTS(SELECT 1 FROM sys_dict_data WHERE dict_type='drilling_ui_risk_level' AND dict_value='RED');
+INSERT INTO sys_dict_data(dict_sort,dict_label,dict_value,dict_type,status,remark) SELECT 2,'警告','ORANGE','drilling_ui_risk_level','0','防碰评价、实时大屏' WHERE NOT EXISTS(SELECT 1 FROM sys_dict_data WHERE dict_type='drilling_ui_risk_level' AND dict_value='ORANGE');
+INSERT INTO sys_dict_data(dict_sort,dict_label,dict_value,dict_type,status,remark) SELECT 3,'关注','YELLOW','drilling_ui_risk_level','0','防碰评价、实时大屏' WHERE NOT EXISTS(SELECT 1 FROM sys_dict_data WHERE dict_type='drilling_ui_risk_level' AND dict_value='YELLOW');
+INSERT INTO sys_dict_data(dict_sort,dict_label,dict_value,dict_type,status,remark) SELECT 4,'安全','BLUE','drilling_ui_risk_level','0','防碰评价、实时大屏' WHERE NOT EXISTS(SELECT 1 FROM sys_dict_data WHERE dict_type='drilling_ui_risk_level' AND dict_value='BLUE');

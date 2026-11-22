@@ -1,8 +1,9 @@
 import { ref, reactive, onMounted, onBeforeUnmount, onActivated, onDeactivated } from 'vue'
+import useSettingsStore from '@/store/modules/settings'
 import { listOperation } from '@/api/operations'
 export function useOperations(resource, defaults = {}) {
  const rows = ref([]), total = ref(0), loading = ref(false), showSearch = ref(true), dateRange = ref([])
- const query = reactive({ pageNum: 1, pageSize: 20, ...defaults })
+ const query = reactive({ pageNum: 1, pageSize: Number(useSettingsStore().platform.pageSize || 20), ...defaults })
  const params = () => ({ ...query, beginTime: dateRange.value?.[0], endTime: dateRange.value?.[1] })
  async function load() { loading.value = true; try { const r = await listOperation(resource, params()); rows.value = r.rows || r.data || []; total.value = r.total || rows.value.length } catch { /* The common request handler displays errors. */ } finally { loading.value = false } }
  function search() { query.pageNum = 1; return load() }

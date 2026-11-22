@@ -10,7 +10,7 @@
           <el-form-item label="向前预测距离（m）"><el-input-number v-model="form.step" :min="0.1" :max="1000" :step="1" @change="clearPrediction" /></el-form-item>
           <el-form-item label="推理设备"><el-select v-model="form.device" @change="clearPrediction"><el-option label="自动选择" value="auto"/><el-option label="CPU" value="cpu"/><el-option label="GPU 0" value="cuda:0"/></el-select></el-form-item>
           <el-form-item label="实时跟随"><el-switch v-model="autoFollow" active-text="跟随最新测斜版本" /></el-form-item>
-          <el-button type="primary" :loading="busy" :disabled="!latest || !modelReady" style="width:100%" @click="runPrediction">运行轨迹预测</el-button>
+          <el-button type="primary" :loading="busy" :disabled="!latest || !modelReady" style="width:100%" v-if="canRun" @click="runPrediction">运行轨迹预测</el-button>
           <el-button :disabled="busy" style="width:100%;margin:10px 0 0" @click="refresh">刷新实测数据</el-button>
         </el-form>
         <el-divider />
@@ -18,7 +18,7 @@
         <div class="pose-display-options"><el-checkbox v-model="showMeasured">实测井眼轨迹</el-checkbox><el-checkbox v-model="showPredicted">预测轨迹</el-checkbox></div>
         <el-divider />
 
-        <router-link :to="{ name:'DrillingPredictionModels' }"><el-button link type="primary">模型管理</el-button></router-link>
+        <router-link v-if="user.allowedModules.includes('models')" :to="{ name:'DrillingPredictionModels' }"><el-button link type="primary">模型管理</el-button></router-link>
       </div>
     </aside>
     <section>
@@ -53,6 +53,8 @@
   <footer class="pose-bottom"><span>当前井 <b>{{ currentWell?.well_code || '—' }}</b></span><span>实测站点 <b>{{ measured.length }}</b> · 预测站点 <b>{{ predicted.length }}</b></span><span>数据刷新 <b>{{ updatedAt }}</b></span></footer>
 </template>
 <script setup>
+import { checkPermi } from '@/utils/permission'
+import useUserStore from '@/store/modules/user'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import { computed, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -66,6 +68,9 @@ import {trajectoryIdentity} from '@/utils/wellboreHierarchy'
 import TrajectoryStyleSettings from '../../layout/TrajectoryStyleSettings.vue'
 import useTrajectoryAppearance from '@/store/modules/trajectoryAppearance'
 const { fieldId, wells, configForm, loadFields, loadFieldContext } = useDrillingContext()
+const user = useUserStore()
+const canRun = computed(() => checkPermi(['drilling:prediction:run']))
+const canReadModels = computed(() => user.allowedModules.includes('models') && checkPermi(['drilling:model:list']))
 const bores=ref([]),boreId=ref(null),measuredPlot=ref([]),wellId=ref(null), versionId=ref(null), versions=ref([]), measured=ref([]), task=ref(null), models=ref([]), history=ref([]), learning=ref(null)
 const boreLabel=b=>[b?.block_name,b?.field_name,b?.well_name||b?.well_code,b?.wellbore_name||b?.wellbore_code].filter(Boolean).join(' / ')
 const busy=ref(false), error=ref(''), autoFollow=ref(true), showMeasured=ref(true), showPredicted=ref(true), activeView=ref('3d'), updatedAt=ref('—')
@@ -80,7 +85,7 @@ const currentWell=computed(()=>wells.value.find(row=>Number(row.well_id)===Numbe
 const currentVersion=computed(()=>versions.value.find(row=>Number(row.survey_version_id)===Number(versionId.value)))
 const latest=computed(()=>measured.value.at(-1))
 const activeModel=computed(()=>models.value.find(row=>Number(row.model_version_id)===Number(configForm.algorithmDefaults.prediction.modelVersionId)))
-const modelReady=computed(()=>Boolean(activeModel.value && configForm.algorithmDefaults.prediction.templateRuntimePath))
+const modelReady=computed(()=>Boolean((canReadModels.value ? activeModel.value : configForm.algorithmDefaults.prediction.modelVersionId) && configForm.algorithmDefaults.prediction.templateRuntimePath))
 const predicted=computed(()=>{const result=task.value?.result;return result?.predicted_stations || (result?.predicted_pose?[result.predicted_pose]:[])})
 const trajectories=computed(()=>{const lines=[];if(showMeasured.value&&measured.value.length>1)lines.push({...trajectoryIdentity(selectedBore.value),id:'measured',kind:'ACTUAL',label:'实测井眼轨迹',points:measuredPlot.value.length?measuredPlot.value:measured.value});if(showPredicted.value&&predicted.value.length)lines.push({...trajectoryIdentity(selectedBore.value),id:'predicted',kind:'PREDICTED',label:'模型预测轨迹',points:[...measured.value.slice(-1),...predicted.value]});return lines})
 const columns=[{key:'md',label:'MD（m）'},{key:'inclination',label:'井斜（°）'},{key:'azimuth',label:'方位（°）'},{key:'north',label:'N（m）'},{key:'east',label:'E（m）'},{key:'tvd',label:'TVD（m）'}]
@@ -126,7 +131,7 @@ async function changeVersion() {
   updatedAt.value=new Date().toLocaleTimeString('zh-CN')
 }
 async function runPrediction() {
-  if(busy.value||!latest.value||!modelReady.value) return
+  if(!canRun.value||busy.value||!latest.value||!modelReady.value) return
   const run=generation
   busy.value=true; error.value=''
   try {
@@ -140,8 +145,8 @@ async function runPrediction() {
   } finally { busy.value=false }
 }
 async function runAutomaticPrediction() {
-  if(busy.value||!latest.value||!modelReady.value) return
-  const signature=[fieldId.value,wellId.value,versionId.value,activeModel.value.model_version_id,configForm.algorithmDefaults.prediction.templateRuntimePath,form.step,form.device].join(':')
+  if(!canRun.value||busy.value||!latest.value||!modelReady.value) return
+  const signature=[fieldId.value,wellId.value,versionId.value,configForm.algorithmDefaults.prediction.modelVersionId,configForm.algorithmDefaults.prediction.templateRuntimePath,form.step,form.device].join(':')
   if(signature===lastAutomaticInput) return
   lastAutomaticInput=signature
   await runPrediction()
@@ -152,7 +157,7 @@ async function refresh() {
   refreshing=true
   try {
     await loadFieldContext()
-    const [modelRows,learningData]=await Promise.all([listModels(id),getIncrementalLearning(id)])
+    const [modelRows,learningData]=await Promise.all([canReadModels.value ? listModels(id) : {},canReadModels.value ? getIncrementalLearning(id) : null])
     if(request!==refreshGeneration||id!==fieldId.value) return
     models.value=modelRows.models||[]; learning.value=learningData
     bores.value=await listWellbores(id)
@@ -168,7 +173,7 @@ async function follow() {
   const modelBefore=configForm.algorithmDefaults.prediction.modelVersionId
   const scriptBefore=configForm.algorithmDefaults.prediction.templateRuntimePath
   try {
-    const [rows,learningData,modelRows]=await Promise.all([boreVersions(id,boreId.value,'ACTUAL'),getIncrementalLearning(id),listModels(id)])
+    const [rows,learningData,modelRows]=await Promise.all([boreVersions(id,boreId.value,'ACTUAL'),canReadModels.value ? getIncrementalLearning(id) : null,canReadModels.value ? listModels(id) : {}])
     await loadFieldContext()
     if(id!==fieldId.value||well!==wellId.value||run!==generation) return
     learning.value=learningData; models.value=modelRows.models||[]
@@ -186,7 +191,7 @@ async function showHistory(row) {
   if(!stored.result?.predicted_pose&&!stored.result?.predicted_stations) { ElMessage.info(stored.result?.message||'该记录没有预测轨迹'); return }
   autoFollow.value=false; versionId.value=row.survey_version_id
   await changeVersion()
-  task.value=stored; activeView.value='3d'
+  task.value={...stored,task_id:row.task_id}; activeView.value='3d'
 }
 function exportResults(){const keys=columns.map(item=>item.key);const text='\ufeff'+keys.join(',')+'\n'+predicted.value.map(row=>keys.map(key=>row[key]??'').join(',')).join('\n');downloadBlob(new Blob([text],{type:'text/csv;charset=utf-8'}),'井眼轨迹预测.csv')}
 watch(fieldId,()=>{clearPrediction();if(mounted){wellId.value=null;refresh()}})

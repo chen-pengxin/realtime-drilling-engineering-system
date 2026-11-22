@@ -22,13 +22,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	</insert>
 	
 	<select id="selectLogininforList" parameterType="SysLogininfor" resultMap="SysLogininforResult">
-		select info_id,login_name,ipaddr,login_location,browser,os,status,msg,login_time from sys_logininfor
+		select info_id,login_name,ipaddr,login_location,browser,os,CASE WHEN status='0' AND msg='退出成功' THEN '2' ELSE status END AS status,msg,login_time from sys_logininfor
 		<where>
 			<if test="ipaddr != null and ipaddr != ''">
 				AND ipaddr like concat('%', #{ipaddr}, '%')
 			</if>
 			<if test="status != null and status != ''">
-				AND status = #{status}
+				AND CASE WHEN status='0' AND msg='退出成功' THEN '2' ELSE status END = #{status}
 			</if>
 			<if test="loginName != null and loginName != ''">
 				AND login_name like concat('%', #{loginName}, '%')

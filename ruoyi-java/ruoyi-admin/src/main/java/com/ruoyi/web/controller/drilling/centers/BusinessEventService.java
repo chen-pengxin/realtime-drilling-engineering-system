@@ -232,14 +232,14 @@ public class BusinessEventService {
         s.jdbc.queryForList(
             """
             SELECT connector_id,well_id,connector_name,status,last_error,last_heartbeat
-              FROM drilling_realtime_connector
+              FROM drilling_realtime_connector c
              WHERE field_id=? AND (
                status IN ('ERROR','RECONNECTING') OR (
                  status='CONNECTED' AND TIMESTAMPDIFF(SECOND,last_heartbeat,NOW()) >
-                   GREATEST(120,COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(config_json,'$.pollSeconds')) AS UNSIGNED),30)*2+30)
+                   %s
                )
              )
-            """,
+            """.formatted(ConnectorPollingHealth.HEARTBEAT_LIMIT_SQL),
             fieldId))
       alert(
           fieldId,

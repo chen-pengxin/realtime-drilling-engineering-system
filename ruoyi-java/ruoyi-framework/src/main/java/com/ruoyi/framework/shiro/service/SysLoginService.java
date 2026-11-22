@@ -115,21 +115,24 @@ public class SysLoginService
         
         if (UserStatus.DELETED.getCode().equals(user.getDelFlag()))
         {
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.password.delete")));
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(user.getLoginName(), Constants.LOGIN_FAIL, MessageUtils.message("user.password.delete")));
             throw new UserDeleteException();
         }
         
         if (UserStatus.DISABLE.getCode().equals(user.getStatus()))
         {
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.blocked")));
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(user.getLoginName(), Constants.LOGIN_FAIL, MessageUtils.message("user.blocked")));
             throw new UserBlockedException();
         }
 
         passwordService.validate(user, password);
         String unavailable = accountPolicy.unavailable(user);
-        if (unavailable != null) throw new org.apache.shiro.authc.LockedAccountException(unavailable);
+        if (unavailable != null) {
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(user.getLoginName(), Constants.LOGIN_FAIL, unavailable));
+            throw new org.apache.shiro.authc.LockedAccountException(unavailable);
+        }
 
-        AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(user.getLoginName(), Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
         setRolePermission(user);
         recordLoginInfo(user.getUserId());
         return user;

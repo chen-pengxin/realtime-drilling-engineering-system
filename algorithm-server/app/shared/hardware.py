@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import plistlib
 import platform
 from pathlib import Path
 import re
@@ -68,6 +69,23 @@ def _apple() -> list[dict[str, Any]]:
         devices.append(_device(index=index, name=name, vendor=vendor,
                                memory_total_mb=total, shared_memory=total is None,
                                cores=row.get("sppci_cores"), backend="Metal", status="DETECTED"))
+    # Do not attribute one accelerator's counters to another card on a multi-GPU Mac.
+    if len(devices) == 1 and devices[0]["name"].startswith("Apple"):
+        try:
+            report = subprocess.run(
+                ["/usr/sbin/ioreg", "-a", "-r", "-d", "1", "-c", "AGXAccelerator", "-k", "PerformanceStatistics"],
+                capture_output=True, timeout=1, check=True)
+            controllers = plistlib.loads(report.stdout)
+            if len(controllers) == 1:
+                stats = controllers[0].get("PerformanceStatistics", {})
+                used = _metric(stats.get("In use system memory"))
+                utilization = _metric(stats.get("Device Utilization %"))
+                if utilization is not None and utilization <= 100:
+                    devices[0]["utilization_percent"] = utilization
+                if used is not None:
+                    devices[0]["memory_used_mb"] = used / 1048576
+        except (OSError, subprocess.SubprocessError, plistlib.InvalidFileException, TypeError, ValueError):
+            pass  # Hardware inventory is still valid when performance counters are unavailable.
     return devices
 
 

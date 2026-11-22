@@ -78,7 +78,7 @@ public class GlobalExceptionHandler
     public AjaxResult handleRuntimeException(RuntimeException e, HttpServletRequest request)
     {
         String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',发生未知异常.", requestURI, e);
+        log.error("请求地址'{}',发生未知异常. ({})", requestURI, e.getClass().getSimpleName());
         return AjaxResult.error(e.getMessage());
     }
 
@@ -89,7 +89,7 @@ public class GlobalExceptionHandler
     public AjaxResult handleException(Exception e, HttpServletRequest request)
     {
         String requestURI = request.getRequestURI();
-        log.error("请求地址'{}',发生系统异常.", requestURI, e);
+        log.error("请求地址'{}',发生系统异常. ({})", requestURI, e.getClass().getSimpleName());
         return AjaxResult.error(e.getMessage());
     }
 
@@ -99,7 +99,7 @@ public class GlobalExceptionHandler
     @ExceptionHandler(ServiceException.class)
     public Object handleServiceException(ServiceException e, HttpServletRequest request)
     {
-        log.error(e.getMessage(), e);
+        log.warn("请求处理失败 ({})", e.getClass().getSimpleName());
         if (ServletUtils.isAjaxRequest(request))
         {
             return AjaxResult.error(e.getMessage());
@@ -134,7 +134,7 @@ public class GlobalExceptionHandler
         {
             value = EscapeUtil.clean(value);
         }
-        log.error("请求参数类型不匹配'{}',发生系统异常.", requestURI, e);
+        log.error("请求参数类型不匹配'{}',发生系统异常. ({})", requestURI, e.getClass().getSimpleName());
         return AjaxResult.error(String.format("请求参数类型不匹配，参数[%s]要求类型为：'%s'，但输入值为：'%s'", e.getName(), e.getRequiredType().getName(), value));
     }
 
@@ -144,7 +144,7 @@ public class GlobalExceptionHandler
     @ExceptionHandler(BindException.class)
     public AjaxResult handleBindException(BindException e)
     {
-        log.error(e.getMessage(), e);
+        log.warn("请求处理失败 ({})", e.getClass().getSimpleName());
         String message = e.getAllErrors().get(0).getDefaultMessage();
         return AjaxResult.error(message);
     }

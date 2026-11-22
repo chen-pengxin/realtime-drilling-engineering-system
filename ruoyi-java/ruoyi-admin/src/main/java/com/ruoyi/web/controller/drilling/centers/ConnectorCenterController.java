@@ -563,12 +563,27 @@ public class ConnectorCenterController {
     return Map.of("records", records, "cursor", Map.of("md", last));
   }
 
+  @org.springframework.beans.factory.annotation.Autowired private ConnectorPollingHealth monitor;
+
   @Scheduled(initialDelay = 20000, fixedDelay = 5000)
   public void pollEnabled() {
+    long start = System.nanoTime();
+    monitor.pulse();
+    try {
+      pollConnectors();
+      monitor.finish(start,true);
+    } catch (RuntimeException ex) {
+      monitor.finish(start,false);
+      throw ex;
+    }
+  }
+
+  private void pollConnectors() {
     for (var c :
         s.jdbc.queryForList(
             "SELECT * FROM drilling_realtime_connector WHERE status IN"
                 + " ('ENABLED','CONNECTED','RECONNECTING')")) {
+      monitor.pulse();
       Long fieldId = BusinessEventService.number(c.get("field_id")),
           id = BusinessEventService.number(c.get("connector_id"));
       Map<String, Object> cursor = object(c.get("cursor_json")),

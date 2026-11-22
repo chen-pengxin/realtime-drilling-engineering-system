@@ -97,13 +97,6 @@ function resolvePath(routePath, routeQuery) {
 // Font Awesome names (or an empty value). Resolve the icon at render time so
 // a stale navigation response cannot leave an item without an icon.
 function iconFor(route, parent) {
-  const parentPath = parent?.path?.startsWith('/') ? parent.path : props.basePath
-  const rawPath = route?.path?.startsWith('/')
-    ? route.path
-    : route === parent || !route?.path
-      ? parentPath
-      : getNormalPath(`${parentPath || ''}/${route.path}`)
-  if (rawPath === '/drilling/tasks/anticollision') return 'form'
   const value = String(route?.meta?.icon || parent?.meta?.icon || '').trim()
   if (!value || value === '#' || value === 'warning' || value === 'fa-warning' || value === 'fa fa-warning') {
     return 'list'

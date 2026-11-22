@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <conversionRule conversionWord="safeTrace" converterClass="com.ruoyi.framework.config.SafeThrowableConverter" />
     <!-- 日志存放路径 -->
 	<!-- Use a writable per-user directory by default; deployments can override it with RUOYI_LOG_PATH. -->
 	<property name="log.path" value="${RUOYI_LOG_PATH:-${user.home}/.ruoyi/logs}" />
     <!-- 日志输出格式 -->
-	<property name="log.pattern" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - [%method,%line] - %msg%n" />
+	<property name="log.pattern" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{20} - [%method,%line] - %replace(%msg){'(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}','[已脱敏]'}%n%safeTrace" />
 
 	<!-- 控制台输出 -->
 	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">

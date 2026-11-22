@@ -19,4 +19,4 @@ export function treeRows(rows,id='deptId',label='deptName'){
  for(const row of map.values()){const parent=map.get(row.parentId);if(parent&&parent!==row)parent.children.push(row);else roots.push(row)}
  return roots
 }
-export const scopeLabels={'1':'全部数据','2':'自定义部门','3':'本部门','4':'本部门及下级','5':'仅本人','6':'指定井场'}
+export const scopeLabels={'1':'全部井场','2':'自定义部门','3':'本部门','4':'本部门及下级','5':'仅本人','6':'指定工程范围（区块、井场、井或井眼）'}

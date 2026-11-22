@@ -25,7 +25,23 @@ public class OperationsSupport {
           "drilling.system.name",
           "drilling.session.timeoutMinutes",
           "drilling.maintenance.retentionDays",
-          "drilling.monitor.refreshSeconds");
+          "drilling.monitor.refreshSeconds",
+          "drilling.backup.days",
+          "drilling.login.maxFailures",
+          "drilling.login.captchaSeconds",
+          "drilling.ui.preset",
+          "drilling.ui.density",
+          "drilling.ui.pageSize",
+          "drilling.ui.breadcrumb",
+          "drilling.ui.tags",
+          "drilling.ui.cache",
+          "drilling.ui.home",
+          "drilling.ui.timezone",
+          "drilling.ui.dateStyle",
+          "drilling.ui.title",
+          "drilling.ui.logo",
+          "drilling.ui.favicon",
+          "drilling.ui.loginImage");
 
   public OperationsSupport(
       JdbcTemplate jdbc, DrillingAccountPolicy policy, ISysConfigService configs) {
@@ -64,13 +80,16 @@ public class OperationsSupport {
   }
 
   public Map<String, Object> settings() {
-    return Map.of(
+    Map<String,Object> result = new LinkedHashMap<>();
+    for (String key : SETTINGS) if (key.startsWith("drilling.ui.")) result.put(key.substring(12),setting(key));
+    result.putAll(Map.of(
         "systemName",
         setting("drilling.system.name"),
         "monitorRefreshSeconds",
         intSetting("drilling.monitor.refreshSeconds", 30),
         "sessionTimeoutMinutes",
-        intSetting("drilling.session.timeoutMinutes", 30));
+        intSetting("drilling.session.timeoutMinutes", 30)));
+    return result;
   }
 
   public static int page(Map<String, String> p) {

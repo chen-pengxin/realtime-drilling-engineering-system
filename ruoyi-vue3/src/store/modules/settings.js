@@ -39,6 +39,8 @@ const useSettingsStore = defineStore(
   'settings',
   {
     state: () => ({
+      platform: {},
+      preferences: {},
       title: '',
       systemName: defaultSettings.title,
       theme: storageSetting.theme || '#409EFF',
@@ -57,6 +59,21 @@ const useSettingsStore = defineStore(
       isDark: isDark.value
     }),
     actions: {
+      applyPlatform(platform, preferences = this.preferences) {
+        this.platform = platform
+        this.preferences = preferences
+        this.systemName = platform.systemName || defaultSettings.title
+        const preset = preferences.preset || platform.preset || 'light'
+        const dark = preset === 'ocean'
+        if (this.isDark !== dark) this.toggleTheme()
+        this.theme = dark ? '#22c5c5' : '#337ecc'
+        this.sideTheme = dark ? 'theme-dark' : 'theme-light'
+        this.tagsView = (preferences.tags || platform.tags || 'true') === 'true'
+        this.setTitle(this.title)
+        const favicon = document.querySelector('link[rel~="icon"]')
+        if (favicon) favicon.href = platform.favicon?.startsWith('/branding/') ? import.meta.env.VITE_APP_BASE_API + platform.favicon : '/favicon.ico'
+        nextTick(() => handleThemeStyle(this.theme))
+      },
       // 修改布局设置
       changeSetting(data) {
         const { key, value } = data

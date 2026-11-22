@@ -63,6 +63,11 @@ public class CaptchaValidateFilter extends AccessControlFilter
         String code = String.valueOf(obj != null ? obj : "");
         // 验证码清除，防止多次使用。
         request.getSession().removeAttribute(Constants.KAPTCHA_SESSION_KEY);
+        Object issued = request.getSession().getAttribute("captchaIssuedAt");
+        request.getSession().removeAttribute("captchaIssuedAt");
+        String configured = com.ruoyi.common.utils.spring.SpringUtils.getBean(com.ruoyi.system.service.ISysConfigService.class).selectConfigByKey("drilling.login.captchaSeconds");
+        int ttl = configured == null || configured.isBlank() ? 120 : Integer.parseInt(configured);
+        if (!(issued instanceof Long timestamp) || System.currentTimeMillis() - timestamp > ttl * 1000L) return false;
         if (StringUtils.isEmpty(validateCode) || !validateCode.equalsIgnoreCase(code))
         {
             return false;

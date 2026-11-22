@@ -1,3 +1,5 @@
+import useUserStore from '@/store/modules/user'
+import { checkPermi } from '@/utils/permission'
 import { computed, reactive, ref } from 'vue'
 import { listDrillingFields, getCurrentFieldConfig, listWells, listFieldFiles } from '@/api/drillingField'
 
@@ -60,13 +62,17 @@ async function loadFieldContext(options = {}) {
   localStorage.setItem('drilling.fieldId', String(fieldId.value))
   loading.value = true
   try {
+    const allowed=useUserStore().allowedModules
+    const readFiles=allowed.some(key=>['files','models','surveys'].includes(key)) && checkPermi(['drilling:file:list'])
+    const readWells=checkPermi(['drilling:well:list'])
     if (options.basicOnly) {
-      const wellRows = await listWells(selectedFieldId)
+      const wellRows = readWells ? await listWells(selectedFieldId) : []
       if (requestId === contextRequest && selectedFieldId === fieldId.value) wells.value = wellRows || []
       return
     }
     const [config, wellRows, files, templateFiles] = await Promise.all([
-      getCurrentFieldConfig(selectedFieldId), listWells(selectedFieldId), listFieldFiles(selectedFieldId), listFieldFiles(selectedFieldId, { templates: true })
+      getCurrentFieldConfig(selectedFieldId), readWells ? listWells(selectedFieldId) : [],
+      readFiles ? listFieldFiles(selectedFieldId) : [], readFiles ? listFieldFiles(selectedFieldId, { templates: true }) : []
     ])
     if (requestId !== contextRequest || selectedFieldId !== fieldId.value) return
     currentConfig.value = config
@@ -100,5 +106,11 @@ function thresholdsPayload() {
 }
 
 export function useDrillingContext() {
-  return { fields, fieldId, activeWellboreId, liveWellboreId, currentConfig, wells, fieldFiles, loading, configForm, currentFieldName, defaults, loadFields, loadFieldContext, selectField, errorModelPayload, thresholdsPayload }
+  const user = useUserStore()
+  const canConfigure = computed(() => {
+    const field = fields.value.find(item => Number(item.field_id) === Number(fieldId.value))
+    return !!field && user.allowedModules.includes('config') && checkPermi(['drilling:field:config'])
+      && (user.accountTier === 'ADMIN' || (user.accountTier === 'ENGINEER' && field.owner_user_id != null && String(field.owner_user_id) === String(user.id)))
+  })
+  return { fields, fieldId, canConfigure, activeWellboreId, liveWellboreId, currentConfig, wells, fieldFiles, loading, configForm, currentFieldName, defaults, loadFields, loadFieldContext, selectField, errorModelPayload, thresholdsPayload }
 }

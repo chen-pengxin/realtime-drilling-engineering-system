@@ -1,5 +1,5 @@
 <template>
-  <div class="login">
+  <div class="login" :style="background">
     <el-form ref="loginRef" :model="loginForm" :rules="loginRules" class="login-form">
       <h3 class="title">{{ title }}</h3>
       <el-form-item prop="username">
@@ -70,7 +70,12 @@ import { encrypt, decrypt } from "@/utils/jsencrypt"
 import useUserStore from '@/store/modules/user'
 import defaultSettings from '@/settings'
 
-const title = import.meta.env.VITE_APP_TITLE
+import request from '@/utils/request'
+import useSettingsStore from '@/store/modules/settings'
+const layout=useSettingsStore()
+const title=computed(()=>layout.systemName)
+const background=computed(()=>layout.platform.loginImage?.startsWith('/branding/') ? {backgroundImage:'url('+import.meta.env.VITE_APP_BASE_API+layout.platform.loginImage+')'} : {})
+onMounted(async()=>{const response=await request({url:'/branding/settings'});layout.applyPlatform(response.data,{})})
 const footerContent = defaultSettings.footerContent
 const userStore = useUserStore()
 const route = useRoute()
@@ -126,7 +131,7 @@ function handleLogin() {
           }
           return acc
         }, {})
-        router.push({ path: redirect.value || "/", query: otherQueryParams })
+        router.push({ path: redirect.value || layout.platform.home || "/", query: otherQueryParams })
       }).catch(() => {
         loading.value = false
         // 重新获取验证码

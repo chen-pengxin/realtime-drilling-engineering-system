@@ -34,6 +34,8 @@ public class DrillingAccessController {
         Map<String,Object> info=new LinkedHashMap<>(policy.info(u));
         info.put("userId",u.getUserId());info.put("loginName",u.getLoginName());info.put("userName",u.getUserName());
         info.put("email",u.getEmail());info.put("phonenumber",u.getPhonenumber());
+        var preferences=jdbc.queryForList("SELECT preferences FROM drilling_ui_preference WHERE user_id=?",String.class,u.getUserId());
+        info.put("preferences",preferences.isEmpty()?Map.of():com.alibaba.fastjson.JSON.parseObject(preferences.get(0)));
         return AjaxResult.success(info);
     }
     @PutMapping("/me/password") @Transactional
@@ -55,15 +57,42 @@ public class DrillingAccessController {
     @PutMapping("/me/profile") @Transactional
     public AjaxResult profile(@RequestBody Map<String,Object> b) {
         Long id=ShiroUtils.getUserId();
+        String phone=Objects.toString(b.get("phonenumber"), "").trim();
+        String email=Objects.toString(b.get("email"), "").trim();
+        if (!phone.isEmpty() && !phone.matches("1[3-9][0-9]{9}"))
+            throw new IllegalArgumentException("请输入正确的11位手机号");
+        if (!email.isEmpty() && (email.length()>50 || !email.matches("(?i)[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+")))
+            throw new IllegalArgumentException("请输入正确的邮箱地址（最多50个字符）");
         policy.rename(id,displayName(b));
-        jdbc.update("UPDATE sys_user SET email=?,phonenumber=?,update_time=NOW() WHERE user_id=?",
-            optional(b,"email",50),optional(b,"phonenumber",11),id);
+        jdbc.update("UPDATE sys_user SET email=?,phonenumber=?,update_time=NOW() WHERE user_id=?",email,phone,id);
         audit(id,"UPDATE_PROFILE",Map.of());return AjaxResult.success();
     }
     @PutMapping("/me/name") @Transactional public AjaxResult rename(@RequestBody Map<String,Object> b) {
         Long id=ShiroUtils.getUserId(); String name=displayName(b);
         policy.rename(id,name);audit(id,"RENAME_ACCOUNT",Map.of("accountName",name));return AjaxResult.success();
     }
+    @GetMapping("/hierarchy")
+    public AjaxResult hierarchy() { admin(); return AjaxResult.success(DrillingDataScope.current().hierarchy()); }
+
+    @GetMapping("/me/details")
+    public AjaxResult details() {
+        long id=ShiroUtils.getUserId();
+        Map<String,Object> result=new LinkedHashMap<>();
+        result.put("roles",jdbc.queryForList("SELECT r.role_name FROM sys_user_role ur JOIN sys_role r ON r.role_id=ur.role_id WHERE ur.user_id=? AND r.status='0' AND r.del_flag='0'",String.class,id));
+        result.put("scope",DrillingDataScope.current().actualScope(id));
+        result.put("logins",jdbc.queryForList("SELECT login_time AS time,ipaddr AS ip,CASE WHEN status='0' AND msg='退出成功' THEN '2' ELSE status END AS status,browser FROM sys_logininfor WHERE login_name=? ORDER BY info_id DESC LIMIT 30",ShiroUtils.getLoginName()));
+        return AjaxResult.success(result);
+    }
+
+    @PutMapping("/me/preferences")
+    public AjaxResult preferences(@RequestBody Map<String,String> prefs) {
+        Map<String,List<String>> choices=Map.of("preset",List.of("light","ocean"),"density",List.of("small","default","large"),"tags",List.of("true","false"),"breadcrumb",List.of("true","false"));
+        for(var entry:prefs.entrySet()) if (!choices.getOrDefault(entry.getKey(),List.of()).contains(entry.getValue()))
+            throw new IllegalArgumentException("界面偏好无效");
+        jdbc.update("INSERT INTO drilling_ui_preference(user_id,preferences) VALUES(?,?) ON DUPLICATE KEY UPDATE preferences=VALUES(preferences)",ShiroUtils.getUserId(),com.alibaba.fastjson.JSON.toJSONString(prefs));
+        return AjaxResult.success();
+    }
+
     @GetMapping("/options") public AjaxResult options() {
         admin(); Map<String,Object> r=new LinkedHashMap<>();
         r.put("modules",DrillingAccountPolicy.LABELS);r.put("roles",roleRows());
@@ -74,14 +103,17 @@ public class DrillingAccessController {
         return AjaxResult.success(r);
     }
     @GetMapping("/users") public AjaxResult list(@RequestParam(defaultValue="") String keyword,
-            @RequestParam(required=false) Long deptId,@RequestParam(defaultValue="") String tier,@RequestParam(defaultValue="") String status,@RequestParam(defaultValue="1") int pageNum,@RequestParam(defaultValue="20") int pageSize) {
+            @RequestParam(required=false) Long deptId,@RequestParam(defaultValue="") String tier,@RequestParam(defaultValue="") String status,@RequestParam(defaultValue="1") int pageNum,@RequestParam(defaultValue="20") int pageSize,@RequestParam(defaultValue="userId") String sort,@RequestParam(defaultValue="asc") String direction) {
         admin(); int size=Math.min(100,Math.max(1,pageSize)),offset=(Math.max(1,pageNum)-1)*size;
         String where=" FROM sys_user u JOIN drilling_account_policy p ON p.user_id=u.user_id WHERE u.del_flag='0' AND (u.login_name LIKE ? OR u.user_name LIKE ?) AND (?='' OR p.account_tier=?) AND (?='' OR u.status=?)";
         if(deptId!=null)where+=" AND (u.dept_id="+deptId+" OR u.dept_id IN (SELECT dept_id FROM sys_dept WHERE FIND_IN_SET("+deptId+",ancestors)>0 AND del_flag='0'))";
+        String column=Map.of("userName","u.user_name","loginName","u.login_name","createTime","u.create_time","loginDate","u.login_date").getOrDefault(sort,"u.user_id");
+        String order=column+("desc".equals(direction)?" DESC":" ASC")+",u.user_id";
         String q="%"+keyword+"%";
-        List<Map<String,Object>> rows=jdbc.queryForList("SELECT u.dept_id AS deptId,(SELECT dept_name FROM sys_dept d WHERE d.dept_id=u.dept_id) AS deptName,u.user_id AS userId,u.login_name AS loginName,u.user_name AS userName,u.email,u.phonenumber,u.status,u.login_date AS loginDate,u.create_time AS createTime,p.account_tier AS accountTier,p.valid_from AS validFrom,p.valid_until AS validUntil"+where+" ORDER BY u.user_id LIMIT ? OFFSET ?",q,q,tier,tier,status,status,size,offset);
+        List<Map<String,Object>> rows=jdbc.queryForList("SELECT u.dept_id AS deptId,(SELECT dept_name FROM sys_dept d WHERE d.dept_id=u.dept_id) AS deptName,u.user_id AS userId,u.login_name AS loginName,u.user_name AS userName,u.email,u.phonenumber,u.status,u.login_date AS loginDate,u.create_time AS createTime,p.account_tier AS accountTier,p.valid_from AS validFrom,p.valid_until AS validUntil"+where+" ORDER BY "+order+" LIMIT ? OFFSET ?",q,q,tier,tier,status,status,size,offset);
         for(Map<String,Object> row:rows) {
             Long id=((Number)row.get("userId")).longValue();
+            row.put("locked",jdbc.queryForObject("SELECT COUNT(*) FROM drilling_account_lock WHERE user_id=?",Integer.class,id)>0);
             row.put("postNames",jdbc.queryForList("SELECT p.post_name FROM sys_user_post up JOIN sys_post p ON p.post_id=up.post_id WHERE up.user_id=?",String.class,id));
             row.put("mustChangePassword",policy.mustChange(users.selectUserById(id)));
             row.put("allowedModules",policy.modules(id));
@@ -94,6 +126,9 @@ public class DrillingAccessController {
         r.put("allowedModules",DrillingAccountPolicy.strings(policy.policy(id).get("modules_json")));
         r.put("deptId",u.getDeptId());r.put("postIds",jdbc.queryForList("SELECT post_id FROM sys_user_post WHERE user_id=?",Long.class,id));
         r.put("roleIds",jdbc.queryForList("SELECT ur.role_id FROM sys_user_role ur JOIN drilling_role_module rm ON rm.role_id=ur.role_id WHERE ur.user_id=?",Long.class,id));
+        String unavailable=policy.unavailable(u);
+        r.put("scopeUnavailable",unavailable);
+        r.put("actualScope",unavailable==null ? DrillingDataScope.current().actualScope(id) : List.of());
         r.put("fieldIds",jdbc.queryForList("SELECT field_id FROM drilling_field_member WHERE user_id=? AND status='0'",Long.class,id));
         return AjaxResult.success(r);
     }
@@ -118,6 +153,7 @@ public class DrillingAccessController {
             optional(b,"email",50),optional(b,"phonenumber",11),status,optional(b,"remark",500),ShiroUtils.getLoginName(),id);
         jdbc.update("DELETE FROM sys_user_role WHERE user_id=?",id);
         for(Long role:roles) jdbc.update("INSERT INTO sys_user_role(user_id,role_id) VALUES(?,?)",id,role);
+        if (!b.containsKey("deptId")) b.put("deptId",existing.getDeptId());
         DrillingDataScope.current().saveAssignments(id,b);
         savePolicy(id,b,tier,false);members(id,b,tier);audit(id,"UPDATE_USER",Map.of("tier",tier,"status",status));AuthorizationUtils.clearAllCachedAuthorizationInfo();return AjaxResult.success();
     }
@@ -127,8 +163,39 @@ public class DrillingAccessController {
         jdbc.update("UPDATE drilling_account_policy SET must_change_password=TRUE WHERE user_id=?",id);
         audit(id,"RESET_PASSWORD",Map.of()); return AjaxResult.success("密码已重置为123456，用户下次登录后必须修改");
     }
+    @PutMapping("/users/{id}/lock") @Transactional
+    public AjaxResult lockAccount(@PathVariable Long id,@RequestBody Map<String,Boolean> body) {
+        admin();
+        SysUser user=exists(id);
+        Boolean locked=body.get("locked");
+        if(locked==null || id.equals(1L) || id.equals(ShiroUtils.getUserId())) throw new IllegalArgumentException("不能锁定当前账号或内置管理员");
+        if(locked) jdbc.update("INSERT IGNORE INTO drilling_account_lock(user_id,locked_by) VALUES(?,?)",id,ShiroUtils.getUserId());
+        else { jdbc.update("DELETE FROM drilling_account_lock WHERE user_id=?",id);passwords.clearLoginRecordCache(user.getLoginName()); }
+        audit(id,locked?"LOCK_ACCOUNT":"UNLOCK_ACCOUNT",Map.of());
+        return AjaxResult.success();
+    }
+
+    @PostMapping("/users/batch") @Transactional
+    public AjaxResult batch(@RequestBody Map<String,Object> body) {
+        admin();
+        String action=String.valueOf(body.get("action"));
+        List<Long> ids=DrillingDataScope.ids(body.get("ids")).stream().sorted().toList();
+        if (!List.of("enable","disable","delete").contains(action) || ids.isEmpty() || ids.size()>100)
+            throw new IllegalArgumentException("请选择 1～100 个账号");
+        for (long id:ids) {
+            exists(id);
+            if (id==1 || id==ShiroUtils.getUserId()) throw new IllegalArgumentException("不能批量操作当前账号或内置管理员");
+            if (action.equals("delete")) { delete(id); continue; }
+            jdbc.update("UPDATE sys_user SET status=?,update_by=?,update_time=NOW() WHERE user_id=?",action.equals("enable")?"0":"1",ShiroUtils.getLoginName(),id);
+            audit(id,action.equals("enable")?"ENABLE_USER":"DISABLE_USER",Map.of());
+        }
+        AuthorizationUtils.clearAllCachedAuthorizationInfo();
+        return AjaxResult.success();
+    }
+
     @DeleteMapping("/users/{id}") @Transactional public AjaxResult delete(@PathVariable Long id) {
         admin();exists(id);if(id==1L || id.equals(ShiroUtils.getUserId())) throw new IllegalArgumentException("不能删除内置管理员或当前账号");
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM drilling_field_organization WHERE owner_user_id=?",Integer.class,id)>0) throw new IllegalArgumentException("请先移交该用户负责的井场");
         users.deleteUserById(id);jdbc.update("UPDATE drilling_field_member SET status='1' WHERE user_id=?",id);
         audit(id,"DELETE_USER",Map.of());AuthorizationUtils.clearAllCachedAuthorizationInfo();return AjaxResult.success();
     }
@@ -139,6 +206,8 @@ public class DrillingAccessController {
             row.put("allowedModules",DrillingAccountPolicy.strings(row.remove("modules_json")));
             row.put("menuIds",jdbc.queryForList("SELECT menu_id FROM sys_role_menu WHERE role_id=?",Long.class,row.get("roleId")));
             row.put("deptIds",jdbc.queryForList("SELECT dept_id FROM sys_role_dept WHERE role_id=?",Long.class,row.get("roleId")));
+            row.put("members",jdbc.queryForList("SELECT u.user_name FROM sys_user_role ur JOIN sys_user u ON ur.user_id=u.user_id WHERE ur.role_id=? AND u.del_flag='0' ORDER BY u.user_id",String.class,row.get("roleId")));
+            row.put("nodeKeys",jdbc.queryForList("SELECT CONCAT(node_type,':',node_id) FROM drilling_role_node WHERE role_id=?",String.class,row.get("roleId")));
             row.put("builtin",List.of("admin","engineer","guest").contains(String.valueOf(row.get("roleKey"))));
         }return rows;
     }
@@ -151,6 +220,18 @@ public class DrillingAccessController {
         Long id=jdbc.queryForObject("SELECT role_id FROM sys_role WHERE role_key=?",Long.class,key);
         saveRole(id,b,tier);audit(id,"CREATE_ROLE",Map.of("roleKey",key));return AjaxResult.success();
     }
+    @PutMapping("/roles/{id}/scope") @Transactional
+    public AjaxResult updateScope(@PathVariable Long id,@RequestBody Map<String,Object> body) {
+        admin();
+        var tiers=jdbc.queryForList("SELECT m.account_tier FROM sys_role r JOIN drilling_role_module m ON m.role_id=r.role_id WHERE r.role_id=? AND r.del_flag='0' FOR UPDATE",String.class,id);
+        if (!tiers.equals(List.of("ENGINEER"))) throw new IllegalArgumentException("只能配置工程师角色的工程范围");
+        if (!body.containsKey("dataScope") || ("6".equals(body.get("dataScope")) && !body.containsKey("nodeKeys")))
+            throw new IllegalArgumentException("请提交角色的数据范围和所选工程节点");
+        DrillingDataScope.current().saveScope(id,body,"ENGINEER");
+        audit(id,"UPDATE_ROLE_SCOPE",Map.of("dataScope",body.get("dataScope"),"nodeKeys",body.getOrDefault("nodeKeys",List.of()),"deptIds",body.getOrDefault("deptIds",List.of())));
+        return AjaxResult.success();
+    }
+
     @PutMapping("/roles/{id}") @Transactional public AjaxResult updateRole(@PathVariable Long id,@RequestBody Map<String,Object> b) {
         admin();Map<String,Object> old=role(id);String key=String.valueOf(old.get("role_key"));
         if(key.equals("admin")) throw new IllegalArgumentException("系统管理员角色固定拥有管理权限");
@@ -168,7 +249,7 @@ public class DrillingAccessController {
         jdbc.update("DELETE FROM sys_role_dept WHERE role_id=?",id);
         audit(id,"DELETE_ROLE",Map.of());AuthorizationUtils.clearAllCachedAuthorizationInfo();return AjaxResult.success();
     }
-    @GetMapping("/audit") public AjaxResult auditList() { admin();return AjaxResult.success(jdbc.queryForList("SELECT a.audit_id,a.actor_id,u.login_name AS actor_name,a.target_id,a.action,a.detail_json,a.create_time FROM drilling_account_audit a LEFT JOIN sys_user u ON u.user_id=a.actor_id ORDER BY a.audit_id DESC LIMIT 300")); }
+    @GetMapping("/audit") public AjaxResult auditList() { admin();return AjaxResult.success(jdbc.queryForList("SELECT a.audit_id,a.actor_id,u.login_name AS actor_name,a.target_id,a.action,JSON_UNQUOTE(JSON_EXTRACT(a.detail_json,'$.outcome')) AS outcome,JSON_UNQUOTE(JSON_EXTRACT(a.detail_json,'$.clientIp')) AS clientIp,a.detail_json,a.create_time FROM drilling_account_audit a LEFT JOIN sys_user u ON u.user_id=a.actor_id ORDER BY a.audit_id DESC LIMIT 300")); }
     private void saveRole(Long id,Map<String,Object> b,String tier) {
         DrillingDataScope.current().saveScope(id,b,tier);
         List<String> modules=moduleList(b);List<Long> menuIds=ids(b.get("menuIds"));
@@ -239,7 +320,11 @@ public class DrillingAccessController {
     private String text(Map<String,Object>b,String k) {Object v=b.get(k);return v==null?null:String.valueOf(v);}
     private String optional(Map<String,Object>b,String k,int max) {String v=text(b,k);if(v==null)return "";if(v.length()>max)throw new IllegalArgumentException(k+"超过最大长度");return v;}
     private String required(Map<String,Object>b,String k,int max) {String v=optional(b,k,max).trim();if(v.isEmpty())throw new IllegalArgumentException(k+"不能为空");return v;}
-    private void audit(Long target,String action,Map<String,Object> detail) {jdbc.update("INSERT INTO drilling_account_audit(actor_id,target_id,action,detail_json) VALUES(?,?,?,?)",ShiroUtils.getUserId(),target,action,JSON.toJSONString(detail));}
+    private void audit(Long target,String action,Map<String,Object> detail) {
+        var fields = new LinkedHashMap<>(detail);
+        fields.put("outcome","SUCCESS");
+        fields.put("clientIp",com.ruoyi.common.utils.ServletUtils.getRequest().getRemoteAddr());
+        jdbc.update("INSERT INTO drilling_account_audit(actor_id,target_id,action,detail_json) VALUES(?,?,?,?)",ShiroUtils.getUserId(),target,action,JSON.toJSONString(fields));}
     @ExceptionHandler({IllegalArgumentException.class,DuplicateKeyException.class}) @ResponseStatus(HttpStatus.BAD_REQUEST)
     public AjaxResult invalid(Exception e) {return AjaxResult.error(e instanceof DuplicateKeyException?"账号名称、ID或角色标识已存在":e.getMessage()).put("code",400);}
 }

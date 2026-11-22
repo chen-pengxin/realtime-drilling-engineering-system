@@ -6,9 +6,10 @@ import useSettingsStore from '@/store/modules/settings'
  */
 export function useDynamicTitle() {
   const settingsStore = useSettingsStore()
+  const brand = settingsStore.platform.title && settingsStore.platform.title !== '跟随系统名称' ? settingsStore.platform.title : settingsStore.systemName
   if (settingsStore.dynamicTitle) {
-    document.title = settingsStore.title + ' - ' + settingsStore.systemName
+    document.title = settingsStore.title + ' - ' + brand
   } else {
-    document.title = settingsStore.systemName || defaultSettings.title
+    document.title = brand || defaultSettings.title
   }
 }

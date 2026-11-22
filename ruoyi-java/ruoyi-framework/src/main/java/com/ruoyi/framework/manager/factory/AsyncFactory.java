@@ -135,7 +135,11 @@ public class AsyncFactory
                 logininfor.setOs(os);
                 logininfor.setMsg(message);
                 // 日志状态
-                if (StringUtils.equalsAny(status, Constants.LOGIN_SUCCESS, Constants.LOGOUT, Constants.REGISTER))
+                if (Constants.LOGOUT.equals(status))
+                {
+                    logininfor.setStatus("2");
+                }
+                else if (StringUtils.equalsAny(status, Constants.LOGIN_SUCCESS, Constants.REGISTER))
                 {
                     logininfor.setStatus(Constants.SUCCESS);
                 }

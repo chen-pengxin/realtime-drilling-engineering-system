@@ -69,7 +69,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where config_key = #{configKey} limit 1
     </select>
     
-    <insert id="insertConfig" parameterType="SysConfig">
+    <insert id="insertConfig" parameterType="SysConfig" useGeneratedKeys="true" keyProperty="configId">
         insert into sys_config (
 			<if test="configName != null and configName != '' ">config_name,</if>
 			<if test="configKey != null and configKey != '' ">config_key,</if>

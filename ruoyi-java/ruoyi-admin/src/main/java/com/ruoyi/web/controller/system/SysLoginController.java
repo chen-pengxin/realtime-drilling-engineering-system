@@ -24,6 +24,7 @@ import com.ruoyi.common.utils.ServletUtils;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.web.service.ConfigService;
+import com.ruoyi.framework.security.DrillingSessionActivity;
 import com.ruoyi.system.service.ISysMenuService;
 import com.ruoyi.system.service.ISysRoleService;
 
@@ -79,6 +80,7 @@ public class SysLoginController extends BaseController
         try
         {
             subject.login(token);
+            DrillingSessionActivity.start(subject.getSession(), accountPolicy.sessionTimeoutMillis(), System.currentTimeMillis());
             return success();
         }
         catch (AuthenticationException e)
@@ -90,6 +92,21 @@ public class SysLoginController extends BaseController
             }
             return error(msg);
         }
+    }
+
+    @PostMapping(value = DrillingSessionActivity.PATH, headers = "X-Drilling-Activity=1")
+    @ResponseBody
+    public AjaxResult recordActivity(@org.springframework.web.bind.annotation.RequestParam(defaultValue = "0") long ageMillis,
+                                    HttpServletResponse response)
+    {
+        if (!DrillingSessionActivity.report(ShiroUtils.getSession(), System.currentTimeMillis(), ageMillis)) {
+            ShiroUtils.logout();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            var result = AjaxResult.error("长时间未操作，请重新登录");
+            result.put("code", 401);
+            return result;
+        }
+        return success();
     }
 
     /**

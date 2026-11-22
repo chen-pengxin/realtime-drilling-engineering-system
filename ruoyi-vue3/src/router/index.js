@@ -1,4 +1,5 @@
 import { createWebHistory, createRouter } from 'vue-router'
+import useSettingsStore from '@/store/modules/settings'
 /* Layout */
 import Layout from '@/layout'
 import ParentView from '@/components/ParentView'
@@ -94,7 +95,7 @@ export const constantRoutes = [
     { path: '', name: 'NoticeInbox', component: () => import('@/views/operations/NoticeInboxPage.vue'), meta: { title: '通知公告' } }
   ] },
   { path: '/', redirect: '/drilling/realtime', hidden: true },
-  { path: '/index', redirect: '/drilling/realtime', hidden: true },
+  { path: '/index', redirect: () => useSettingsStore().platform.home || '/drilling/realtime', meta:{title:'首页',icon:'dashboard'} },
   {
     path: "/:pathMatch(.*)*",
     component: () => import('@/views/error/404'),
@@ -153,6 +154,7 @@ export const dynamicRoutes = [
   ] },
   { path: '/operations', component: Layout, alwaysShow: true, roles: ['admin'], meta: { title: '运行维护', icon: 'monitor' }, children: [
     { path: 'monitor', name: 'DrillingOperationsMonitor', component: () => import('@/views/operations/MonitorPage.vue'), meta: { title: '运行监控', icon: 'server' } },
+    { path: 'backups', name: 'DrillingBackups', component: () => import('@/views/operations/BackupsPage.vue'), meta: { title: '备份与恢复', icon: 'documentation' } },
     { path: 'maintenance', name: 'DrillingMaintenance', component: () => import('@/views/operations/MaintenancePage.vue'), meta: { title: '后台维护任务', icon: 'job' } }
   ] },
   {
