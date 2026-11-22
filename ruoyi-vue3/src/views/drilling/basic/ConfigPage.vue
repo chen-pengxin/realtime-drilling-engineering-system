@@ -1,5 +1,5 @@
 <template>
-  <DrillingPageFrame title="工程参数" :show-field="false">
+  <DrillingPageFrame title="工程参数管理" :show-field="false">
     <el-alert v-if="!fieldId" title="暂无可配置的工程范围" type="warning" :closable="false" />
     <section v-else class="config-layout">
       <div class="panel"><div class="panel-title"><span>工程统一参数 v{{ currentConfig?.engineering_config_version || '—' }}</span><el-button type="primary" :loading="saving" @click="save">保存新版本</el-button></div>

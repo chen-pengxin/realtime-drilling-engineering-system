@@ -46,8 +46,8 @@ def decode_text(data):
 def semantic_type(title, rows=(), kind='ACTUAL'):
     text = str(title) + ' ' + ' '.join(str(c) for row in list(rows)[:3] for c in row)
     rules = [('TOOL_PROGRAM', r'Survey (?:Tool )?Program|测斜工具|仪器分段'),
-             ('MAGNETICS', r'Magnetics|磁场参数'), ('TARGETS', r'Design Targets|靶点数据|靶区数据'),
-             ('CASING', r'Casing Points|套管'), ('BASE_DATA', r'基本数据|基本信息|封[皮面]|扉页'),
+             ('MAGNETICS', r'Magnetics|磁场参数'), ('TARGET_POINTS',r'实钻.*(?:入靶|中靶).*数据'), ('TARGETS', r'Design Targets|靶点数据|靶区数据'),
+             ('CASING', r'Casing Points|套管'), ('BASE_DATA', r'基础数据|基本数据|基本信息|封[皮面]|扉页'),
              ('DESIGN_NODES', r'节点数据|设计节点'), ('DESIGN_STATIONS', r'详细点|分点数据|Planned Survey'),
              ('SURVEY_STATIONS', r'单点|连斜|测斜数据|井斜数据|25\s*m|25\s*米'),
              ('PLANS', r'^Plans$|设计方案清单'), ('SURVEYS', r'^Surveys$|测斜记录清单')]

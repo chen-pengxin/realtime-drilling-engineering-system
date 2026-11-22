@@ -21,7 +21,7 @@ export function useTrajectoryTask(task){
   const bore=computed(()=>bores.value.find(b=>b.wellbore_id===boreId.value)),selectedVersion=computed(()=>versions.value.find(v=>v.survey_version_id===versionId.value))
   const humanName=engineeringName
   const wellLabel=b=>humanName(b?.well_name)||`井 ${humanName(b?.well_code)||'未命名'}`
-  const wellboreLabel=b=>{const name=humanName(b?.wellbore_name),code=humanName(b?.wellbore_code),well=humanName(b?.well_name),wellCode=humanName(b?.well_code);if(!name||name===well||name===wellCode||code===well||code===wellCode)return '主井眼';return name||`井眼 ${code}`}
+  const wellboreLabel=b=>{const name=humanName(b?.wellbore_name||b?.wellbore_code);return name||'主井眼'}
   const label=b=>[humanName(b?.block_name)||'未注明区块',humanName(b?.field_name)||'未注明井场',wellLabel(b),wellboreLabel(b)].filter((part,index,all)=>part&&part!==all[index-1]).join(' / ')
   // Keep the task selector aligned with the engineering tree.  IDs are used
   // as option values while labels stay readable and never expose source

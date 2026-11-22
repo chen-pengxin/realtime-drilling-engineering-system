@@ -5,18 +5,18 @@
       <el-row :gutter="20">
         <el-col :sm="12" :xs="24"><el-form-item label="井 / 井眼">{{ bore?.well_name || bore?.well_code }} / {{ wellboreName(bore) }}</el-form-item></el-col>
         <el-col :sm="12" :xs="24"><el-form-item label="轨迹类型">{{ kind==='ACTUAL'?'实钻测斜':'设计方案' }}</el-form-item></el-col>
-        <el-col :sm="12" :xs="24"><el-form-item label="导入方式"><el-select v-model="form.importMode"><el-option label="完整新版本" value="FULL" /><el-option label="新增井段（增量）" value="INCREMENTAL" :disabled="!versions.length" /><el-option v-if="kind==='ACTUAL'" label="复测修订（历史测点）" value="RESURVEY" :disabled="!versions.length" /></el-select></el-form-item></el-col>
-        <el-col :sm="12" :xs="24"><el-form-item :required="form.importMode!=='FULL'" label="父版本"><el-select v-model="form.parentVersionId" :clearable="form.importMode==='FULL'" filterable><el-option v-for="v in versions" :key="v.survey_version_id" :value="v.survey_version_id" :label="`v${v.version_no} · ${v.label||''}${Number(v.is_active)?'（当前）':''}`" /></el-select></el-form-item></el-col>
+        <el-col :sm="12" :xs="24"><el-form-item label="导入方式"><el-select v-model="form.importMode" @change="autoMode=false"><el-option label="完整新版本" value="FULL" /><el-option label="新增井段（增量）" value="INCREMENTAL" :disabled="!versions.length" /><el-option v-if="kind==='ACTUAL'" label="复测修订（历史测点）" value="RESURVEY" :disabled="!versions.length" /></el-select></el-form-item></el-col>
+        <el-col :sm="12" :xs="24"><el-form-item :required="form.importMode!=='FULL'" label="父版本"><el-select v-model="form.parentVersionId" :clearable="form.importMode==='FULL'" filterable><el-option v-for="v in versions" :key="v.survey_version_id" :value="v.survey_version_id" :label="`v${v.version_no} · ${v.label||''}${Number(v.is_active ?? v.is_current)?'（当前）':''}`" /></el-select></el-form-item></el-col>
       </el-row>
       <el-form-item label="测斜文件" required>
-        <el-button icon="Upload" @click="fileInput.click()">选择文件</el-button><el-button icon="FolderOpened" @click="sourceLibrary.show()">从资料库选择</el-button><span class="source-name">{{ sourceName || '支持 Excel、CSV、TXT、WITSML 和含测斜表的工程文档' }}</span>
+        <el-button icon="Upload" @click="fileInput.click()">选择文件</el-button><span class="source-name">{{ sourceName || '支持 Excel、CSV、TXT、WITSML 和含测斜表的工程文档' }}</span>
         <input ref="fileInput" type="file" hidden accept=".xls,.xlsx,.csv,.tsv,.txt,.xml,.witsml,.dat,.asc,.mwd,.doc,.docx,.pdf" @change="selectFile" />
       </el-form-item>
       <el-form-item v-if="tables.length" label="源表 / 工作表" required><el-select v-model="extractionId" filterable><el-option v-for="t in tables" :key="t.extraction_id" :value="t.extraction_id" :label="`${t.locator} · ${t.payload.rows?.length||0} 个原始测点`" /></el-select></el-form-item>
-      <el-alert v-if="form.importMode==='RESURVEY'" class="mb16" title="仅替换声明井深范围内的测点；范围外测量保留，并用最小曲率法重新归算后续坐标。旧版本保持不变。" type="info" :closable="false" />
+      <el-alert v-if="form.importMode==='RESURVEY'" class="mb16" title="按井深替换本次复测点，保留其他测点。" type="info" :closable="false" />
       <el-row v-if="form.importMode==='RESURVEY'" :gutter="20">
-        <el-col :sm="12" :xs="24"><el-form-item label="替换起点 MD" required><el-input-number v-model="form.replaceFromMd" :min="0" :precision="6" :controls="false" /><span class="unit">m</span></el-form-item></el-col>
-        <el-col :sm="12" :xs="24"><el-form-item label="替换终点 MD" required><el-input-number v-model="form.replaceToMd" :min="0" :precision="6" :controls="false" /><span class="unit">m</span></el-form-item></el-col>
+        <el-col :sm="12" :xs="24"><el-form-item label="复测起点 MD" required><el-input-number v-model="form.replaceFromMd" :min="0" :precision="6" :controls="false" /><span class="unit">m</span></el-form-item></el-col>
+        <el-col :sm="12" :xs="24"><el-form-item label="复测终点 MD" required><el-input-number v-model="form.replaceToMd" :min="0" :precision="6" :controls="false" /><span class="unit">m</span></el-form-item></el-col>
       </el-row>
       <el-collapse v-model="referencePanels"><el-collapse-item title="清洗规则" name="cleaning"><el-row :gutter="20"><el-col :sm="12" :xs="24"><el-form-item label="重复 MD 容差（m）"><el-input-number v-model="policy.duplicate_tolerance" :min="0.000001" :max="1" :precision="6" :step="0.000001" /></el-form-item></el-col><el-col :sm="12" :xs="24"><el-form-item label="狗腿异常阈值"><el-input-number v-model="policy.max_dls_deg_per_30m" :min="0.1" :max="180" /><span>°/30m</span></el-form-item></el-col><el-col :span="24"><el-form-item label="异常点处置"><el-checkbox v-model="policy.remove_anomalies">从本次新版本剔除狗腿异常点（原始资料保留）</el-checkbox></el-form-item></el-col></el-row><el-alert title="相同测点去重；同井深的冲突测量必须复核。剔除只作用于本次导入数据，已存父版本的测量不会被清洗规则改写。" type="info" :closable="false"/></el-collapse-item><el-collapse-item title="来源方位、单位与坐标基准" name="reference">
         <el-row :gutter="20">
@@ -43,10 +43,7 @@
         <ErrorModelSettings v-model="reference.uncertainty.settings" />
         <el-table v-if="reference.survey_metadata_evidence?.length" :data="reference.survey_metadata_evidence" border max-height="180"><el-table-column prop="text" label="原件参数记录" min-width="260"/><el-table-column prop="line" label="解析文本行" width="110" /></el-table>
       </el-collapse-item></el-collapse>
-      <el-row :gutter="20" class="version-fields">
-        <el-col :sm="12" :xs="24"><el-form-item label="版本名称"><el-input v-model="form.label" maxlength="255" placeholder="可选，留空时自动编号" /></el-form-item></el-col>
-        <el-col :sm="12" :xs="24"><el-form-item label="保存后启用"><el-switch v-model="form.activate" /><span class="unit">{{ form.activate?'设为当前版本':'仅保存历史分支' }}</span></el-form-item></el-col>
-      </el-row>
+      <el-form-item label="版本名称"><el-input v-model="form.label" maxlength="255" placeholder="可选，留空时自动编号" /></el-form-item>
       <el-form-item label="修订说明" :required="form.importMode==='RESURVEY'"><el-input v-model="form.note" type="textarea" :rows="2" maxlength="500" show-word-limit placeholder="填写复测原因、测量时间或仪器信息" /></el-form-item>
     </el-form>
     <el-alert v-if="error" class="mb16" :title="error" type="error" :closable="false" />
@@ -64,10 +61,8 @@
       </el-table>
       <div v-if="preview.changes_truncated" class="form-tip">预览显示前 500 个变化点，保存时使用全部有效测点。</div>
     </template>
-    <el-checkbox v-model="metadataConfirmed" :disabled="busy">已核对本版本的坐标基准、测斜工具和全井段误差参数</el-checkbox>
-    <template #footer><el-button :disabled="busy" @click="open=false">取 消</el-button><el-button :loading="busy" :disabled="!extractionId" @click="calculatePreview">预览差异</el-button><el-button type="primary" :loading="saving" :disabled="busy || !preview || preview.has_error || !metadataConfirmed" @click="save">保存新版本</el-button></template>
+    <template #footer><el-button :disabled="busy" @click="open=false">取 消</el-button><el-button :loading="busy" :disabled="!extractionId" @click="calculatePreview">预览差异</el-button><el-button type="primary" :loading="saving" :disabled="busy || !preview || preview.has_error" @click="save">确定导入</el-button></template>
   </el-dialog>
-  <SourceLibrary ref="sourceLibrary" :field-id="fieldId" @select="loadSource"/>
   <SourceReview ref="sourceReviewDialog" :field-id="fieldId" @confirmed="onSourceConfirmed"/>
 </template>
 <script setup>
@@ -90,7 +85,6 @@ import {
   uploadSurveySource,
   engineCatalog
 } from '@/api/drillingRegistry'
-import SourceLibrary from './SourceLibrary.vue'
 import SourceReview from './SourceReview.vue'
 import ErrorModelSettings from '../../layout/ErrorModelSettings.vue'
 import { errorModelName } from '@/utils/engineeringErrorModels'
@@ -104,6 +98,7 @@ const props = defineProps({
   fieldId: Number,
   bore: Object,
   kind: String,
+  tableRole:String,
   versions: {
     type: Array,
     default: () => []
@@ -138,14 +133,14 @@ const reference = reactive({survey_tool:{},uncertainty:{settings:{}}}),
     ['origin_east', '首点 E'],
     ['origin_tvd', '首点 TVD']
   ]
-const sourceLibrary=ref(),sourceReviewDialog=ref(),pendingSource=ref(null),policy=reactive({duplicate_tolerance:0.000001,max_dls_deg_per_30m:30,remove_anomalies:false})
+const sourceReviewDialog=ref(),pendingSource=ref(null),autoMode=ref(false),policy=reactive({duplicate_tolerance:0.000001,max_dls_deg_per_30m:30,remove_anomalies:false})
 const changeLabels = {
   ADDED: '新增',
   REMOVED: '移除',
   RESURVEY: '复测修订'
 }
 const angles = p => p ? `${Number(p.inclination).toFixed(3)} / ${Number(p.azimuth).toFixed(3)}` : '—'
-const currentId = computed(() => props.versions.find(v => Number(v.is_active))?.survey_version_id ?? null)
+const currentId = computed(() => props.versions.find(v => Number(v.is_active ?? v.is_current))?.survey_version_id ?? null)
 const parameterSourceLabel=computed(()=>({DOCUMENT_AND_REVIEW:'原件记录及人工核对',FIELD_SNAPSHOT:'工程默认参数',ENGINEERING_DEFAULT:'工程默认参数',PARENT_VERSION:'父版本参数',MANUAL:'人工设置'}[reference.uncertainty?.parameter_source]||'版本参数'))
 function selectModel(name){const model=catalog.value.models.find(m=>m.name===name);if(model)reference.uncertainty={model_version:name,settings:JSON.parse(JSON.stringify(model.settings)),parameter_source:'MANUAL'}}
 let requestNo = 0,
@@ -155,6 +150,7 @@ let requestNo = 0,
 const geometry = () => ({
   wellboreId: props.bore.wellbore_id,
   kind: props.kind,
+  tableRole:props.tableRole,
   importMode: form.importMode,
   parentVersionId: form.parentVersionId,
   replaceFromMd: form.replaceFromMd,
@@ -215,6 +211,18 @@ function resetReference() {
     form.replaceToMd = Number(md.reduce((a, b) => Math.max(a, b), -Infinity).toFixed(6))
   }
 }
+function detectImportMode() {
+  if (!autoMode.value || !parentData.value || !tables.value.length) return
+  const rows = tables.value.find(t => Number(t.extraction_id) === Number(extractionId.value))?.payload?.rows || []
+  const scale = reference.length_unit === 'ft' ? 0.3048 : 1
+  const depths = rows.map(r => Number(r.md) * scale).filter(Number.isFinite)
+  if (!depths.length) return
+  const from = Math.min(...depths), parentMax = Number(parentData.value.max_md ?? parentData.value.stations?.at(-1)?.md)
+  if (!Number.isFinite(parentMax)) return
+  if (from >= parentMax - 1e-6) form.importMode = 'INCREMENTAL'
+  else if (props.kind === 'ACTUAL') form.importMode = 'RESURVEY'
+  else form.importMode = 'FULL'
+}
 async function loadParent() {
   const parent = form.parentVersionId;
   if (!parent) {
@@ -228,7 +236,7 @@ async function loadParent() {
     const data = await trajectoryVersion(props.fieldId, parent);
     if (n !== requestNo || parent !== form.parentVersionId) return;
     parentData.value = data;
-    resetReference();
+    resetReference();detectImportMode();
     if (!opening) form.activate = parent === currentId.value
   } catch (e) {
     error.value = e.response?.data?.msg || e.message
@@ -245,14 +253,14 @@ watch(() => [form.parentVersionId, form.importMode], () => {
 watch(extractionId, () => {
   if (open.value) {
     invalidate();
-    resetReference()
+    resetReference();detectImportMode()
   }
 })
 watch(() => [form.replaceFromMd, form.replaceToMd, JSON.stringify(reference)], () => { metadataConfirmed.value=false;invalidate() })
 watch(policy,invalidate,{deep:true})
 async function loadSource(source){
   invalidate();tables.value=[];extractionId.value=null;sourceName.value=fileDisplayName(source);busy.value=true
-  try{const review=await sourceReview(Number(source.source_field_id || source.field_id) || props.fieldId,source.source_id);confirmedSourceReference.value=review.confirmed?.reference||{};if(review.status!=='CONFIRMED'){pendingSource.value=source;sourceReviewDialog.value?.show(source);error.value='该资料需要先完成工程确认';return}const entries=await sourceExtractions(Number(source.source_field_id || source.field_id) || props.fieldId,source.source_id);tables.value=entries.map(t=>({...t,payload:typeof t.payload_json==='string'?JSON.parse(t.payload_json):t.payload_json}));if(!tables.value.length)throw Error('资料中未识别到测斜表，请在资料库中使用字段映射核对原件行列');extractionId.value=source.extractionId||tables.value[0].extraction_id;resetReference()}
+  try{const review=await sourceReview(Number(source.source_field_id || source.field_id) || props.fieldId,source.source_id);confirmedSourceReference.value=review.confirmed?.reference||{};if(review.status!=='CONFIRMED'){pendingSource.value=source;sourceReviewDialog.value?.show(source);error.value='该资料需要先完成工程确认';return}const entries=await sourceExtractions(Number(source.source_field_id || source.field_id) || props.fieldId,source.source_id);tables.value=entries.map(t=>({...t,payload:typeof t.payload_json==='string'?JSON.parse(t.payload_json):t.payload_json}));if(!tables.value.length)throw Error('资料中未识别到测斜表，请在资料库中使用字段映射核对原件行列');extractionId.value=source.extractionId||(props.tableRole==='designDetails'?[...tables.value].sort((a,b)=>(b.payload.rows?.length||0)-(a.payload.rows?.length||0))[0]:tables.value[0]).extraction_id;resetReference();detectImportMode()}
   catch(e){error.value=e.response?.data?.msg||e.message}finally{busy.value=false}
 }
 async function onSourceConfirmed(){const source=pendingSource.value;pendingSource.value=null;if(source)await loadSource(source)}
@@ -266,7 +274,7 @@ async function selectFile(event) {
   sourceName.value = file.name;
   busy.value = true;
   try {
-    const source = await uploadSurveySource(props.fieldId, file, {wellboreId:props.bore.wellbore_id,documentRole:'TRAJECTORY_DATA',trajectoryKind:props.kind});
+    const source = await uploadSurveySource(props.fieldId, file, {wellboreId:props.bore.wellbore_id,documentRole:'TRAJECTORY_DATA',trajectoryKind:props.kind,deferTrajectory:true});
     await loadSource(source)
   } catch (e) {
     error.value = e.response?.data?.msg || e.message || '文件解析失败'
@@ -300,11 +308,12 @@ async function calculatePreview() {
 }
 async function save() {
   if (!preview.value || preview.value.has_error || previewKey !== key()) return;
-  if(!metadataConfirmed.value||!reference.survey_tool?.name?.trim()){error.value='请填写测斜工具并核对本版本误差参数';referencePanels.value=['reference','instrument'];return}
+  if(!reference.survey_tool?.name?.trim()){error.value='请填写测斜工具并核对本版本误差参数';referencePanels.value=['reference','instrument'];return}
   if (form.importMode === 'RESURVEY' && !form.note.trim()) {
     error.value = '请填写复测修订原因';
     return
   }
+  metadataConfirmed.value=true;
   saving.value = true;
   busy.value = true;
   error.value = '';
@@ -325,7 +334,7 @@ async function save() {
       preview.value = null;
       try {
         const fresh = await boreVersions(props.fieldId, props.bore.wellbore_id, props.kind);
-        expectedCurrentId = fresh.find(v => Number(v.is_active))?.survey_version_id ?? null;
+        expectedCurrentId = fresh.find(v => Number(v.is_active ?? v.is_current))?.survey_version_id ?? null;
         emit('saved')
       } catch (_) {
         error.value += '；请关闭弹窗并刷新版本列表后重试'
@@ -348,8 +357,9 @@ async function show(mode = 'FULL', parent, source) {
   Object.assign(policy,{duplicate_tolerance:0.000001,max_dls_deg_per_30m:30,remove_anomalies:false});
   parentData.value = null;
   expectedCurrentId = currentId.value;
+  autoMode.value = mode === 'AUTO'
   Object.assign(form, {
-    importMode: mode,
+    importMode: autoMode.value ? 'FULL' : mode,
     parentVersionId: parent?.survey_version_id ?? currentId.value,
     replaceFromMd: 0,
     replaceToMd: 0,

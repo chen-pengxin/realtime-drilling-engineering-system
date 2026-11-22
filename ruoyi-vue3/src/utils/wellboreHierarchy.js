@@ -5,7 +5,10 @@ export function wellboresInField(rows = [], fieldId) {
 
 export function wellboreName(row = {}) {
   const name = row.wellbore_name || row.wellbore_code
-  return !name || [row.well_name, row.well_code].includes(name) ? '主井眼' : name
+  // Preserve the source wellbore name even when it happens to equal the well
+  // name.  A source file may use that value for a real branch; only a missing
+  // source value falls back to the conventional primary-bore label.
+  return name || '主井眼'
 }
 
 export function engineeringName(value) {

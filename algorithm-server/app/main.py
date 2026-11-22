@@ -85,7 +85,7 @@ def sample_survey(payload: dict):
     import numpy as np
     from wellpath.geometry.minimum_curvature import interpolate_minimum_curvature
     try:
-        step=float(payload.pop('step',10))
+        step=float(payload.pop('step',10));key_mds=payload.pop('key_mds',[])
         survey=SurveyInput.model_validate(payload)
         rows=_stations(survey)
         if not math.isfinite(step) or step<1 or step>100:raise ValueError('绘图采样间距必须为1～100 m')
@@ -96,7 +96,8 @@ def sample_survey(payload: dict):
         else:
             # View sampling is independent of the immutable measurement table.
             # Dense 1 m input must not defeat a requested 10 m plot interval.
-            md=np.unique(np.r_[rows[0].md,np.arange(rows[0].md,rows[-1].md,step),rows[-1].md])
+            keys=[float(md) for md in key_mds if rows[0].md<=float(md)<=rows[-1].md and math.isfinite(float(md))]
+            md=np.unique(np.r_[rows[0].md,np.arange(rows[0].md,rows[-1].md,step),rows[-1].md,keys])
             p,inc,azi=interpolate_minimum_curvature([s.md for s in rows],[s.inclination for s in rows],
                 [s.azimuth for s in rows],[[s.north,s.east,s.tvd] for s in rows],md)
             sampled=[{'md':float(m),'inclination':float(i),'azimuth':float(a),'north':float(v[0]),'east':float(v[1]),'tvd':float(v[2])} for m,i,a,v in zip(md,inc,azi,p)]
@@ -541,6 +542,19 @@ def source_asset(payload: dict):
         content,mime=read_asset(original,str(payload.get('original_name','')),payload.get('asset') or {})
         return Response(content=content,media_type=mime)
     except (ValueError,TypeError,KeyError,binascii.Error) as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+
+@app.post('/api/algorithm/source/original-preview')
+def original_preview(payload: dict):
+    from .adapters.office_conversion import convert_office
+    try:
+        original=base64.b64decode(payload.get('original_base64',''),validate=True)
+        suffix=Path(str(payload.get('original_name',''))).suffix.lower()
+        if not original or len(original)>256*1024*1024:raise ValueError('原件为空或超过256MiB')
+        if suffix=='.pdf':return Response(original,media_type='application/pdf')
+        if suffix not in ('.doc','.docx','.xls','.xlsx','.wps','.rtf','.odt','.ods'):raise ValueError('此格式不需要Office原件阅读器')
+        return Response(convert_office(original,suffix,'pdf'),media_type='application/pdf')
+    except (ValueError,TypeError,binascii.Error) as exc:
         raise HTTPException(status_code=422,detail=str(exc)) from exc
 
 @app.post('/api/algorithm/source/map')

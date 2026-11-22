@@ -22,8 +22,8 @@ class EngineeringLibraryEditingTest {
     var service=new Fixture("WELLBORE",900L);
     service.updateNode(901L,Map.of("name","侧钻井眼","engineeringStatus","COMPLETED","expectedVersion",1));
     var registryWrite=service.jdbc.writes.get(1);
-    assertTrue(registryWrite.sql().contains("wellbore_name=?,engineering_status=?"));
-    assertArrayEquals(new Object[]{"侧钻井眼","COMPLETED",99L},registryWrite.args());
+    assertTrue(registryWrite.sql().contains("wellbore_name=?,wellbore_code=?,engineering_status=?"));
+    assertArrayEquals(new Object[]{"侧钻井眼","侧钻井眼","COMPLETED",99L},registryWrite.args());
   }
 
   @Test void staleVersionStopsBeforeChangingTheRegistry() {
@@ -59,7 +59,7 @@ class EngineeringLibraryEditingTest {
     record Write(String sql,Object[] args){}
     final List<Write> writes=new ArrayList<>();boolean stale;
     @Override public List<Map<String,Object>> queryForList(String sql,Object...args){return List.of(Map.of("node_id",901L));}
-    @Override public <T>T queryForObject(String sql,Class<T> type,Object...args){return type.cast(1L);}
+    @Override public <T>T queryForObject(String sql,Class<T> type,Object...args){return type.cast(type==Integer.class?Integer.valueOf(0):(Object)1L);}
     @Override public int update(String sql,Object...args){writes.add(new Write(sql,args));return stale?0:1;}
   }
 }

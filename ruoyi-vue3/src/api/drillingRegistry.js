@@ -6,8 +6,10 @@ export const boreVersions=(p,b,kind,options={})=>registry(p,`/wellbores/${b}/ver
 export const trajectoryVersion=(p,v,viewReferenceId,options={})=>registry(p,`/versions/${v}`,'get',undefined,{viewReferenceId,viewStep:10},options)
 export const boreNeighbors=(p,b,options={})=>registry(p,`/wellbores/${b}/neighbors`,'get',undefined,undefined,options)
 export const activateTrajectoryVersion=(p,v,expectedCurrentVersionId)=>registry(p,`/versions/${v}/activate`,'put',{expectedCurrentVersionId})
+export const saveTrajectoryStations=(p,v,stations,note='',options={})=>registry(p,`/versions/${v}/stations`,'post',{stations,note,...options})
+export const saveDesignStations=saveTrajectoryStations
 export const compareTrajectoryVersions=(p,from,to)=>registry(p,`/versions/${from}/compare`,'get',undefined,{otherId:to})
-function sourceUploadData(data,association={}){for(const key of ['nodeId','wellboreId','documentRole','trajectoryKind','documentId','expectedEditionNo','displayName']){const value=association[key];if(value!=null&&value!=='')data.append(key,value)}return data}
+function sourceUploadData(data,association={}){for(const key of ['nodeId','wellboreId','documentRole','trajectoryKind','documentId','expectedEditionNo','displayName','deferTrajectory']){const value=association[key];if(value!=null&&value!=='')data.append(key,value)}return data}
 export const uploadSurveySource=(p,file,association={})=>{const data=new FormData();data.append('file',file);sourceUploadData(data,association);return request({url:root(p)+'/sources',method:'post',data,headers:{'Content-Type':undefined,repeatSubmit:false},timeout:240000})}
 export const sourceExtractions=(p,s)=>registry(p,`/sources/${s}/extractions`)
 export const sourceReview=(p,s)=>registry(p,`/sources/${s}/review`)
@@ -22,6 +24,5 @@ export const exportReduction=(p,v)=>request({url:`${root(p)}/versions/${v}/reduc
 export const taskHistory=(p,type)=>request({url:'/api/drilling/centers/history',method:'get',params:{fieldId:p,type:type==='anticollision'?'COLLISION':'REPLANNING',pageNum:1,pageSize:50},timeout:120000})
 export const taskHistoryDetail=(p,key)=>request({url:`/api/drilling/centers/history/${encodeURIComponent(key)}`,params:{fieldId:p},timeout:120000})
 export const downloadSourceOriginal=(p,s)=>request({url:`${root(p)}/sources/${s}/original`,method:'get',responseType:'blob'})
-export const exportTrajectorySource=(p,v,mode='PATCHED')=>request({url:`${root(p)}/versions/${v}/source-export`,method:'get',params:{mode},responseType:'blob',timeout:240000})
-export const exportTrajectoryPackage=(p,v)=>request({url:`${root(p)}/versions/${v}/export-package`,method:'get',responseType:'blob',timeout:240000})
+export const exportTrajectorySource=(p,v,mode='PATCHED',tableRole='')=>request({url:`${root(p)}/versions/${v}/source-export`,method:'get',params:{mode,tableRole},responseType:'blob',timeout:240000})
 export const uploadSourceBatch=(p,files,association={})=>{const data=new FormData();files.forEach(f=>data.append('files',f));sourceUploadData(data,association);return request({url:root(p)+'/sources/batch',method:'post',data,headers:{'Content-Type':undefined,repeatSubmit:false},timeout:600000})}

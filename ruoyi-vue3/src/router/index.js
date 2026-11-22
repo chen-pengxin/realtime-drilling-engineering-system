@@ -55,16 +55,15 @@ export const constantRoutes = [
         alwaysShow: true,
         meta: { title: '基础功能', icon: 'tool' },
         children: [
-          { path: 'catalog', component: () => import('@/views/drilling/basic/CatalogPage.vue'), name: 'DrillingCatalog', meta: { title: '工程资料目录', icon: 'tree', modules:['catalog','surveys','versions'] } },
-          { path: 'surveys', hidden: true, redirect: to => ({path:'/drilling/basic/catalog',query:{...to.query,tab:'trajectory'}}) },
+          { path: 'catalog', component: () => import('@/views/drilling/basic/CatalogPage.vue'), name: 'DrillingCatalog', meta: { title: '工程项目管理', icon: 'tree', modules:['catalog','surveys'] } },
+          { path: 'surveys', hidden: true, redirect: to => ({path:'/drilling/basic/catalog',query:{...to.query,tab:'surveyData'}}) },
           { path: 'realtime-data', component: () => import('@/views/drilling/basic/RealtimeDashboardPage.vue'), name: 'DrillingRealtimeData', meta: { title: '实时数据接入', icon: 'link', modules:['realtime-data','connectors'] } },
-          { path: 'config', component: () => import('@/views/drilling/basic/ConfigPage.vue'), name: 'DrillingConfig', meta: { title: '工程参数', icon: 'edit' } },
-          { path: 'files', component: () => import('@/views/drilling/basic/FilesAuditPage.vue'), name: 'DrillingFilesAudit', meta: { title: '文件与审计', icon: 'documentation', modules:['files','history','reports'] } }
+          { path: 'config', component: () => import('@/views/drilling/basic/ConfigPage.vue'), name: 'DrillingConfig', meta: { title: '工程参数管理', icon: 'edit' } }
         ]
       }
     ]
   },
-  ...Object.entries({alerts:['/drilling/realtime','alerts'],history:['/drilling/basic/files','history'],reports:['/drilling/basic/files','reports'],connectors:['/drilling/basic/realtime-data','connectors'],versions:['/drilling/basic/surveys','versions']}).map(([name,[path,tab]])=>({path:`/drilling/centers/${name}`,hidden:true,redirect:to=>({path,query:{...to.query,tab}})})),
+  ...Object.entries({alerts:['/drilling/realtime','alerts'],connectors:['/drilling/basic/realtime-data','connectors']}).map(([name,[path,tab]])=>({path:`/drilling/centers/${name}`,hidden:true,redirect:to=>({path,query:{...to.query,tab}})})),
   {
     path: '/redirect',
     component: Layout,

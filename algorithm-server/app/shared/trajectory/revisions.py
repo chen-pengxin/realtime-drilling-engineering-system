@@ -127,9 +127,13 @@ def preview_revision(payload):
                 raise ValueError("复测范围必须在父版本井深内；新增钻进测点请使用增量导入")
             if any(not start <= r["md"] <= end for r in clean):
                 raise ValueError("复测点必须全部位于声明的替换范围内")
-            removed = [r for r in existing if start <= float(r["md"]) <= end]
-            replacement = {"from_md": start, "to_md": end, "replaced_points": len(removed)}
-            merged = [r for r in existing if not start <= float(r["md"]) <= end] + clean
+            # Resurvey files contain corrected observations, not an instruction
+            # to delete every unmentioned station inside their MD span.
+            parent_by_md={round(float(r['md']),6):r for r in existing}
+            replaced=sum(round(float(r['md']),6) in parent_by_md for r in clean)
+            for row in clean:parent_by_md[round(float(row['md']),6)]=row
+            replacement = {"from_md": start, "to_md": end, "replaced_points": replaced}
+            merged = list(parent_by_md.values())
             # The operator's cleaning policy applies only to incoming rows.
             # Merging may identify MD conflicts, but must never filter or
             # coalesce measurements inherited from the immutable parent.

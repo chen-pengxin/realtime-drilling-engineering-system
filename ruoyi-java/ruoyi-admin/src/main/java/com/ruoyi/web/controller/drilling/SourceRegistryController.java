@@ -3,13 +3,10 @@ package com.ruoyi.web.controller.drilling;
 import com.alibaba.fastjson.JSON;
 import com.ruoyi.common.utils.ShiroUtils;
 import com.ruoyi.framework.security.DrillingDataScope;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Base64;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 import org.apache.shiro.authz.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +29,12 @@ public class SourceRegistryController {
                 Objects.requireNonNullElse(error.getReason(), "请求被拒绝")));
   }
 
+  @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+  public org.springframework.http.ResponseEntity<Map<String,Object>> storageError(org.springframework.dao.DataAccessException error){
+    org.slf4j.LoggerFactory.getLogger(getClass()).error("工程资料数据库操作失败",error);
+    return org.springframework.http.ResponseEntity.status(503).body(Map.of("code",503,"msg","工程资料读取或保存失败，请刷新后重试"));
+  }
+
   @ExceptionHandler(IllegalArgumentException.class)
   public org.springframework.http.ResponseEntity<Map<String, Object>> invalid(
       IllegalArgumentException error) {
@@ -46,6 +49,7 @@ public class SourceRegistryController {
   private final TrajectoryInputSupport trajectoryInputs;
   private final EngineeringLibraryService engineeringLibrary;
   private final SourceContentService sourceContents;
+  private final EngineeringTableService engineeringTables;
   private final org.springframework.transaction.support.TransactionTemplate uploadTransactions;
 
   public SourceRegistryController(
@@ -64,6 +68,7 @@ public class SourceRegistryController {
     this.trajectoryInputs = trajectoryInputs;
     this.engineeringLibrary = engineeringLibrary;
     this.sourceContents = sourceContents;
+    this.engineeringTables=new EngineeringTableService(support);
     this.uploadTransactions = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
     this.uploadTransactions.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     this.uploadTransactions.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
@@ -335,8 +340,9 @@ public class SourceRegistryController {
       @PathVariable Long wellboreId,
       @RequestBody Map<String, Object> body) {
     writeBore(fieldId,wellboreId);
-    bore(fieldId, wellboreId);
+    var current=bore(fieldId, wellboreId);
     String status = required(body, "engineeringStatus", 32);
+    EngineeringUsageGuard.requireStatusChange(db,wellboreId,Objects.toString(current.get("engineering_status"),"UNKNOWN"),status);
     if (!Set.of(
             "UNPLANNED", "PLANNED", "DRILLING", "SUSPENDED", "COMPLETED", "ABANDONED", "UNKNOWN")
         .contains(status)) throw new IllegalArgumentException("无效施工状态");
@@ -406,6 +412,12 @@ public class SourceRegistryController {
             "SELECT md,inclination,azimuth,north,east,tvd,dogleg,curvature,raw_json FROM"
                 + " drilling_survey_station WHERE survey_version_id=? ORDER BY md",
             versionId));
+    @SuppressWarnings("unchecked")
+    var stationRows=(List<Map<String,Object>>)r.get("stations");
+    for(var station:stationRows){
+      Double n=numberOrNull(station.get("north")),e=numberOrNull(station.get("east"));
+      Object raw=station.get("raw_json");if(raw!=null){var extra=obj(raw);for(String key:List.of("remark","closure_distance","closure_azimuth","horizontal_length","apparent_horizontal_length","is_key_node"))if(extra.get(key)!=null)station.put(key,extra.get(key));}
+    }
     var reference = obj(r.get("reference_json"));
     @SuppressWarnings("unchecked")
     var stations = (List<Map<String, Object>>) r.get("stations");
@@ -429,11 +441,14 @@ public class SourceRegistryController {
         var points=(List<Map<String,Object>>)r.get("stations");
         if(!points.isEmpty())for(var axis:List.of("north","east","tvd"))sample.put("origin_"+axis,points.get(0).get(axis));
       }
+      if("DESIGN".equals(r.get("trajectory_kind"))){var tableData=engineeringTables.data(fieldId,id(r.get("wellbore_id")),versionId);if(tableData.get("design_nodes") instanceof List<?> nodes)sample.put("key_mds",nodes.stream().map(n->obj(n).get("md")).toList());}
       sample.put("step",viewStep);
       r.put("plot_stations",engine.json("/survey/sample",sample).get("stations"));
     }
     return r;
   }
+
+  private static Double numberOrNull(Object value){try{return value==null?null:Double.valueOf(value.toString());}catch(Exception e){return null;}}
 
   // Internal callers need the immutable data, without view resampling.
   public Map<String,Object> version(Long fieldId,Long versionId){return version(fieldId,versionId,null,null);}
@@ -520,7 +535,7 @@ public class SourceRegistryController {
     args.add(pageSize);args.add((pageNum-1)*pageSize);
     var rows =
         db.queryForList(
-            "SELECT s.*,f.original_name,f.display_name,f.sha256,f.file_size,COALESCE(sr.status,'PENDING') AS review_status"
+            "SELECT s.source_id,s.field_id,s.file_id,s.source_path,s.source_format,s.parse_status,s.create_time,s.diagnostics_json,JSON_REMOVE(s.metadata_json,'$.engineering_tables') AS metadata_json,f.original_name,f.display_name,f.sha256,f.file_size,COALESCE(sr.status,'PENDING') AS review_status"
                 + where
                 + " ORDER BY s.source_id DESC LIMIT ? OFFSET ?",
             args.toArray());
@@ -538,8 +553,10 @@ public class SourceRegistryController {
       @RequestParam(defaultValue="") String trajectoryKind,
       @RequestParam(required=false) Long documentId,
       @RequestParam(required=false) Integer expectedEditionNo,
-      @RequestParam(required=false) String displayName) throws Exception {
+      @RequestParam(required=false) String displayName,
+      @RequestParam(defaultValue="false") boolean deferTrajectory) throws Exception {
     var target=engineeringLibrary.uploadTarget(fieldId,nodeId,wellboreId,documentRole,trajectoryKind,documentId,expectedEditionNo);
+    if(target!=null)target.put("defer_trajectory",deferTrajectory);
     return importSource(fieldId,file,target,documentRole,trajectoryKind,displayName);
   }
 
@@ -552,7 +569,34 @@ public class SourceRegistryController {
       if(target.get("upload_document_id")!=null){association.put("documentId",target.get("upload_document_id"));association.put("revisionId",target.get("upload_revision_id"));association.put("expectedEditionNo",target.get("upload_expected_edition_no"));}
       var attached=engineeringLibrary.attachFile(id(target.get("node_id")),sourceId,association);
       result.put("document_id",attached.get("documentId"));result.put("edition_no",attached.get("editionNo"));result.put("file_unchanged",attached.get("alreadyLinked"));
+      if(Boolean.TRUE.equals(target.get("defer_trajectory"))&&!Boolean.TRUE.equals(attached.get("alreadyLinked")))db.update("UPDATE drilling_engineering_document_file SET usage_state='DRAFT' WHERE document_id=? AND source_id=? AND edition_no=?",attached.get("documentId"),sourceId,attached.get("editionNo"));
+      if(!Boolean.TRUE.equals(attached.get("alreadyLinked"))){
+        String generated=engineeringSystemName(target,role,kind,((Number)attached.get("editionNo")).intValue());
+        if(generated!=null)db.update("UPDATE data_file SET display_name=? WHERE file_id=?",generated,source.get("file_id"));
+      }
+      if(!Boolean.TRUE.equals(attached.get("alreadyLinked")) && target.get("wellbore_id")!=null && !kind.isBlank() && !Boolean.TRUE.equals(target.get("defer_trajectory"))) {
+        var publication=db.execute((org.springframework.jdbc.core.ConnectionCallback<java.sql.Savepoint>) connection->connection.setSavepoint());
+        try {
+          var version=autoCreateTrajectoryVersion(fieldId,target,sourceId,kind);
+          if(version!=null) {
+            result.put("trajectory_version_id",version.get("survey_version_id"));
+            result.put("trajectory_version_no",version.get("version_no"));
+            result.put("trajectory_status","CONFIRMED");
+            String generated=engineeringSystemName(target,role,kind,((Number)version.get("version_no")).intValue());
+            if(generated!=null) db.update("UPDATE data_file SET display_name=? WHERE file_id=?",generated,source.get("file_id"));
+          }
+          db.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection->{connection.releaseSavepoint(publication);return null;});
+        } catch (RuntimeException autoImportFailure) {
+          db.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection->{connection.rollback(publication);connection.releaseSavepoint(publication);return null;});
+          // Keep the source and its parsed tables available for the explicit
+          // import dialog when a safe trajectory cannot be built from the
+          // source metadata alone.
+          result.put("trajectory_status","PENDING_CONFIRMATION");
+          result.put("trajectory_message",Objects.toString(autoImportFailure.getMessage(),"请在轨迹导入窗口核对来源参数"));
+        }
+      }
     }
+    if(target!=null&&target.get("wellbore_id")!=null)engineeringTables.importTargets(fieldId,id(target.get("wellbore_id")),obj(source.get("metadata_json")));
     var file=db.queryForMap("SELECT original_name,display_name FROM data_file WHERE file_id=?",source.get("file_id"));
     result.put("original_name",file.get("original_name"));result.put("display_name",file.get("display_name"));
     result.put("associations",engineeringLibrary.sourceAssociations(sourceId));
@@ -561,12 +605,44 @@ public class SourceRegistryController {
     return result;
   }
 
+  /** Build and publish a trajectory immediately when a source upload contains
+   * a complete, confirmed trajectory table.  Explicit imports remain the
+   * fallback for documents with incomplete source metadata. */
+  @SuppressWarnings("unchecked")
+  private Map<String,Object> autoCreateTrajectoryVersion(Long fieldId,Map<String,Object> target,Long sourceId,String kind) {
+    var entries=db.queryForList("SELECT extraction_id,payload_json FROM drilling_source_extraction WHERE source_id=? ORDER BY extraction_id",sourceId);
+    Map<String,Object> chosen=null; Long extractionId=null;
+    for(var entry:entries){var payload=obj(entry.get("payload_json"));if(payload.get("rows") instanceof List<?> rows && rows.size()>=2 && (chosen==null||rows.size()>((List<?>)chosen.get("rows")).size())){chosen=payload;extractionId=id(entry.get("extraction_id"));}}
+    if(chosen==null||extractionId==null)return null;
+    var reference=obj(chosen.get("reference"));
+    var review=sourceReview(fieldId,sourceId);var confirmed=obj(review.get("confirmed"));reference.putAll(obj(confirmed.get("reference")));
+    var tool=obj(reference.get("survey_tool"));if(Objects.toString(tool.get("name"),"").isBlank())throw new IllegalArgumentException("来源文件未注明测斜工具");
+    var uncertainty=obj(reference.get("uncertainty"));if(uncertainty.get("model_version")==null||uncertainty.get("settings")==null){var defaults=DrillingAlgorithmDefaults.merged(engine.config(fieldId).get("algorithm_defaults_json"));uncertainty.put("model_version",obj(defaults.get("errorModel")).get("modelVersion"));uncertainty.put("settings",obj(defaults.get("errorModel")).get("settings"));}
+    uncertainty.put("confirmed",true);reference.put("uncertainty",uncertainty);
+    var body=new LinkedHashMap<String,Object>();body.put("wellboreId",target.get("wellbore_id"));body.put("kind",kind);Long parent=db.queryForObject("SELECT MAX(survey_version_id) FROM drilling_trajectory_head WHERE wellbore_id=? AND trajectory_kind=?",Long.class,target.get("wellbore_id"),kind);
+    String mode="FULL";if(parent!=null&&"ACTUAL".equals(kind)){
+      double max=db.queryForObject("SELECT max_md FROM drilling_survey_version WHERE survey_version_id=?",Double.class,parent);
+      double first=((Number)obj(((List<?>)chosen.get("rows")).get(0)).get("md")).doubleValue();mode=first>=max-0.000001?"INCREMENTAL":"RESURVEY";
+    }
+    body.put("parentVersionId",parent);body.put("expectedCurrentVersionId",parent);body.put("importMode",mode);body.put("reference",reference);body.put("policy",Map.of("duplicate_tolerance",0.000001,"max_dls_deg_per_30m",30,"remove_anomalies",false));body.put("activate",true);body.put("label","");body.put("note","文件导入自动生成轨迹版本");body.put("documentRole","TRAJECTORY_DATA");
+    return commit(fieldId,extractionId,body);
+  }
+
+  private String engineeringSystemName(Map<String,Object> target,String role,String kind,int version){
+    Object well=target.get("well_id"); if(well==null)return null;
+    String wellName=db.queryForObject("SELECT well_name FROM drilling_well WHERE well_id=?",String.class,well);
+    String type="DESIGN".equals(kind)?"设计方案":"ACTUAL".equals(kind)?"实测测斜":switch(role){case "ENGINEERING_REPORT"->"工程报告";case "WELL_SUMMARY"->"井总结";default->"工程资料";};
+    return (wellName==null||wellName.isBlank()?"井":wellName)+"_"+type+"_"+version;
+  }
+
   private Map<String,Object> importSource(Long fieldId,MultipartFile file,
       Map<String,Object> target,String documentRole,String trajectoryKind,String displayName) throws Exception {
     write(fieldId);
     if (file.getSize() > 256L * 1024 * 1024) throw new IllegalArgumentException("单文件上限256MiB");
     String name = DrillingFileController.safeName(file.getOriginalFilename());
-    String alias = DrillingFileController.validateDisplayName(displayName);
+    // System names are generated from the confirmed well, trajectory kind and
+    // edition.  The original filename remains the source filename.
+    String alias = null;
     String hash =
         HexFormat.of()
             .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(file.getBytes()));
@@ -574,17 +650,22 @@ public class SourceRegistryController {
     // A repeated file edition does not create another original merely because
     // the local upload filename changed. The retained edition keeps its name.
     if(target!=null&&target.get("upload_document_id")!=null){
-      var repeated=db.queryForList("SELECT sd.* FROM drilling_engineering_document_file df JOIN drilling_source_document sd ON sd.source_id=df.source_id JOIN data_file f ON f.file_id=sd.file_id WHERE df.document_id=? AND f.sha256=? ORDER BY df.edition_no DESC LIMIT 1",target.get("upload_document_id"),hash);
+      var repeated=db.queryForList("SELECT sd.source_id FROM drilling_engineering_document_file df JOIN drilling_source_document sd ON sd.source_id=df.source_id JOIN data_file f ON f.file_id=sd.file_id WHERE df.document_id=? AND f.sha256=? ORDER BY df.edition_no DESC LIMIT 1",target.get("upload_document_id"),hash);
       if(!repeated.isEmpty()){
         Long sourceId=id(repeated.get(0).get("source_id"));
         if(!sourceContents.exists(sourceId))saveInspectedContent(sourceId,engine.inspect(name,file.getBytes()));
-        return finishSourceUpload(fieldId,repeated.get(0),target,documentRole,trajectoryKind);
+        return finishSourceUpload(fieldId,db.queryForMap("SELECT * FROM drilling_source_document WHERE source_id=?",sourceId),target,documentRole,trajectoryKind);
       }
+    }
+    if(target!=null&&target.get("wellbore_id")!=null){
+      var sameTrajectory=db.queryForList("SELECT sd.source_id FROM drilling_engineering_document_file df JOIN drilling_engineering_document d ON d.document_id=df.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id JOIN drilling_source_document sd ON sd.source_id=df.source_id JOIN data_file f ON f.file_id=sd.file_id WHERE sd.field_id=? AND n.wellbore_id=? AND f.sha256=? AND d.document_role=? AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(df.properties_json,'$.trajectory_kind')),CASE n.node_type WHEN 'PLAN' THEN 'DESIGN' WHEN 'SURVEY' THEN 'ACTUAL' END)=? ORDER BY df.edition_no DESC LIMIT 1",fieldId,target.get("wellbore_id"),hash,documentRole,trajectoryKind);
+      if(!sameTrajectory.isEmpty())throw new IllegalArgumentException("同一井眼、同一用途已有相同内容，未重复导入");
     }
     var existing =
         db.queryForList(
-            "SELECT s.* FROM drilling_source_document s JOIN data_file f ON f.file_id=s.file_id"
-                + " WHERE s.field_id=? AND f.sha256=? AND BINARY f.original_name=BINARY ? ORDER BY s.source_id LIMIT 1",
+            "SELECT s.source_id,s.file_id,s.field_id,s.source_path,s.source_key,s.source_format,s.parse_status,s.metadata_json,s.diagnostics_json,s.create_time,s.create_time AS source_created_at,f.original_name,f.display_name,f.sha256,f.file_size"
+                + " FROM drilling_source_document s JOIN data_file f ON f.file_id=s.file_id"
+                + " WHERE s.field_id=? AND f.sha256=? AND BINARY f.original_name=BINARY ? LIMIT 1",
             fieldId,
             hash,name);
     if (!existing.isEmpty()) {
@@ -625,8 +706,8 @@ public class SourceRegistryController {
             fieldId,
             sourceKey);
     db.update(
-        "INSERT IGNORE INTO drilling_source_review(field_id,source_id,status,proposed_json) VALUES(?,?, 'PENDING',?)",
-        fieldId, source, JSON.toJSONString(sourceMetadata));
+        "INSERT IGNORE INTO drilling_source_review(field_id,source_id,status,proposed_json,confirmed_json,reviewed_by,reviewed_at) VALUES(?,?, 'CONFIRMED',?,?,?,NOW())",
+        fieldId, source, JSON.toJSONString(sourceMetadata), JSON.toJSONString(sourceMetadata), ShiroUtils.getLoginName());
     saveInspectedContent(source,parsed);
     audit(
         fieldId,
@@ -731,7 +812,7 @@ public class SourceRegistryController {
   public org.springframework.http.ResponseEntity<byte[]> sourceExport(
       @PathVariable Long fieldId,
       @PathVariable Long versionId,
-      @RequestParam(defaultValue = "PATCHED") String mode)
+      @RequestParam(defaultValue = "PATCHED") String mode, @RequestParam(defaultValue="") String tableRole)
       throws java.io.IOException {
     var version = version(fieldId, versionId);
     String exportMode = mode == null ? "PATCHED" : mode.toUpperCase(Locale.ROOT);
@@ -758,6 +839,11 @@ public class SourceRegistryController {
       if (extractionRows.isEmpty()) throw new IllegalArgumentException("该版本没有可回写的来源文件");
       source = new LinkedHashMap<>(extractionRows.get(0));
     }
+    var tableData=engineeringTables.data(fieldId,id(version.get("wellbore_id")),versionId);
+    if(!"ORIGINAL".equals(exportMode)&&Set.of("designNodes","designDetails").contains(tableRole)){
+      Object locator=obj(tableData.get("locators")).get("designNodes".equals(tableRole)?"design_nodes":"design_details");
+      if(locator!=null){var entries=db.queryForList("SELECT payload_json FROM drilling_source_extraction WHERE extraction_id=(SELECT MAX(e.extraction_id) FROM drilling_source_extraction e JOIN drilling_source_document s ON s.source_id=e.source_id WHERE s.file_id=? AND e.locator=?)",version.get("source_file_id"),locator);if(!entries.isEmpty())source.put("payload_json",entries.get(0).get("payload_json"));}
+    }
     byte[] original = files.readBytes(id(source.get("storage_field_id")), id(source.get("file_id")));
     String originalName = Objects.toString(source.get("original_name"), "trajectory");
     String contentType = Objects.toString(source.get("content_type"), "application/octet-stream");
@@ -773,13 +859,25 @@ public class SourceRegistryController {
     payload.put("mode", exportMode);
     payload.put("extraction", obj(source.get("payload_json")));
     var reference = obj(version.get("reference"));
-    if (reference.get("source_reference") instanceof Map<?, ?>)
-      payload.put("source_reference", reference.get("source_reference"));
-    payload.put("stations", version.get("stations"));
+    var sourceRef=reference.get("source_reference") instanceof Map<?,?>?obj(reference.get("source_reference")):obj(obj(source.get("payload_json")).get("reference"));
+    String headers=JSON.toJSONString(obj(source.get("payload_json")).get("headers"));
+    boolean offsets=headers.matches("(?s).*(北坐标|东坐标|南北位移|东西位移|（N）值|（E）值).*");
+    if(offsets){sourceRef.put("coordinates_are_offsets",true);sourceRef.put("origin_north",reference.getOrDefault("wellhead_north",reference.getOrDefault("origin_north",0)));sourceRef.put("origin_east",reference.getOrDefault("wellhead_east",reference.getOrDefault("origin_east",0)));}
+    var exportStations=(List<Map<String,Object>>)version.get("stations");
+    if("designNodes".equals(tableRole)&&tableData.get("design_nodes") instanceof List<?> nodes&&!nodes.isEmpty()){
+      exportStations=new ArrayList<>();for(Object node:nodes){var row=obj(node);if(!Boolean.FALSE.equals(tableData.get("nodes_are_offsets"))){row.put("north",((Number)row.get("north")).doubleValue()+((Number)sourceRef.getOrDefault("origin_north",0)).doubleValue());row.put("east",((Number)row.get("east")).doubleValue()+((Number)sourceRef.getOrDefault("origin_east",0)).doubleValue());}exportStations.add(row);}
+    }
+    var mapped=obj(source.get("payload_json"));var mapping=obj(mapped.get("mapping"));
+    if(mapped.get("headers") instanceof List<?> labels)for(int i=0;i<labels.size();i++){
+      String label=Objects.toString(labels.get(i),"").replaceAll("\\s","").toLowerCase(Locale.ROOT);
+      for(var field:Map.of("remark","备注|remark|comment","dogleg","井眼曲率|全角变化率|dogleg|dls","closure_distance","水平位移|闭合距","closure_azimuth","平移方位|闭合方位","horizontal_length","水平长度","apparent_horizontal_length","视平长|视平移").entrySet())if(label.matches(".*("+field.getValue()+").*"))mapping.put(field.getKey(),i);
+    }
+    mapped.put("mapping",mapping);source.put("payload_json",mapped);payload.put("extraction",mapped);
+    var outputRows=new ArrayList<Map<String,Object>>();for(var row:exportStations){var copy=new LinkedHashMap<String,Object>(row);if(copy.get("curvature") instanceof Number c)copy.put("dogleg",c.doubleValue()*180/Math.PI*30);outputRows.add(copy);}exportStations=outputRows;
+    payload.put("source_reference",sourceRef);payload.put("stations",exportStations);
     byte[] output;
     if(originalName.toLowerCase(Locale.ROOT).endsWith(".xls")) {
-      var sourceReference=reference.get("source_reference") instanceof Map<?,?> ? obj(reference.get("source_reference")) : obj(obj(source.get("payload_json")).get("reference"));
-      output=SourceSpreadsheetExporter.patch(original,obj(source.get("payload_json")),(List<Map<String,Object>>)version.get("stations"),sourceReference);
+      output=SourceSpreadsheetExporter.patch(original,obj(source.get("payload_json")),exportStations,sourceRef);
     } else output = engine.binary("/source/export", payload);
     String name = originalName;
     if ("PATCHED".equals(exportMode)) {
@@ -796,144 +894,6 @@ public class SourceRegistryController {
         .header("Content-Disposition", org.springframework.http.ContentDisposition.attachment().filename(name, java.nio.charset.StandardCharsets.UTF_8).build().toString())
         .contentType(safeMediaType(contentType))
         .body(output);
-  }
-
-  /**
-   * Deliver the immutable source together with the selected normalized
-   * trajectory, standard reduction workbook, visual projections and provenance.
-   */
-  @GetMapping("/versions/{versionId}/export-package")
-  @RequiresPermissions("drilling:file:list")
-  public org.springframework.http.ResponseEntity<byte[]> exportPackage(
-      @PathVariable Long fieldId, @PathVariable Long versionId) throws IOException {
-    var trajectory = version(fieldId, versionId);
-    var extractionRows = db.queryForList(
-        "SELECT e.payload_json,s.file_id,f.field_id AS storage_field_id,f.original_name,f.sha256,f.content_type "
-            + "FROM drilling_source_extraction e JOIN drilling_source_document s ON s.source_id=e.source_id "
-            + "JOIN data_file f ON f.file_id=s.file_id WHERE e.extraction_id=(SELECT MAX(x.extraction_id) "
-            + "FROM drilling_source_extraction x JOIN drilling_source_document d ON d.source_id=x.source_id "
-            + "WHERE d.file_id=? AND x.locator=?)",
-        trajectory.get("source_file_id"), trajectory.get("source_locator"));
-    Map<String,Object> source = extractionRows.isEmpty() ? Map.of() : extractionRows.get(0);
-    byte[] original = source.isEmpty() ? null
-        : files.readBytes(id(source.get("storage_field_id")), id(source.get("file_id")));
-    var stations = (List<Map<String,Object>>) trajectory.get("stations");
-    var reference = obj(trajectory.get("reference"));
-
-    var manifest = new LinkedHashMap<String,Object>();
-    manifest.put("trajectoryVersionId", versionId);
-    manifest.put("version", trajectory);
-    manifest.put("originalName", source.get("original_name"));
-    manifest.put("originalSha256", source.get("sha256"));
-    manifest.put("originalIncluded", original != null);
-    manifest.put("originalPolicy", "原始文件按入库字节原样保存；需要修改时请使用标准轨道表或来源格式导出。 ");
-
-    var reduction = new LinkedHashMap<String,Object>();
-    reduction.put("rows", stations);
-    var reducedReference = new LinkedHashMap<>(reference);
-    reducedReference.put("north_reference", "GRID_NORTH");
-    reducedReference.put("length_unit", "m");
-    reducedReference.put("angle_unit", "deg");
-    if (!stations.isEmpty()) {
-      reducedReference.put("origin_north", stations.get(0).get("north"));
-      reducedReference.put("origin_east", stations.get(0).get("east"));
-      reducedReference.put("origin_tvd", stations.get(0).get("tvd"));
-    }
-    reduction.put("reference", reducedReference);
-    reduction.put("format", "xlsx");
-    reduction.put("kind", trajectory.get("trajectory_kind"));
-    reduction.put("name", trajectory.get("label"));
-    byte[] workbook = engine.binary("/survey/reduce", reduction);
-
-    var zipBuffer = new ByteArrayOutputStream();
-    try (var zip = new ZipOutputStream(zipBuffer, StandardCharsets.UTF_8)) {
-      addZipEntry(zip, "manifest.json", JSON.toJSONString(manifest).getBytes(StandardCharsets.UTF_8));
-      addZipEntry(zip, "trajectory/stations.csv", stationsCsv(stations).getBytes(StandardCharsets.UTF_8));
-      addZipEntry(zip, "trajectory/reduction.xlsx", workbook);
-      addZipEntry(zip, "visualization/horizontal.svg", trajectorySvg(stations, "horizontal"));
-      addZipEntry(zip, "visualization/vertical.svg", trajectorySvg(stations, "vertical"));
-      addZipEntry(zip, "visualization/isometric.svg", trajectorySvg(stations, "isometric"));
-      if (!source.isEmpty()) {
-        String sourceName = safeArchiveName(Objects.toString(source.get("original_name"), "source"));
-        addZipEntry(zip, "original/" + sourceName, original);
-        if (trajectory.get("source_locator") != null) {
-          if (source.get("payload_json") != null)
-            addZipEntry(zip, "source/extraction.json",
-                JSON.toJSONString(obj(source.get("payload_json"))).getBytes(StandardCharsets.UTF_8));
-        }
-      }
-    }
-    String name = "trajectory-v" + Objects.toString(trajectory.get("version_no"), String.valueOf(versionId)) + "-export.zip";
-    return org.springframework.http.ResponseEntity.ok()
-        .header("Content-Disposition", org.springframework.http.ContentDisposition.attachment()
-            .filename(name, StandardCharsets.UTF_8).build().toString())
-        .contentType(org.springframework.http.MediaType.parseMediaType("application/zip"))
-        .body(zipBuffer.toByteArray());
-  }
-
-  private static void addZipEntry(ZipOutputStream zip, String name, byte[] bytes) throws IOException {
-    zip.putNextEntry(new ZipEntry(name));
-    zip.write(bytes);
-    zip.closeEntry();
-  }
-
-  private static String safeArchiveName(String name) {
-    return DrillingFileController.safeName(name);
-  }
-
-  private static String stationsCsv(List<Map<String,Object>> stations) {
-    var out = new StringBuilder("MD,Inclination,Azimuth,North,East,TVD,DoglegSeverity\r\n");
-    for (var row : stations) {
-      out.append(csv(row.get("md"))).append(',').append(csv(row.get("inclination"))).append(',')
-          .append(csv(row.get("azimuth"))).append(',').append(csv(row.get("north"))).append(',')
-          .append(csv(row.get("east"))).append(',').append(csv(row.get("tvd"))).append(',')
-          .append(csv(row.get("dogleg_severity"))).append("\r\n");
-    }
-    return out.toString();
-  }
-
-  private static String csv(Object value) {
-    String text = Objects.toString(value, "");
-    return "\"" + text.replace("\"", "\"\"") + "\"";
-  }
-
-  private static byte[] trajectorySvg(List<Map<String,Object>> rows, String view) {
-    var points = new ArrayList<double[]>();
-    for (var row : rows) {
-      double n = numeric(row.get("north")), e = numeric(row.get("east")), tvd = numeric(row.get("tvd"));
-      double x = switch (view) {
-        case "vertical" -> n;
-        case "isometric" -> (e - n) * 0.70710678;
-        default -> e;
-      };
-      double y = switch (view) {
-        case "horizontal" -> n;
-        case "isometric" -> (e + n) * 0.35355339 - tvd * 0.8660254;
-        default -> -tvd;
-      };
-      points.add(new double[] {x, y});
-    }
-    double minX = points.stream().mapToDouble(p -> p[0]).min().orElse(0), maxX = points.stream().mapToDouble(p -> p[0]).max().orElse(1);
-    double minY = points.stream().mapToDouble(p -> p[1]).min().orElse(0), maxY = points.stream().mapToDouble(p -> p[1]).max().orElse(1);
-    if (maxX == minX) maxX = minX + 1; if (maxY == minY) maxY = minY + 1;
-    var path = new StringBuilder();
-    for (var p : points) {
-      double x = 56 + (p[0] - minX) / (maxX - minX) * 788;
-      double y = 42 + (maxY - p[1]) / (maxY - minY) * 440;
-      path.append(path.isEmpty() ? "M" : " L").append(String.format(Locale.ROOT, "%.2f %.2f", x, y));
-    }
-    String title = switch (view) { case "vertical" -> "垂直剖面"; case "isometric" -> "三维轴测投影"; default -> "水平投影"; };
-    return ("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"540\" viewBox=\"0 0 900 540\">"
-        + "<rect width=\"100%\" height=\"100%\" fill=\"white\"/><text x=\"56\" y=\"24\" font-family=\"Arial,sans-serif\" font-size=\"16\" fill=\"#303133\">" + title + "</text>"
-        + "<path d=\"M56 482H844 M56 42V482\" stroke=\"#aeb6c2\" fill=\"none\"/><path d=\"" + path
-        + "\" fill=\"none\" stroke=\"#1677c8\" stroke-width=\"2.4\"/>"
-        + "<text x=\"56\" y=\"514\" font-family=\"Arial,sans-serif\" font-size=\"12\" fill=\"#606266\">起点</text>"
-        + "<text x=\"804\" y=\"514\" font-family=\"Arial,sans-serif\" font-size=\"12\" fill=\"#606266\">终点</text></svg>")
-        .getBytes(StandardCharsets.UTF_8);
-  }
-
-  private static double numeric(Object value) {
-    return value instanceof Number number ? number.doubleValue() : 0d;
   }
 
   private static org.springframework.http.MediaType safeMediaType(String value) {
@@ -1248,7 +1208,9 @@ public class SourceRegistryController {
     if (note.length() > 500) throw new IllegalArgumentException("修订说明最长500字");
     if ("RESURVEY".equals(mode) && note.isBlank())
       throw new IllegalArgumentException("复测修订必须填写修订原因");
-    boolean activate = !Boolean.FALSE.equals(body.get("activate"));
+    // A confirmed trajectory upload is immediately the current version.  The
+    // immutable parent remains available for version switching and audit.
+    boolean activate = true;
     Long previous = trajectories.head(bid, kind);
     if (activate && !"FULL".equals(mode) && !Objects.equals(parent, previous))
       throw new org.springframework.web.server.ResponseStatusException(
@@ -1268,6 +1230,13 @@ public class SourceRegistryController {
     if (!"CONFIRMED".equalsIgnoreCase(Objects.toString(review.get("status"), "")))
       throw new IllegalArgumentException("来源资料的自动解析结果尚未完成工程人员确认，不能生成轨迹版本");
     var ref = obj(calculated.get("normalized_reference"));
+    ref.put("engineering_table_role","FULL".equals(mode)?"SOURCE":"surveyData");
+    var structured=db.queryForList("SELECT metadata_json FROM drilling_source_document WHERE source_id=?",entry.get("source_id"));
+    if(!structured.isEmpty()){
+      var tables=obj(obj(structured.get(0).get("metadata_json")).get("engineering_tables"));
+      if(tables.get("design_nodes") instanceof List<?> nodes&&!nodes.isEmpty()){ref.put("design_nodes",nodes);ref.put("design_nodes_are_offsets",true);}
+    }
+
     var profile=obj(ref.get("uncertainty"));
     if(Objects.toString(obj(ref.get("survey_tool")).get("name"),"").isBlank())throw new IllegalArgumentException("请填写本版本的测斜工具名称");
     if(!Boolean.TRUE.equals(profile.get("confirmed")) || profile.get("settings")==null || profile.get("model_version")==null)
@@ -1416,6 +1385,7 @@ public class SourceRegistryController {
         calculated.get("changed_to_md"),
         JSON.toJSONString(summary));
     if (activate) trajectories.setHead(bid, kind, v, well);
+    db.update("UPDATE drilling_engineering_document_file df JOIN drilling_engineering_document d ON d.document_id=df.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id SET df.usage_state='ACTIVE' WHERE df.source_id=? AND n.wellbore_id=? AND df.usage_state='DRAFT'",entry.get("source_id"),bid);
     db.update(
         "UPDATE drilling_source_extraction SET import_status='IMPORTED',survey_version_id=? WHERE"
             + " extraction_id=?",
@@ -1423,6 +1393,7 @@ public class SourceRegistryController {
         extractionId);
     engineeringLibrary.registerImportedTrajectory(fieldId,well,bid,v,id(entry.get("source_id")),kind,label,
         Objects.toString(body.get("businessRevision"),""),Objects.toString(body.get("documentRole"),"TRAJECTORY_DATA"));
+    if("ACTUAL".equals(kind)&&!structured.isEmpty())engineeringTables.importActualTargets(fieldId,bid,v,obj(structured.get(0).get("metadata_json")));
     for (Object item : (List<?>) calculated.getOrDefault("issues", List.of())) {
       var issue = obj(item);
       db.update(
@@ -1507,6 +1478,97 @@ public class SourceRegistryController {
     if(!sources.isEmpty())engineeringLibrary.registerImportedTrajectory(fieldId,well,bid,created,id(sources.get(0).get("source_id")),kind,"测量参数修订 v"+trajectoryNumber,"","TRAJECTORY_DATA");
     audit(fieldId,"REVISE_MEASUREMENT_PARAMETERS",Map.of("versionId",created,"parentVersionId",versionId,"before",SurveyVersionMetadata.identity(obj(original.get("reference"))),"after",SurveyVersionMetadata.identity(ref),"note",note));
     return version(fieldId,created);
+  }
+
+  /** Save a manually edited DESIGN or (while drilling) ACTUAL table as a new immutable version. */
+  @PostMapping("/versions/{versionId}/stations")
+  @RequiresPermissions("drilling:well:survey:import")
+  @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+  public Map<String,Object> saveDesignStations(@PathVariable Long fieldId,@PathVariable Long versionId,@RequestBody Map<String,Object> body) {
+    write(fieldId);
+    var original=version(fieldId,versionId);
+    String kind=Objects.toString(original.get("trajectory_kind"),"");
+    if (!Set.of("DESIGN","ACTUAL").contains(kind)) throw new IllegalArgumentException("轨迹类别不支持编辑");
+    Long bid=id(original.get("wellbore_id")), well=id(original.get("well_id"));
+    writeBore(fieldId,bid); trajectories.lockWell(well);
+    String engineeringStatus=db.queryForObject("SELECT engineering_status FROM drilling_wellbore WHERE wellbore_id=?",String.class,bid);
+    if ("ACTUAL".equals(kind) && !Set.of("DRILLING","SUSPENDED").contains(engineeringStatus))
+      throw new IllegalArgumentException("只有正在钻进的井眼可以修改实测测斜数据");
+    if ("DESIGN".equals(kind) && !Set.of("UNPLANNED","PLANNED","DRILLING","SUSPENDED").contains(engineeringStatus))
+      throw new IllegalArgumentException("当前施工状态不允许修改设计轨道数据");
+    Long expected=id(body.get("expectedCurrentVersionId"));
+    if(expected!=null&&!Objects.equals(expected,trajectories.head(bid,kind)))throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,"当前轨迹版本已变更，请刷新后修改");
+    Object value=body.get("stations");
+    if (!(value instanceof List<?> raw) || raw.size()<2) throw new IllegalArgumentException("设计轨道至少需要两个节点");
+    var stations=new ArrayList<Map<String,Object>>(); double previous=-1d;
+    for (Object item:raw) {
+      Map<String,Object> row=obj(item);
+      double md=finite(row.get("md"),"MD"), inc=finite(row.get("inclination"),"井斜"), azi=finite(row.get("azimuth"),"方位");
+      if (md<0 || md<=previous) throw new IllegalArgumentException("节点 MD 必须严格递增");
+      if (inc<0 || inc>180) throw new IllegalArgumentException("井斜必须在 0～180°");
+      if (!Double.isFinite(azi)) throw new IllegalArgumentException("方位必须为有效数值");
+      Map<String,Object> normalized=new LinkedHashMap<>(); normalized.put("md",md); normalized.put("inclination",inc); normalized.put("azimuth",azi);
+      for (String key:List.of("north","east","tvd","dogleg","curvature")) if(row.get(key)!=null&&!Objects.toString(row.get(key),"").isBlank()) normalized.put(key,finite(row.get(key),key));
+      if(!normalized.containsKey("north")||!normalized.containsKey("east")||!normalized.containsKey("tvd")) {
+        throw new IllegalArgumentException("节点必须填写 N、E、TVD");
+      }
+      for(String key:List.of("closure_distance","closure_azimuth","horizontal_length","apparent_horizontal_length"))if(row.get(key)!=null)normalized.put(key,finite(row.get(key),key));
+      normalized.put("remark",Objects.toString(row.get("remark"),""));
+      if(Boolean.TRUE.equals(row.get("is_key_node")))normalized.put("is_key_node",true);
+      stations.add(normalized); previous=md;
+    }
+    for(int i=1;i<stations.size();i++){
+      var a=stations.get(i-1);var z=stations.get(i);double chord2=0;
+      for(String axis:List.of("north","east","tvd")){double delta=finite(z.get(axis),axis)-finite(a.get(axis),axis);chord2+=delta*delta;}
+      double length=finite(z.get("md"),"井深")-finite(a.get("md"),"井深");
+      if(Math.sqrt(chord2)>length+.1)throw new IllegalArgumentException("井深 "+a.get("md")+"～"+z.get("md")+" m 的节点间距超过段长，请核对坐标和井深");
+    }
+    var calculation=new LinkedHashMap<String,Object>();calculation.put("stations",stations);calculation.put("canonical_coordinates",true);
+    var measures=(List<Map<String,Object>>)engine.json("/survey/calculate",calculation).get("stations");
+    for(int i=0;i<stations.size();i++){stations.get(i).put("dogleg",measures.get(i).get("dogleg"));stations.get(i).put("curvature",measures.get(i).get("curvature"));}
+    var reference=obj(original.get("reference"));
+    String tableRole=text(body,"tableRole","surveyData");reference.put("engineering_table_role",tableRole);
+    if("DESIGN".equals(kind)){
+      var data=engineeringTables.data(fieldId,bid,versionId);
+      var before="designNodes".equals(tableRole)?data.get("design_nodes"):data.get("design_details");
+      if(Set.of("DRILLING","SUSPENDED").contains(engineeringStatus)&&before instanceof List<?> locked){
+        double drilled=((Number)data.get("drilled_md")).doubleValue();
+        double n0=Objects.requireNonNullElse(numberOrNull(reference.get("wellhead_north")),Objects.requireNonNullElse(numberOrNull(reference.get("origin_north")),0d));
+        double e0=Objects.requireNonNullElse(numberOrNull(reference.get("wellhead_east")),Objects.requireNonNullElse(numberOrNull(reference.get("origin_east")),0d));
+        for(Object item:locked){var old=obj(item);double md=finite(old.get("md"),"井深");if(md>drilled)continue;Map<String,Object> same=null;for(var candidate:stations)if(Math.abs(finite(candidate.get("md"),"井深")-md)<1e-6){same=candidate;break;}
+          if(same==null)throw new IllegalArgumentException("已钻井段的设计点不能删除");
+          for(String key:List.of("inclination","azimuth","tvd","north","east")){if(old.get(key)==null)continue;boolean offsets=!"designNodes".equals(tableRole)||!Boolean.FALSE.equals(data.get("nodes_are_offsets"));double target=finite(old.get(key),key)+(offsets?("north".equals(key)?n0:"east".equals(key)?e0:0):0);if(Math.abs(finite(same.get(key),key)-target)>.002)throw new IllegalArgumentException("已钻井段的设计点不能修改");}
+        }
+      }
+      if("designNodes".equals(tableRole)){
+        reference.put("design_nodes",new ArrayList<>(stations));reference.put("design_nodes_are_offsets",false);
+        var sample=new LinkedHashMap<String,Object>();sample.put("stations",stations);sample.put("canonical_coordinates",true);sample.put("step",10);sample.put("key_mds",stations.stream().map(p->p.get("md")).toList());
+        stations=new ArrayList<>((List<Map<String,Object>>)engine.json("/survey/sample",sample).get("stations"));
+      }else if(data.get("design_nodes") instanceof List<?> nodes){reference.put("design_nodes",nodes);reference.put("design_nodes_are_offsets",data.getOrDefault("nodes_are_offsets",true));}
+    }
+    calculation.put("stations",stations);measures=(List<Map<String,Object>>)engine.json("/survey/calculate",calculation).get("stations");
+    for(int i=0;i<stations.size();i++){stations.get(i).put("dogleg",measures.get(i).get("dogleg"));stations.get(i).put("curvature",measures.get(i).get("curvature"));}
+    String revisionType="DESIGN".equals(kind)?"DESIGN_NODE_EDIT":"ACTUAL_TABLE_EDIT";
+    String fingerprint=NativeEngineSupport.hash(SurveyVersionMetadata.canonical(List.of(stations,SurveyVersionMetadata.identity(reference),revisionType)));
+    var duplicate=db.queryForList("SELECT survey_version_id FROM drilling_trajectory_version WHERE wellbore_id=? AND trajectory_kind=? AND content_sha256=?",bid,kind,fingerprint);
+    if(!duplicate.isEmpty()){Long existing=id(duplicate.get(0).get("survey_version_id"));trajectories.setHead(bid,kind,existing,well);return version(fieldId,existing);}
+    int snapshot=trajectories.nextSnapshotNumber(well), trajectoryNumber=trajectories.nextNumber(bid,kind);
+    var config=engine.config(fieldId); double max=((Number)stations.get(stations.size()-1).get("md")).doubleValue();
+    String note=text(body,"note",""); if(note.length()>500)throw new IllegalArgumentException("修订说明最长500字");
+    db.update("INSERT INTO drilling_survey_version(well_id,version_no,parent_version_id,source_file_id,config_version,import_mode,source_format,max_md,is_current,quality_summary_json,config_snapshot_json,create_by) SELECT well_id,?,?,source_file_id,config_version,'FULL',source_format,?,'0',quality_summary_json,config_snapshot_json,? FROM drilling_survey_version WHERE survey_version_id=?",snapshot,versionId,max,ShiroUtils.getLoginName(),versionId);
+    Long created=db.queryForObject("SELECT survey_version_id FROM drilling_survey_version WHERE well_id=? AND version_no=?",Long.class,well,snapshot);
+    var batch=new ArrayList<Object[]>(); for(var row:stations)batch.add(new Object[]{created,row.get("md"),row.get("inclination"),row.get("azimuth"),row.get("north"),row.get("east"),row.get("tvd"),row.get("dogleg"),row.get("curvature"),JSON.toJSONString(row)});
+    db.batchUpdate("INSERT INTO drilling_survey_station(survey_version_id,md,inclination,azimuth,north,east,tvd,dogleg,curvature,raw_json) VALUES(?,?,?,?,?,?,?,?,?,?)",batch);
+    db.update("INSERT INTO drilling_trajectory_version(survey_version_id,wellbore_id,trajectory_kind,trajectory_version_no,source_locator,content_sha256,reference_json,quality_status,label,revision_note) VALUES(?,?,?,?,?,?,?,?,?,?)",created,bid,kind,trajectoryNumber,original.get("source_locator"),fingerprint,JSON.toJSONString(reference),original.get("quality_status"),("DESIGN".equals(kind)?"设计轨道编辑 v":"实测测斜编辑 v")+trajectoryNumber,note);
+    db.update("INSERT INTO drilling_trajectory_revision(survey_version_id,revision_type,parent_version_id,changed_from_md,changed_to_md,summary_json) VALUES(?,'FULL',?,?,?,?)",created,versionId,stations.get(0).get("md"),max,JSON.toJSONString(Map.of("revision_scope",revisionType,"station_count",stations.size())));
+    trajectories.setHead(bid,kind,created,well);
+    audit(fieldId,"EDIT_TRAJECTORY_TABLE",Map.of("versionId",created,"parentVersionId",versionId,"trajectoryKind",kind,"stationCount",stations.size()));
+    return version(fieldId,created);
+  }
+
+  private static double finite(Object value,String label){
+    try { double number=value instanceof Number n?n.doubleValue():Double.parseDouble(Objects.toString(value,"")); if(!Double.isFinite(number))throw new NumberFormatException(); return number; }
+    catch(Exception e){throw new IllegalArgumentException(label+"必须为有效数值");}
   }
 
   @GetMapping("/versions/{versionId}/compare")

@@ -81,7 +81,10 @@ def test_standard_six_tables_are_blank_templates_with_merged_headers():
     tables=appendix_templates()
     assert len(tables)==6 and all(t['template'] and not t['records'] for t in tables)
     assert tables[0]['merges'][0]['colspan']==3
-    assert '南北位移' in tables[3]['rows'][0][4]
+    assert tables[3]['rows'][0][4]=='北坐标（m）'
+    assert tables[3]['rows'][0][8]=='水平长度（m）'
+    assert tables[4]['rows'][0][8]=='视平长（m）'
+    assert tables[5]['rows'][0][7:10]==['靶心距（m）','纵偏（m）','横偏（m）']
     assert all(not any(t['rows'][-1]) for t in tables)
 
 

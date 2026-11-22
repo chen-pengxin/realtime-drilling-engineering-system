@@ -1,6 +1,6 @@
 <template>
-  <el-dialog v-model="open" :title="versionTarget ? '上传文件新版本' : '导入来源文件'" width="min(1120px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" :before-close="beforeClose">
-    <el-descriptions v-if="versionTarget" :column="1" border class="version-summary"><el-descriptions-item label="资料名称">{{ fileDisplayName(versionTarget) }}</el-descriptions-item><el-descriptions-item label="最新文件版次">第 {{ versionTarget.latest_edition_no }} 版</el-descriptions-item><el-descriptions-item label="更新范围" :span="2">保存新原件并保留历史文件；轨迹数据版本和当前使用版本保持不变。</el-descriptions-item></el-descriptions>
+  <el-dialog v-model="open" :title="versionTarget ? '导入文件版次' : '导入来源文件'" width="min(1120px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" :before-close="beforeClose">
+    <el-descriptions v-if="versionTarget" :column="1" border class="version-summary"><el-descriptions-item label="资料名称">{{ fileDisplayName(versionTarget) }}</el-descriptions-item><el-descriptions-item label="最新文件版次">第 {{ versionTarget.latest_edition_no }} 版</el-descriptions-item><el-descriptions-item label="更新范围" :span="2">保存新原件并保留历史文件；轨迹资料解析确认后生成新版本并更新当前指针。</el-descriptions-item></el-descriptions>
     <el-form label-width="100px" :disabled="uploading" @submit.prevent>
       <el-form-item label="关联对象" required>
         <el-tree-select v-model="defaultNodeId" :data="targetTree" node-key="node_id" :props="treeProps" check-strictly filterable :render-after-expand="false" :disabled="!!versionTarget" placeholder="选择所属井场、井、井眼或资料目录" class="target-select" />
@@ -15,7 +15,7 @@
     </div>
     <el-table :data="rows" border max-height="430" row-key="id">
       <el-table-column label="原始文件名" min-width="190"><template #default="s"><div>{{ s.row.file.name }}</div><small>{{ sizeText(s.row.file.size) }}</small></template></el-table-column>
-      <el-table-column label="系统名称" min-width="190"><template #default="s"><el-input v-model="s.row.displayName" maxlength="255" show-word-limit :disabled="uploading || s.row.status==='SUCCESS'" placeholder="仅用于系统内显示" /></template></el-table-column>
+      <el-table-column label="系统名称" min-width="190"><template #default="s"><span>{{ s.row.displayName }}</span></template></el-table-column>
       <el-table-column label="关联层级" min-width="300"><template #default="s">
         <el-tree-select v-model="s.row.nodeId" :data="targetTree" node-key="node_id" :props="treeProps" check-strictly filterable :render-after-expand="false" :disabled="uploading || s.row.status==='SUCCESS' || !!versionTarget" @change="changeTarget(s.row)" class="full" />
         <div class="row-path">{{ nodePath(s.row.nodeId) }}</div>
@@ -29,7 +29,7 @@
     </el-table>
     <div v-if="error" class="error-text import-error">{{ error }}</div>
     <el-progress v-if="uploading" :percentage="progress" class="import-progress" />
-    <template #footer><el-button :disabled="uploading" @click="close">{{ completed.length ? '完成' : '取消' }}</el-button><el-button type="primary" :loading="uploading" :disabled="!pending.length" @click="submit">{{ versionTarget ? '保存新文件版本' : completed.length ? '继续上传' : '上传并关联' }}</el-button></template>
+    <template #footer><el-button :disabled="uploading" @click="close">{{ completed.length ? '完成' : '取消' }}</el-button><el-button type="primary" :loading="uploading" :disabled="!pending.length" @click="submit">{{ versionTarget ? '保存文件版次' : completed.length ? '继续上传' : '上传并关联' }}</el-button></template>
   </el-dialog>
 </template>
 
@@ -56,6 +56,12 @@ const targetTree = computed(() => {
 })
 const nodeFor = id => nodeMap.value.get(Number(id))
 const nodePath = id => nodeFor(id)?.engineering_path || ''
+function generatedName(node, role, kind, edition=1) {
+  const path=String(node?.engineering_path||'').split(' / ').filter(Boolean)
+  const well=path.at(-2) || node?.well_name || '井'
+  const type=kind==='DESIGN'?'设计方案':kind==='ACTUAL'?'实测测斜':role==='ENGINEERING_REPORT'?'工程报告':'工程资料'
+  return `${well}_${type}_${edition}`
+}
 const completed = computed(() => rows.value.filter(r => r.status === 'SUCCESS'))
 const pending = computed(() => rows.value.filter(r => r.status !== 'SUCCESS'))
 const progress = computed(() => Math.round(100 * rows.value.filter(r => ['SUCCESS','FAILED'].includes(r.status)).length / Math.max(rows.value.length,1)))
@@ -84,7 +90,7 @@ function selectFiles(event) {
   if (files.length + rows.value.length > 200) return ElMessage.warning('每批最多 200 个文件')
   for (const file of files) {
     if (rows.value.some(r => r.file.name === file.name && r.file.size === file.size && r.file.lastModified === file.lastModified)) continue
-    const row = { id: ++serial, file, displayName: versionTarget.value?.display_name || fileDisplayName({original_name:file.name}), nodeId: defaultNodeId.value, role: versionTarget.value?.document_role || inferRole(file), kind: '', status: 'PENDING', error: '' }; changeTarget(row);if(versionTarget.value?.trajectory_kind)row.kind=versionTarget.value.trajectory_kind; rows.value.push(row)
+    const role=versionTarget.value?.document_role || inferRole(file); const kind=versionTarget.value?.trajectory_kind || ''; const row = { id: ++serial, file, displayName: versionTarget.value?.display_name || generatedName(nodeFor(defaultNodeId.value),role,kind,versionTarget.value?.latest_edition_no?Number(versionTarget.value.latest_edition_no)+1:1), nodeId: defaultNodeId.value, role, kind, status: 'PENDING', error: '' }; changeTarget(row);if(versionTarget.value?.trajectory_kind)row.kind=versionTarget.value.trajectory_kind; rows.value.push(row)
   }
 }
 function removeRow(row) { rows.value = rows.value.filter(r => r.id !== row.id) }
@@ -106,7 +112,7 @@ async function submit() {
       row.status = 'UPLOADING'; row.error = ''
       const node = nodeFor(row.nodeId)
       try {
-        row.source = await uploadSurveySource(node.field_id, row.file, { nodeId: row.nodeId, displayName: row.displayName, documentRole: row.role, trajectoryKind: ['TRAJECTORY_DATA','TRAJECTORY_REPORT'].includes(row.role) ? row.kind : '', ...(versionTarget.value ? {documentId:versionTarget.value.document_id,expectedEditionNo:versionTarget.value.latest_edition_no} : {}) })
+        row.source = await uploadSurveySource(node.field_id, row.file, { nodeId: row.nodeId, documentRole: row.role, trajectoryKind: ['TRAJECTORY_DATA','TRAJECTORY_REPORT'].includes(row.role) ? row.kind : '', ...(versionTarget.value ? {documentId:versionTarget.value.document_id,expectedEditionNo:versionTarget.value.latest_edition_no} : {}) })
         row.status = 'SUCCESS'
       } catch (e) { row.status = 'FAILED'; row.error = e.response?.data?.msg || e.message || '导入失败' }
     }

@@ -17,8 +17,7 @@
         <div v-if="selectedBore" class="drilling-toolbar"><span>施工状态：{{ statusLabels[selectedBore.engineering_status] || selectedBore.engineering_status }}</span><el-button v-hasPermi="['drilling:well:edit']" link type="primary" icon="Edit" @click="showStatus">修改状态</el-button></div>
         <el-tabs v-model="kind"><el-tab-pane label="实钻测斜版本" name="ACTUAL" /><el-tab-pane label="设计方案版本" name="DESIGN" /></el-tabs>
         <div class="drilling-toolbar">
-          <el-button v-hasPermi="['drilling:well:survey:import']" type="primary" plain icon="Upload" :disabled="!selectedBore" @click="importDialog.show('FULL')">导入新版本</el-button><el-button v-hasPermi="['drilling:well:survey:import']" plain icon="FolderOpened" :disabled="!fieldId" @click="batchInput?.click()">批量导入资料</el-button><input ref="batchInput" hidden type="file" multiple accept=".xls,.xlsx,.csv,.tsv,.txt,.xml,.witsml,.dat,.asc,.mwd,.doc,.docx,.pdf" @change="batchUpload" />
-          <el-button icon="Files" :disabled="!fieldId" @click="sourceLibrary.show()">来源资料库</el-button>
+          <el-button v-hasPermi="['drilling:well:survey:import']" type="primary" plain icon="Upload" :disabled="!selectedBore" @click="importDialog.show('FULL')">导入</el-button><el-button v-hasPermi="['drilling:well:survey:import']" plain icon="FolderOpened" :disabled="!fieldId" @click="batchInput?.click()">批量导入资料</el-button><input ref="batchInput" hidden type="file" multiple accept=".xls,.xlsx,.csv,.tsv,.txt,.xml,.witsml,.dat,.asc,.mwd,.doc,.docx,.pdf" @change="batchUpload" />
           <el-button v-hasPermi="['drilling:well:survey:import']" type="success" plain :disabled="!currentVersion" @click="importDialog.show('INCREMENTAL',currentVersion)">增量导入</el-button>
           <el-button v-if="kind==='ACTUAL'" v-hasPermi="['drilling:well:survey:import']" type="warning" plain :disabled="!currentVersion" @click="importDialog.show('RESURVEY',currentVersion)">复测修订</el-button>
           <el-button icon="Sort" :disabled="versions.length<2" @click="diffDialog.show(displayedVersion||versions[0])">版本对比</el-button>
@@ -40,10 +39,9 @@
           <el-descriptions :column="2" border class="version-summary" size="small">
             <el-descriptions-item label="正在查看">v{{ displayedVersion.version_no }} · {{ Number(displayedVersion.is_active)?'当前版本':'历史版本' }}</el-descriptions-item>
             <el-descriptions-item label="来源文件">{{ displayedRow?.original_name || '实时接入 / 历史数据' }}</el-descriptions-item>
-            <el-descriptions-item label="归算方法">最小曲率法</el-descriptions-item>
             <el-descriptions-item label="受影响井段">{{ affectedRange }}</el-descriptions-item>
           </el-descriptions>
-          <div class="drilling-toolbar"><el-button icon="Download" :loading="exporting" @click="exportTable">导出轨道归算表</el-button><el-button v-if="sourcePatchSupported" icon="Download" :loading="exporting" @click="exportSourceVersion">按源格式导出当前版本</el-button><el-button v-if="displayedVersion.source_file_id" icon="Document" @click="downloadSource">下载来源原件</el-button></div>
+          <div class="drilling-toolbar"><el-button v-if="sourcePatchSupported" icon="Download" :loading="exporting" @click="exportSourceVersion">按源格式导出当前版本</el-button><el-button v-if="displayedVersion.source_file_id" icon="Document" @click="downloadSource">下载来源原件</el-button></div>
           <el-tabs v-model="detailTab">
             <el-tab-pane label="测斜数据" name="table"><el-table v-loading="loadingStations" :data="stationPageRows" border><el-table-column v-for="c in stationColumns" :key="c[0]" :prop="c[0]" :label="c[1]" min-width="115"><template #default="s">{{ Number(s.row[c[0]]).toFixed(3) }}</template></el-table-column></el-table><pagination v-show="stations.length>0" v-model:page="stationPage" v-model:limit="stationLimit" :total="stations.length" /></el-tab-pane>
             <el-tab-pane label="三维轨迹" name="3d" lazy><el-button icon="Setting" @click="stylesOpen=true">视图设置</el-button><div v-if="detailTab==='3d'" class="trajectory-view"><TrajectoryPlot :trajectories="plotTrajectories" view="3d" /></div></el-tab-pane>
@@ -55,7 +53,6 @@
     <el-drawer v-model="stylesOpen" title="可视化设置" size="min(340px, 100vw)"><TrajectoryStyleSettings :trajectories="plotTrajectories" /></el-drawer>
     <SurveyImportDialog ref="importDialog" :field-id="fieldId" :bore="selectedBore" :kind="kind" :versions="versions" :default-reference="defaultReference" @saved="versionSaved" />
     <SurveyVersionDiff ref="diffDialog" :field-id="fieldId" :versions="versions" />
-    <SourceLibrary ref="sourceLibrary" :field-id="fieldId" @select="selectSource" />
     <el-dialog v-model="statusOpen" title="修改井眼施工状态" width="480px" append-to-body><el-form label-width="90px"><el-form-item label="施工状态"><el-select v-model="engineeringStatus"><el-option v-for="(name,key) in statusLabels" :key="key" :label="name" :value="key" /></el-select></el-form-item></el-form><template #footer><el-button @click="statusOpen=false">取 消</el-button><el-button type="primary" :loading="savingStatus" @click="saveStatus">确 定</el-button></template></el-dialog>
     <el-dialog v-model="linkOpen" title="引用已有井眼" width="760px" append-to-body><el-input v-model="linkKeyword" placeholder="搜索井号、井眼" clearable class="mb16"/><el-table :data="filteredAvailable" v-loading="loadingAvailable" border max-height="440"><el-table-column prop="well_code" label="井号"/><el-table-column prop="well_name" label="井名"/><el-table-column prop="wellbore_code" label="井眼"/><el-table-column label="操作" width="100"><template #default="s"><el-button link type="primary" :loading="linking===s.row.wellbore_id" @click="linkBore(s.row)">引用</el-button></template></el-table-column></el-table><template #footer><el-button @click="linkOpen=false">关 闭</el-button></template></el-dialog>
     <el-dialog v-model="wellOpen" title="新增井 / 井眼" width="560px" append-to-body class="drilling-dialog">
@@ -88,7 +85,6 @@ import {
   activateTrajectoryVersion,
   boreVersions,
   downloadBlob,
-  exportReduction,
   exportTrajectorySource,
   listWellbores,
   registry,
@@ -107,7 +103,6 @@ import {
 } from '../composables/useDrillingContext'
 import SurveyImportDialog from './survey/SurveyImportDialog.vue'
 import SurveyVersionDiff from './survey/SurveyVersionDiff.vue'
-import SourceLibrary from './survey/SourceLibrary.vue'
 
 const {
   fieldId,
@@ -143,14 +138,13 @@ const well = reactive({
   wellboreCode: 'MAIN',
   wellboreName: '', parentWellboreId: null
 })
-const sourceLibrary=ref(),statusOpen=ref(false),engineeringStatus=ref('UNKNOWN'),savingStatus=ref(false),linkOpen=ref(false),available=ref([]),loadingAvailable=ref(false),linking=ref(null),linkKeyword=ref('')
+const statusOpen=ref(false),engineeringStatus=ref('UNKNOWN'),savingStatus=ref(false),linkOpen=ref(false),available=ref([]),loadingAvailable=ref(false),linking=ref(null),linkKeyword=ref('')
 const filteredAvailable=computed(()=>available.value.filter(b=>`${b.well_code} ${b.well_name} ${b.wellbore_code}`.toLowerCase().includes(linkKeyword.value.toLowerCase())))
 const sourcePatchSupported=computed(()=>displayedVersion.value?.source_file_id&&/\.(xls|xlsx|csv|tsv|txt|xml|witsml|dat|asc|mwd|docx)$/i.test(displayedRow.value?.original_name||''))
 function showStatus(){engineeringStatus.value=selectedBore.value.engineering_status;statusOpen.value=true}
 async function saveStatus(){savingStatus.value=true;try{await registry(fieldId.value,`/wellbores/${boreId.value}`,'put',{engineeringStatus:engineeringStatus.value});statusOpen.value=false;await loadBores();ElMessage.success('施工状态已更新')}catch(e){ElMessage.error(message(e))}finally{savingStatus.value=false}}
 async function showLink(){linkOpen.value=true;loadingAvailable.value=true;try{available.value=await registry(fieldId.value,'/available-wellbores')}catch(e){ElMessage.error(message(e))}finally{loadingAvailable.value=false}}
 async function linkBore(row){linking.value=row.wellbore_id;try{await registry(fieldId.value,`/wellbores/${row.wellbore_id}/link`,'post');available.value=available.value.filter(b=>b.wellbore_id!==row.wellbore_id);await loadBores();boreId.value=row.wellbore_id;ElMessage.success('已引用原井眼及其版本，无需重复导入')}catch(e){ElMessage.error(message(e))}finally{linking.value=null}}
-function selectSource(source){if(!selectedBore.value){ElMessage.warning('请先选择目标井眼，再从资料库选择来源');return}importDialog.value.show('FULL',null,source)}
 const statusLabels = {
   UNPLANNED: '待规划',
   PLANNED: '已规划',
@@ -333,18 +327,6 @@ async function createWell() {
     creatingWell.value = false
   }
 }
-async function exportTable() {
-  exporting.value = true;
-  try {
-    const data = await exportReduction(fieldId.value, displayedVersion.value.survey_version_id);
-    if (data.type?.includes('json')) throw new Error('轨道归算导出失败，请检查算法服务');
-    downloadBlob(data, `${selectedBore.value.well_code}-${selectedBore.value.wellbore_code}-v${displayedVersion.value.version_no}-轨道归算.xlsx`)
-  } catch (e) {
-    ElMessage.error(message(e))
-  } finally {
-    exporting.value = false
-  }
-}
 async function exportSourceVersion() {
   exporting.value=true
   try { const data=await exportTrajectorySource(fieldId.value,displayedVersion.value.survey_version_id);downloadBlob(data,displayedRow.value?.original_name||'轨迹版本导出') }
@@ -360,7 +342,7 @@ async function downloadSource() {
 }
 async function batchUpload(event) {
   const files=[...(event.target.files||[])]; event.target.value=''; if(!files.length||!fieldId.value)return
-  try { const result=await uploadSourceBatch(fieldId.value,files); ElMessage.success(`批量资料处理完成：成功 ${result.succeeded||0} 个，失败 ${result.failed||0} 个`);await sourceLibrary.value.showReviewQueue(result.rows||[]) }
+  try { const result=await uploadSourceBatch(fieldId.value,files); ElMessage.success(`批量资料处理完成：成功 ${result.succeeded||0} 个，失败 ${result.failed||0} 个`) }
   catch(e){ElMessage.error(e.response?.data?.msg||e.message||'批量导入失败')}
 }
 watch(fieldId, () => {

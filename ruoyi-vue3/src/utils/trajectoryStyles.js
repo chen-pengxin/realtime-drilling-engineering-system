@@ -22,7 +22,7 @@ export function defaultTrajectoryStyle(role, type) {
 }
 
 export function emptyTrajectoryStyles() {
-  return { version: 1, styles: {}, wellbores: {} }
+  return { version: 1, styles: {}, wellbores: {}, grid: {} }
 }
 
 export function normalizeTrajectoryStyle(value = {}, fallback = {}) {
@@ -54,6 +54,7 @@ export function normalizeTrajectoryStyles(value) {
     }
     return target
   }
+  result.grid = normalizeGridStyle(value.grid)
   result.styles = collect(value.styles)
   for (const [id, overrides] of Object.entries(value.wellbores || {})) {
     if (!/^[1-9]\d*$/.test(id)) continue
@@ -91,3 +92,6 @@ export function setTrajectoryStyle(preferences, { role, type, wellboreIds = [], 
   }
   return result
 }
+
+export function normalizeGridStyle(value={}){const result={};if(/^#[0-9a-f]{6}$/i.test(value?.color||''))result.color=value.color;if(Number.isFinite(Number(value?.width))&&Number(value.width)>=0.5&&Number(value.width)<=5)result.width=Number(value.width);return result}
+export function resolveGridStyle(preferences,engineering){return {color:'#cbd5e1',width:1,...engineering?.grid,...preferences?.grid}}

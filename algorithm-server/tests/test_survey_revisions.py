@@ -40,13 +40,13 @@ def test_resurvey_replaces_same_md_preserves_parent_and_reduces_downstream(basel
     assert result["downstream_recalculation"]["to_md"] == 120
 
 
-def test_resurvey_interval_removes_superseded_points_and_adds_new_ones(baseline):
+def test_sparse_resurvey_preserves_unmentioned_stations_inside_interval(baseline):
     result = preview_revision(payload(baseline, replace_from_md=30, replace_to_md=90,
         rows=[{"md": 35, "inclination": 6, "azimuth": 12}, {"md": 85, "inclination": 13, "azimuth": 28}]))
-    assert [s["md"] for s in result["stations"]] == [0, 35, 85, 120]
-    assert result["change_summary"]["removed"] == 3
+    assert [s["md"] for s in result["stations"]] == [0, 30, 35, 60, 85, 90, 120]
+    assert result["change_summary"]["removed"] == 0
     assert result["change_summary"]["added"] == 2
-    assert result["incremental_from_md"] == 0
+    assert result["incremental_from_md"] == 30
 
 
 def test_resurvey_converts_only_incoming_magnetic_angles_once(baseline):
@@ -119,7 +119,6 @@ def test_equal_numeric_depth_datum_accepts_integer_or_decimal_encoding(baseline)
     ({"replace_from_md": 70, "replace_to_md": 60}, "范围无效"),
     ({"replace_from_md": 60, "replace_to_md": 150}, "父版本井深"),
     ({"replace_from_md": 70, "replace_to_md": 90}, "声明的替换范围"),
-    ({"replace_from_md": 0, "replace_to_md": 60}, "首测点和末测点"),
     ({"reference": {"crs": "EPSG:32631"}}, "坐标和深度基准"),
     ({"reference": {"depth_datum_elevation_m": 26}}, "坐标和深度基准"),
     ({"revision_type": "UNKNOWN"}, "导入方式"),
@@ -220,3 +219,10 @@ def test_resurvey_reuses_only_unaffected_collision_cache_blocks(tmp_path, monkey
     result = scan_pair(revised, neighbor, step=20).to_dict()
     assert result["incremental"]["reused_ranges"] == [[0, 100], [100, 200]]
     assert result["incremental"]["recomputed_ranges"] == [[200, 300], [300, 400]]
+
+
+def test_resurvey_span_including_reference_point_does_not_delete_unmentioned_anchor(baseline):
+    result=preview_revision(payload(baseline,replace_from_md=0,replace_to_md=60))
+    assert result['stations'][0]==baseline[0]
+    assert [p['md'] for p in result['stations']]==[p['md'] for p in baseline]
+    assert result['change_summary']['removed']==0

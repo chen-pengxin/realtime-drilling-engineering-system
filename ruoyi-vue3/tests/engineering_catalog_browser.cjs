@@ -121,7 +121,7 @@ await router.push('/drilling/basic/catalog');await router.isReady();app.mount('#
     assert.equal(edits.at(-1).endpoint, '/api/drilling/fields/1/library/nodes/102')
     // Files and child wells are mutually exclusive lists.
     await treeNode('测试井场甲').click()
-    await page.getByRole('tab', { name: '资料文件', exact: true }).click()
+    await page.getByRole('tab', { name: '文件管理', exact: true }).click()
     assert.equal(await page.locator('.library-content .el-table').count(), 1)
     assert.doesNotMatch(await page.locator('.library-content .el-table').innerText(), /修改后的测试井/)
     await treeNode('主井眼').click()

@@ -75,13 +75,19 @@ service.interceptors.request.use(config => {
 })
 
 // 响应拦截器
-service.interceptors.response.use(res => {
+service.interceptors.response.use(async res => {
     // 未设置状态码则默认成功状态
     const code = res.data.code || 200
     // 获取错误信息
     const msg = errorCode[code] || res.data.msg || errorCode['default']
     // 二进制数据则直接返回
     if (res.request.responseType ===  'blob' || res.request.responseType ===  'arraybuffer') {
+      if(String(res.headers?.['content-type']||'').includes('application/json')){
+        try{
+          const body=JSON.parse(res.data instanceof Blob?await res.data.text():new TextDecoder().decode(res.data))
+          if(Number(body.code)>=400&&body.msg){if(!res.config.silentError)ElMessage.error(body.msg);throw new Error(body.msg)}
+        }catch(error){if(!(error instanceof SyntaxError))throw error}
+      }
       return res.data
     }
     if (code === 401) {

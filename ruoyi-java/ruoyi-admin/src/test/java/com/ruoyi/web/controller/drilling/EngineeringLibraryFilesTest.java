@@ -11,7 +11,7 @@ class EngineeringLibraryFilesTest {
 
   @Test void attachingAtAFieldCreatesOnlyItsFileFolder(){
     var library=new Fixture();
-    var controller=new EngineeringLibraryController(library,null);
+    var controller=new EngineeringLibraryController(library,null,null);
     controller.attachDocument(1L,FIELD_NODE,Map.of("sourceId",73L,"documentRole","REFERENCE"));
     assertEquals(1,library.creates.size());
     assertEquals("INBOX",library.creates.get(0).get("nodeType"));

@@ -126,3 +126,53 @@ def test_manual_mapping_rejects_invalid_source_coordinates(change):
     selection={'locator':'text','header_row':1,'start_row':2,'end_row':3,'mapping':{'md':0,'inclination':1,'azimuth':2}}
     with pytest.raises(ValueError):map_source_table(b'A,B,C\n0,0,0\n30,1,2','s.csv',{**selection,**change})
 
+
+def test_source_coordinate_offsets_are_not_exported_as_global_coordinates():
+    source=b'MD,INC,AZI,N,E\n0,0,0,0,0\n100,1,90,0,1\n'
+    extraction={'locator':'text:header:1','mapping':{'md':0,'inclination':1,'azimuth':2,'north':3,'east':4},'rows':[{'source_row':2},{'source_row':3}]}
+    values=[{'md':0,'inclination':0,'azimuth':0,'north':4200000,'east':19400000},{'md':100,'inclination':1,'azimuth':90,'north':4200001,'east':19400002}]
+    out,_,_=export_source_document(source,'survey.csv',values,extraction,source_reference={'coordinates_are_offsets':True,'origin_north':4200000,'origin_east':19400000})
+    assert b'100,1,90,1,2' in out and b'4200000' not in out
+
+def test_updated_appendix_metrics_and_remarks_are_exported_with_selected_rows():
+    source=b'MD,INC,AZI,DLS,Remark\n0,0,0,0,old\n100,1,90,.3,old\n'
+    extraction={'locator':'text:header:1','mapping':{'md':0,'inclination':1,'azimuth':2,'dogleg':3,'remark':4},'rows':[{'source_row':2},{'source_row':3}]}
+    out,_,_=export_source_document(source,'survey.csv',[{'md':0,'inclination':0,'azimuth':0,'dogleg':0,'remark':'start'},{'md':100,'inclination':2,'azimuth':90,'dogleg':.6,'remark':'changed'}],extraction)
+    assert b'100,2,90,0.6,changed' in out
+
+def test_pdf_table_export_replaces_searchable_values_and_retains_other_report_content(tmp_path):
+    from reportlab.pdfgen import canvas
+    import pymupdf
+    stream=io.BytesIO();c=canvas.Canvas(stream,pagesize=(400,300));c.drawString(30,250,'Original report heading')
+    for x in [30,130,230,330]:c.line(x,100,x,190)
+    for y in [100,130,160,190]:c.line(30,y,330,y)
+    for y,row in [(170,['MD','INC','AZI']),(140,['0.00','0.00','0.00']),(110,['100.00','1.00','90.00'])]:
+        for x,value in zip([45,145,245],row):c.drawString(x,y,value)
+    c.drawString(30,50,'Unrelated source note');c.save();original=stream.getvalue()
+    path=tmp_path/'report.pdf';path.write_bytes(original);extraction=inspect_document(path)['trajectories'][0]
+    output,_,mime=export_source_document(original,path.name,[{'md':0,'inclination':0,'azimuth':0},{'md':110,'inclination':2,'azimuth':90},{'md':200,'inclination':3,'azimuth':90}],extraction)
+    with pymupdf.open(stream=output,filetype='pdf') as doc:
+        assert len(doc)==2
+        text='\n'.join(p.get_text() for p in doc)
+        assert '110.00' in text and '200.00' in text and '100.00' not in text
+        assert 'Original report heading' in text and 'Unrelated source note' in text
+    assert mime=='application/pdf'
+
+def test_legacy_doc_native_writer_preserves_table_on_add_edit_delete(tmp_path):
+    import shutil
+    from pathlib import Path
+    from docx import Document
+    from app.adapters.office_conversion import convert_office
+    helper=Path(__file__).resolve().parents[1]/'tools/legacy-office-reader/target/legacy-office-reader.jar'
+    if not helper.is_file() or not (shutil.which('soffice') or shutil.which('libreoffice') or Path('/Applications/LibreOffice.app').exists()):pytest.skip('Office/Word component is not installed')
+    document=Document();document.add_paragraph('Unrelated original text');table=document.add_table(rows=0,cols=3)
+    for row in [['MD','INC','AZI'],[0,0,0],[100,1,90]]:
+        for c,v in zip(table.add_row().cells,row):c.text=str(v)
+    stream=io.BytesIO();document.save(stream);original=convert_office(stream.getvalue(),'.docx','doc')
+    path=tmp_path/'source.doc';path.write_bytes(original);extraction=inspect_document(path)['trajectories'][0]
+    for count in (1,2,3):
+        output,_,_=export_source_document(original,path.name,ROWS[:count],extraction)
+        assert output.startswith(bytes.fromhex('D0CF11E0'))
+        target=tmp_path/f'updated-{count}.doc';target.write_bytes(output);parsed=inspect_document(target)
+        assert [r['md'] for r in parsed['trajectories'][0]['rows']]==[r['md'] for r in ROWS[:count]]
+        assert 'Unrelated original text' in parsed['text_excerpt']

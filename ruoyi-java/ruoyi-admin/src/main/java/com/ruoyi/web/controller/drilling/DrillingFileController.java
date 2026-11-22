@@ -241,20 +241,10 @@ public class DrillingFileController
         Map<String, Object> row = jdbc.query("SELECT object_key FROM data_file WHERE file_id=? AND field_id=? AND status='ACTIVE'",
                 rs -> rs.next() ? Map.of("objectKey", rs.getString(1)) : null, fileId, fieldId);
         if (row == null) return;
-        Integer sourceReferences = jdbc.queryForObject("SELECT (SELECT COUNT(*) FROM drilling_source_document WHERE file_id=?)+(SELECT COUNT(*) FROM drilling_survey_version WHERE source_file_id=?)", Integer.class, fileId, fileId);
-        if (sourceReferences != null && sourceReferences > 0) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT, "来源原件或历史测斜版本仍在引用该文件，不能删除；请在工程资料目录管理关联和版本");
-        if (objectStorage.enabled())
-        {
-            try { objectStorage.remove(String.valueOf(row.get("objectKey"))); }
-            catch (IOException ex) { throw new IllegalStateException("unable to archive MinIO object", ex); }
-        }
-        jdbc.update("UPDATE data_file SET status='DELETED' WHERE file_id=? AND field_id=? AND status='ACTIVE'", fileId, fieldId);
-        Path local = Path.of(RuoYiConfig.getProfile()).resolve(String.valueOf(row.get("objectKey"))).toAbsolutePath().normalize();
-        Path root = Path.of(RuoYiConfig.getProfile(), "drilling-files", String.valueOf(fieldId)).toAbsolutePath().normalize();
-        if (local.startsWith(root))
-        {
-            try { Files.deleteIfExists(local); } catch (IOException ignored) { /* metadata is already archived */ }
-        }
+        EngineeringUsageGuard.requireFileUnused(jdbc,fileId);
+        jdbc.update("UPDATE data_file SET status='DELETED' WHERE file_id=? AND field_id=? AND status='ACTIVE'",fileId,fieldId);
+        jdbc.update("UPDATE drilling_engineering_document_file df JOIN drilling_source_document s ON s.source_id=df.source_id SET df.usage_state='DELETED' WHERE s.file_id=?",fileId);
+        // Original bytes are retained for recovery and historical traceability.
     }
 
     private void requireFieldAccess(Long fieldId)

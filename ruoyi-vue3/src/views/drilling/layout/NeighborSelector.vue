@@ -44,7 +44,7 @@ const treeData=computed(()=>{
 })
 function syncTree(){nextTick(()=>treeRef.value?.setCheckedKeys(selectedKeys.value))}
 watch(selectedKeys,syncTree,{immediate:true})
-function wellboreName(row){const bore=cleanName(row.wellbore_name||row.wellbore_code),well=cleanName(row.well_name||row.well_code);return !bore||bore===well?'主井眼':bore}
+function wellboreName(row){return cleanName(row.wellbore_name||row.wellbore_code)||'主井眼'}
 function pathLabel(row){return [cleanName(row.block_name)||'未注明区块',cleanName(row.field_name)||'未注明井场',cleanName(row.well_name)||`井 ${cleanName(row.well_code)||'未命名'}`,wellboreName(row)].filter((part,index,all)=>part&&part!==all[index-1]).join(' / ')}
 function checkChange(data,state){const selected=new Set(state.checkedKeys.map(String));selectableRows.value.forEach(row=>setNeighborIncluded(row,selected.has(String(row.wellbore_id))));emit('change')}
 function excludeUnavailable(row){setNeighborIncluded(row,false);syncTree();emit('change')}

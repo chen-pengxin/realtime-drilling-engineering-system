@@ -68,6 +68,7 @@ function html(permissions) {
       else if (/\/registry\/sources\/72\/review$/.test(endpoint)) body = { status: 'CONFIRMED' }
       else if (/\/library\/documents\/81$/.test(endpoint)) body = { ...sourceFile, latest_edition_no: 2 }
       else if (/\/registry\/versions\/10[12]$/.test(endpoint)) body = { source_file_id: 61, reference: {}, stations: [{ md: 0, inclination: 0, azimuth: 0 }, { md: 100, inclination: 2, azimuth: 20 }] }
+      else if (/\/registry\/wellbores\/31\/neighbors$/.test(endpoint)) body = []
       else if (/\/registry\/versions\/101\/activate$/.test(endpoint)) body = {}
       else { unexpected.push(`${method} ${endpoint}`); return route.fulfill({ status: 500, json: { code: 500, msg: 'Unexpected test request' } }) }
       await route.fulfill({ json: body })
@@ -77,13 +78,15 @@ function html(permissions) {
     await page.locator('.library-content .el-table').waitFor()
     const tree = name => page.locator('.library-tree-panel .el-tree-node__content').filter({ has: page.locator('.tree-node>span', { hasText: new RegExp(`^${name}$`) }) })
     const dialog = () => page.locator('.el-dialog:visible').last()
+    await tree('主井眼').click()
+    await page.getByRole('tab', { name: '测斜数据', exact: true }).waitFor()
     return { page, calls, mutations, unexpected, tree, dialog }
   }
   try {
     // Read-only accounts see records, but no mutation actions in lists or details.
     {
       const f = await fixture(['drilling:well:list', 'drilling:file:list'])
-      await f.page.getByRole('tab', { name: '轨迹数据版本', exact: true }).click()
+      await f.page.getByRole('tab', { name: '测斜数据', exact: true }).click()
       assert.equal(await f.page.getByRole('button', { name: '设为当前', exact: true }).count(), 0)
       await f.page.getByRole('button', { name: '数据', exact: true }).first().click()
       await f.dialog().getByRole('button', { name: '轨道归算表', exact: true }).waitFor()
@@ -94,8 +97,8 @@ function html(permissions) {
     // Data-only permission retains the reduction table without exposing source-file exports.
     {
       const f = await fixture(['drilling:well:list'])
-      assert.equal(await f.page.getByRole('tab', { name: '资料文件', exact: true }).count(), 0)
-      await f.page.getByRole('tab', { name: '轨迹数据版本', exact: true }).click()
+      assert.equal(await f.page.getByRole('tab', { name: '文件管理', exact: true }).count(), 0)
+      await f.page.getByRole('tab', { name: '测斜数据', exact: true }).click()
       assert.equal(await f.page.getByRole('button', { name: '归算表', exact: true }).count(), 2)
       for (const name of ['来源原件', '来源格式', '资料包', '设为当前']) assert.equal(await f.page.getByRole('button', { name, exact: true }).count(), 0)
       await f.page.getByRole('button', { name: '数据', exact: true }).first().click()
@@ -106,7 +109,7 @@ function html(permissions) {
     // Linking a file directly to a field never calls the create-well endpoint.
     {
       const f = await fixture(['drilling:well:list', 'drilling:file:list', 'drilling:file:add'])
-      await f.page.getByRole('tab', { name: '资料文件', exact: true }).click()
+      await f.page.getByRole('tab', { name: '文件管理', exact: true }).click()
       assert.equal(await f.page.getByRole('button', { name: '上传文件', exact: true }).count(), 0)
       await f.page.getByRole('button', { name: '选用已有文件', exact: true }).click()
       await f.dialog().getByRole('button', { name: '添加', exact: true }).waitFor()
@@ -122,7 +125,7 @@ function html(permissions) {
     // Upload uses the selected field as the default and retains the original filename.
     {
       const f = await fixture(['drilling:well:list', 'drilling:file:list', 'drilling:well:survey:import'])
-      await f.page.getByRole('tab', { name: '资料文件', exact: true }).click()
+      await f.page.getByRole('tab', { name: '文件管理', exact: true }).click()
       await f.page.getByRole('button', { name: '上传文件', exact: true }).click()
       assert.match(await f.dialog().innerText(), /工程层级[\s\S]*测试区块 \/ 测试井场/)
       await f.dialog().locator('input[type=file]').setInputFiles({ name: '井场说明.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-test') })
@@ -139,7 +142,7 @@ function html(permissions) {
     // New file editions are locked to the file row's node, not the aggregate field.
     {
       const f = await fixture(['*:*:*'])
-      await f.page.getByRole('tab', { name: '资料文件', exact: true }).click()
+      await f.page.getByRole('tab', { name: '文件管理', exact: true }).click()
       await f.page.getByRole('button', { name: '上传新版本', exact: true }).click()
       await f.dialog().getByText('最新文件版次', { exact: true }).waitFor()
       assert.equal(await f.dialog().getByRole('button', { name: '应用到全部文件', exact: true }).count(), 0)
@@ -156,7 +159,7 @@ function html(permissions) {
       const f = await fixture(['*:*:*'])
       await f.tree('引用井眼').click()
       for (const name of ['上传文件', '选用已有文件', '编辑井眼', '添加资料', '修改系统名称', '上传新版本']) assert.equal(await f.page.getByRole('button', { name, exact: true }).count(), 0)
-      await f.page.getByRole('tab', { name: '轨迹数据版本', exact: true }).click()
+      await f.page.getByRole('tab', { name: '测斜数据', exact: true }).click()
       assert.equal(await f.page.getByRole('button', { name: '设为当前', exact: true }).count(), 0)
       assert.deepEqual(f.unexpected, []); await f.page.close()
     }

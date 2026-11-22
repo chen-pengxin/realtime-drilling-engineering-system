@@ -38,18 +38,18 @@ public final class SourceSpreadsheetExporter {
       double angular="rad".equals(reference.get("angle_unit"))?Math.PI/180:1;
       String north=Objects.toString(reference.get("north_reference"),"GRID_NORTH");
       double correction="GRID_NORTH".equals(north)?0:-number(reference.get("meridian_convergence"))+("MAGNETIC_NORTH".equals(north)?number(reference.get("magnetic_declination")):0);
-      Set<String> values=Set.of("md","inclination","azimuth","north","east","tvd");
+      Set<String> values=Set.of("md","inclination","azimuth","north","east","tvd","dogleg","closure_distance","closure_azimuth","horizontal_length","apparent_horizontal_length","remark");
       for(int i=0;i<positions.size();i++) {
         Row row=sheet.getRow(positions.get(i));if(row==null)row=sheet.createRow(positions.get(i));
         for(var field:mapping.entrySet()) {
           if(!values.contains(field.getKey()))continue;
           int column=((Number)field.getValue()).intValue();Cell cell=row.getCell(column,Row.MissingCellPolicy.CREATE_NULL_AS_BLANK);
           if(i>=stations.size()){cell.setBlank();continue;}
-          Object raw=stations.get(i).get(field.getKey());if(!(raw instanceof Number n)){cell.setBlank();continue;}
+          Object raw=stations.get(i).get(field.getKey());if("remark".equals(field.getKey())){cell.setCellValue(Objects.toString(raw,""));continue;}if(!(raw instanceof Number n)){cell.setBlank();continue;}
           double value=n.doubleValue();
           if(field.getKey().equals("azimuth"))value=((value-correction)%360+360)%360*angular;
           else if(field.getKey().equals("inclination"))value*=angular;
-          else value/=scale;
+          else if(!Set.of("dogleg","closure_azimuth").contains(field.getKey())) {if(Boolean.TRUE.equals(reference.get("coordinates_are_offsets"))&&Set.of("north","east").contains(field.getKey()))value-=number(reference.get("origin_"+field.getKey()));value/=scale;}
           cell.setCellValue(value);
         }
       }

@@ -65,6 +65,29 @@ public final class LegacyWordReader {
     result.put("start_offset",table.getStartOffset());result.put("end_offset",table.getEndOffset());return result;
   }
 
+  private static void patch(HWPFDocument document,Path payload) throws Exception {
+    var request=new ObjectMapper().readTree(payload.toFile());int wanted=request.path("table_index").asInt();
+    Range range=document.getRange();Table selected=null;int index=0,end=-1;
+    for(int i=0;i<range.numParagraphs();i++){var paragraph=range.getParagraph(i);if(paragraph.getStartOffset()<end)continue;if(paragraph.isInTable()){var current=range.getTable(paragraph);end=current.getEndOffset();if(++index==wanted){selected=current;break;}}}
+    if(selected==null)throw new IllegalArgumentException("来源Word表格不存在");
+    var values=request.path("rows");
+    if(values.size()>selected.numRows()){
+      if(values.size()>100000)throw new IllegalArgumentException("Word导出行数过多");
+      org.apache.poi.hwpf.usermodel.SourceTableRows.append(document,selected,values.size()-selected.numRows());
+      int originalStart=selected.getStartOffset();range=document.getRange();
+      for(int i=0;i<range.numParagraphs();i++){var paragraph=range.getParagraph(i);if(paragraph.getStartOffset()==originalStart){selected=range.getTable(paragraph);break;}}
+      if(values.size()>selected.numRows())throw new IllegalArgumentException("Word新增数据行未能保留来源表结构");
+    }
+    SortedSet<Integer> edges=new TreeSet<>();for(int r=0;r<selected.numRows();r++)for(int c=0;c<selected.getRow(r).numCells();c++){var cell=selected.getRow(r).getCell(c);edges.add(cell.getLeftEdge());edges.add(cell.getLeftEdge()+cell.getWidth());}
+    var grid=new ArrayList<>(edges);record Edit(int start,int end,String value){}var edits=new ArrayList<Edit>();
+    for(int r=0;r<values.size();r++){var row=selected.getRow(r);for(int c=0;c<row.numCells();c++){var cell=row.getCell(c);int column=grid.indexOf(cell.getLeftEdge());if(column<0||column>=values.get(r).size())continue;
+      String replacement=values.get(r).get(column).asText(),old=cell.text();int keep=old.length();while(keep>0&&(old.charAt(keep-1)=='\r'||old.charAt(keep-1)=='\u0007'))keep--;
+      if(!text(old).equals(replacement))edits.add(new Edit(cell.getStartOffset(),cell.getStartOffset()+keep,replacement));
+    }}
+    edits.sort(Comparator.comparingInt(Edit::start).reversed());for(var edit:edits)new Range(edit.start(),edit.end(),document).replaceText(edit.value(),false);
+    document.write(System.out);
+  }
+
   public static void main(String[] args) throws Exception {
     if(args.length<2)throw new IllegalArgumentException("inspect|asset source.doc [picture-index]");
     try(InputStream input=Files.newInputStream(Path.of(args[1])); HWPFDocument document=new HWPFDocument(input)) {
@@ -73,6 +96,7 @@ public final class LegacyWordReader {
         if(index<0||index>=pictures.size())throw new IllegalArgumentException("原件插图不存在");
         System.out.write(pictures.get(index).getContent());return;
       }
+      if(args[0].equals("patch")){patch(document,Path.of(args[2]));return;}
       Range range=document.getRange();List<Map<String,Object>> blocks=new ArrayList<>();int tables=0,paragraphs=0;
       int end=-1;String caption="";
       for(int i=0;i<range.numParagraphs();i++) {

@@ -53,12 +53,15 @@ public class TrajectoryVersionSupport {
             kind,
             well);
     if (valid == null || valid != 1) throw new IllegalArgumentException("当前版本与井眼/轨道类型不符");
+    Integer unavailable=db.queryForObject("SELECT COUNT(*) FROM drilling_survey_version v JOIN data_file f ON f.file_id=v.source_file_id WHERE v.survey_version_id=? AND (f.status='DELETED' OR (EXISTS(SELECT 1 FROM drilling_source_document sd JOIN drilling_engineering_document_file df ON df.source_id=sd.source_id JOIN drilling_engineering_document d ON d.document_id=df.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE sd.file_id=f.file_id AND n.wellbore_id=? AND df.usage_state IN ('FORBIDDEN','WITHDRAWN','DELETED')) AND NOT EXISTS(SELECT 1 FROM drilling_source_document sd JOIN drilling_engineering_document_file df ON df.source_id=sd.source_id JOIN drilling_engineering_document d ON d.document_id=df.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE sd.file_id=f.file_id AND n.wellbore_id=? AND df.usage_state IN ('ACTIVE','HISTORICAL','DRAFT'))))",Integer.class,version,bore,bore);
+    if(unavailable!=null&&unavailable>0)throw new IllegalArgumentException("所选版本的来源文件已停用或删除，不能设为当前版本");
     db.update(
         "INSERT INTO drilling_trajectory_head(wellbore_id,trajectory_kind,survey_version_id)"
             + " VALUES(?,?,?) ON DUPLICATE KEY UPDATE survey_version_id=VALUES(survey_version_id)",
         bore,
         kind,
         version);
+    db.update("UPDATE drilling_engineering_document_file df JOIN drilling_source_document sd ON sd.source_id=df.source_id JOIN drilling_survey_version s ON s.source_file_id=sd.file_id JOIN drilling_engineering_document d ON d.document_id=df.document_id JOIN drilling_engineering_node n ON n.node_id=d.node_id SET df.usage_state='ACTIVE' WHERE s.survey_version_id=? AND n.wellbore_id=? AND df.usage_state IN ('DRAFT','HISTORICAL')",version,bore);
     // is_current remains the selected actual bore for legacy realtime clients.
     // Other bores' independent ACTUAL/DESIGN heads are never removed.
     if ("ACTUAL".equals(kind)) {

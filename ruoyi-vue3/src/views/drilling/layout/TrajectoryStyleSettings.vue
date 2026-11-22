@@ -9,6 +9,7 @@
     <el-form-item label="线型"><el-select v-model="draft.dash" aria-label="轨迹线型" @change="engineeringChanged"><el-option v-for="(label,key) in trajectoryLineTypes" :key="key" :label="label" :value="key" /></el-select></el-form-item>
     <el-form-item label="不透明度（%）"><el-input-number v-model="opacity" :min="10" :max="100" :step="5" controls-position="right" aria-label="轨迹不透明度" @change="engineeringChanged" /></el-form-item>
     <el-form-item v-if="type==='DESIGN'||type==='PLANNED'" label="设计节点大小（px）"><el-input-number v-model="draft.nodeSize" :min="2" :max="12" :step="1" controls-position="right" aria-label="设计节点大小" @change="engineeringChanged" /></el-form-item>
+    <el-form-item label="三维网格颜色"><el-color-picker :model-value="gridStyle.color" @update:model-value="v=>setGrid({color:v})"/></el-form-item><el-form-item label="三维网格线宽（px）"><el-input-number :model-value="gridStyle.width" :min="0.5" :max="5" :step="0.5" @update:model-value="v=>setGrid({width:v})"/></el-form-item>
     <div class="style-preview" aria-label="轨迹样式预览"><svg viewBox="0 0 180 30" role="img"><path d="M 10 23 L 70 8 L 120 17 L 170 5" fill="none" :stroke="draft.color" :stroke-width="draft.width" :stroke-dasharray="dashArray" :opacity="draft.opacity" /></svg></div>
     <div class="style-actions"><el-button type="primary" :disabled="scope==='selected'&&!wellboreIds.length" @click="apply(false)">{{engineering?'更新样式':'应用样式'}}</el-button><el-button :disabled="scope==='selected'&&!wellboreIds.length" @click="apply(true)">{{scope==='selected'?'恢复同类样式':engineering?'恢复默认':'恢复工程配置'}}</el-button></div>
     <p class="style-note">{{engineering?'用于全系统的二维、三维轨迹，保存新版本后生效。':'以工程统一参数为基础调整显示，当前账号的调整保存在本浏览器。'}}指定井眼设置优先，风险井段按评价等级着色。</p>
@@ -21,13 +22,15 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import WellboreSelect from './WellboreSelect.vue'
 import useTrajectoryAppearance from '@/store/modules/trajectoryAppearance'
-import { trajectoryRoles, trajectoryTypes, trajectoryLineTypes, trajectoryCategory, resolveTrajectoryStyle, setTrajectoryStyle, emptyTrajectoryStyles } from '@/utils/trajectoryStyles'
+import { trajectoryRoles, trajectoryTypes, trajectoryLineTypes, trajectoryCategory, resolveTrajectoryStyle, setTrajectoryStyle, emptyTrajectoryStyles,resolveGridStyle } from '@/utils/trajectoryStyles'
 
 const props = defineProps({ trajectories: { type: Array, default: () => [] }, engineering:Boolean, modelValue:Object })
 const emit = defineEmits(['update:modelValue'])
 const appearance = useTrajectoryAppearance()
 const role = ref('REFERENCE'), type = ref('ACTUAL'), scope = ref('all'), wellboreIds = ref([])
 const draft = reactive({})
+const gridStyle=computed(()=>props.engineering?resolveGridStyle(null,props.modelValue):appearance.gridStyle)
+function setGrid(value){const next={...gridStyle.value,...value};if(props.engineering)emit('update:modelValue',{...props.modelValue,grid:next});else appearance.applyGrid(next)}
 const colors = ['#2563eb','#7c3aed','#16a34a','#000000','#9ca3af','#b9a8d0','#0891b2','#475569']
 const rows = computed(() => [...new Map(props.trajectories.filter(t => (props.engineering || trajectoryCategory(t).role === role.value) && Number(t.wellbore_id)>0).map(t => [Number(t.wellbore_id),t])).values()])
 const opacity = computed({get:()=>Math.round(draft.opacity*100),set:value=>{draft.opacity=value/100}})

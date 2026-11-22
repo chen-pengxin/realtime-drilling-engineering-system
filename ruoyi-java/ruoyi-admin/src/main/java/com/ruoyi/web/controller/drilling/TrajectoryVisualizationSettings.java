@@ -16,6 +16,7 @@ final class TrajectoryVisualizationSettings {
         Map<?, ?> config = map(value);
         if (!(config.get("version") instanceof Number version) || version.doubleValue() != 1)
             throw new IllegalArgumentException("轨迹可视化配置格式无效");
+        if(config.containsKey("grid")){var grid=map(config.get("grid"));if(grid.containsKey("color")&&!String.valueOf(grid.get("color")).matches("#[0-9a-fA-F]{6}"))throw new IllegalArgumentException("网格颜色无效");range(grid,"width",.5,5,"网格线宽须为0.5～5px");}
         if (config.containsKey("styles")) roles(map(config.get("styles")));
         if (config.containsKey("wellbores")) {
             for (var entry : map(config.get("wellbores")).entrySet()) {

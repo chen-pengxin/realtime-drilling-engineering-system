@@ -17,9 +17,14 @@ ALIASES={
  'md':('measureddepth','md','测深','井深','测量深度'),
  'inclination':('inclination','incl','inc','井斜角','井斜','斜度'),
  'azimuth':('azimuth','azim','azi','网格方位','井眼方位','方位角','方位'),
- 'north':('northing','north','utmn/s','北坐标','北位移'),
- 'east':('easting','east','utme/w','东坐标','东位移'),
+ 'north':('northing','north','utmn/s','北坐标','北位移','（N）值','N/S'),
+ 'east':('easting','east','utme/w','东坐标','东位移','（E）值','E/W'),
  'tvd':('tvd','垂深','垂直深度'),
+ 'dogleg':('dogleg','dls','狗腿度','井眼曲率','全角变化率'),
+ 'closure_distance':('水平位移','闭合距'),
+ 'closure_azimuth':('平移方位','闭合方位'),
+ 'horizontal_length':('水平长度',),
+ 'apparent_horizontal_length':('视平长','视平移'),
 }
 def norm(x):return re.sub(r'[\s_（）()°/\\\-\r\n\[\]]','',str(x or '')).lower()
 def columns(row):
@@ -171,6 +176,7 @@ def inspect_document(path,*,original_name=None,default_kind=None):
  for key,pattern in {'wellhead_north':r'纵坐标\s*[（(]?X[)）]?\s*[：:]\s*([\d.]+)','wellhead_east':r'横坐标\s*[（(]?Y[)）]?\s*[：:]\s*([\d.]+)','magnetic_declination':r'磁偏角\s*[：:]\s*([+-]?[\d.]+)','meridian_convergence':r'子午线收敛角\s*[：:]\s*([+-]?[\d.]+)'}.items():
   found=re.search(pattern,alltext,re.I)
   if found:result['metadata'][key]=float(found.group(1))
+ from .engineering_tables import engineering_tables
  result['text_excerpt']=alltext[:250000]
  from app.domain.engineering_documents import describe_document
  result['engineering']=describe_document(name,result['text_excerpt'],str(p))
@@ -188,8 +194,9 @@ def inspect_document(path,*,original_name=None,default_kind=None):
   value=engineering.get(key)
   if value not in (None,''):
    result['metadata'][key]=value
+ result['metadata']['engineering_tables']=engineering_tables(result.get('document',{}),alltext,result['metadata'])
  for table in tables:
-  table.reference={**result['metadata'],**table.reference}
+  table.reference={**{k:v for k,v in result['metadata'].items() if k!='engineering_tables'},**table.reference}
   if engineering.get('coordinate_system_text'):
    table.reference.setdefault('coordinate_system_text',engineering['coordinate_system_text'])
   if engineering.get('coordinate_datum_name'):
@@ -320,7 +327,7 @@ def _station_values(row: dict, mapping: dict) -> dict:
     return {
         key: _export_number(row.get(key))
         for key in mapping
-        if key in {"md", "inclination", "azimuth", "north", "east", "tvd"}
+        if key in set(ALIASES)|{"remark"}
     }
 
 
@@ -357,7 +364,7 @@ def _patch_rows(rows: list[list[Any]], extraction: dict, stations: list[dict], *
         values = _station_values(station, mapping)
         for key, column in mapping.items():
             if key in values:
-                target[column] = float(values[key]) if numeric and values[key] != "" else values[key]
+                target[column] = float(values[key]) if numeric and key!="remark" and values[key] != "" else values[key]
         rows[target_index] = target
     # Clear stale rows when the new immutable snapshot is shorter. Keep raw
     # non-trajectory columns (remarks/source IDs) and remove mapped values only.
@@ -381,8 +388,10 @@ def _source_units(stations, reference):
     result = []
     for row in stations:
         item = dict(row)
-        for key in ('md', 'north', 'east', 'tvd'):
-            if item.get(key) is not None:item[key] = float(item[key]) / scale
+        for key in ('md', 'north', 'east', 'tvd', 'closure_distance', 'horizontal_length', 'apparent_horizontal_length'):
+            if item.get(key) is not None:
+                offset=float(reference.get('origin_'+key,0)) if key in ('north','east') and reference.get('coordinates_are_offsets') else 0.
+                item[key] = (float(item[key])-offset) / scale
         if item.get('inclination') is not None:item['inclination'] = float(item['inclination']) * angular_scale
         if item.get('azimuth') is not None:item['azimuth'] = ((float(item['azimuth']) - correction) % 360) * angular_scale
         result.append(item)
@@ -395,9 +404,9 @@ def export_source_document(data: bytes, original_name: str, stations: list[dict]
 
     ``ORIGINAL`` is byte-for-byte and is used for audit/download. ``PATCHED``
     rewrites only the selected trajectory table and keeps sheets, paragraphs,
-    delimiters, encodings and unrelated content. PDF and legacy binary XLS
-    have no safe in-place writer in the service; those formats require the
-    original audit copy and are rejected for a lossy rewrite.
+    delimiters, encodings and unrelated content. PDF tables are replaced at
+    verified source cell positions. Legacy Word uses an isolated Office copy;
+    legacy binary XLS is handled by the Java workbook adapter.
     """
     if mode.upper() == "ORIGINAL":
         return data, original_name, "application/octet-stream"
@@ -413,7 +422,34 @@ def export_source_document(data: bytes, original_name: str, stations: list[dict]
     mapping = extraction.get("mapping") or {}
     if not locator or not mapping:
         raise ValueError("来源提取表缺少 locator 或字段映射")
+    if suffix=='.doc' and data.startswith(bytes.fromhex('D0CF11E0')):
+        from .legacy_word import word_blocks,patch_word
+        blocks,_=word_blocks(data,'ACTUAL')
+        match=re.search(r'(?:legacy:)?table:(\d+)',locator)
+        if not match:raise ValueError('旧Word来源表定位缺失')
+        table_index=int(match.group(1));block=next((b for b in blocks if b['locator']==f'legacy:table:{table_index}'),None)
+        if block is None:raise ValueError('旧Word来源表不存在')
+        values=deepcopy(block['rows']);converted=_source_units(stations,source_reference or extraction.get('reference') or {})
+        _patch_rows(values,extraction,converted)
+        return patch_word(data,table_index,values),original_name,'application/msword'
+    if suffix in (".doc", ".wps", ".rtf"):
+        from .office_conversion import convert_office
+        converted=convert_office(data,suffix,'docx',preserve_tables=True)
+        # Re-identify the same source table after the Office conversion. Do
+        # not assume row positions survive merged-cell normalization.
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'source.docx';path.write_bytes(converted)
+            candidates=inspect_document(path)['trajectories']
+        mds=[round(float(r['md']),6) for r in extraction['rows']]
+        matches=[t for t in candidates if [round(float(r['md']),6) for r in t['rows']]==mds]
+        if len(matches)!=1:raise ValueError('旧Word中的来源轨迹表无法唯一定位，已停止回写')
+        patched,_,_=export_source_document(converted,'source.docx',stations,matches[0],mode='PATCHED',source_reference=source_reference or extraction.get('reference'))
+        return convert_office(patched,'.docx',suffix.lstrip('.')),original_name,'application/msword' if suffix=='.doc' else 'application/octet-stream'
     stations = _source_units(stations, source_reference or extraction.get('reference') or {})
+
+    if suffix=='.pdf':
+        from .pdf_source_export import patch_pdf
+        return patch_pdf(data,stations,extraction,source_reference or {}),original_name,'application/pdf'
 
     if suffix in (".xlsx", ".xlsm") or data.startswith(b"PK") and suffix in (".xlsx", ".xlsm"):
         from openpyxl import load_workbook
@@ -554,4 +590,4 @@ def export_source_document(data: bytes, original_name: str, stations: list[dict]
         for station in candidates[len(stations):]:parents[station].remove(station)
         return ET.tostring(root, encoding="utf-8", xml_declaration=True), original_name, "application/xml"
 
-    raise ValueError("PDF、旧 XLS、旧 Word 只支持原件下载；请导出标准化轨道归算表")
+    raise ValueError("该来源格式尚无可靠的轨迹表回写器，原件已保留")

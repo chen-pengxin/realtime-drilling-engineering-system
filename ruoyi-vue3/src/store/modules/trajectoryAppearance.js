@@ -2,7 +2,7 @@ import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import useUserStore from './user'
 import { useDrillingContext } from '@/views/drilling/composables/useDrillingContext'
-import { emptyTrajectoryStyles, normalizeTrajectoryStyles, resolveTrajectoryStyle, setTrajectoryStyle } from '@/utils/trajectoryStyles'
+import { emptyTrajectoryStyles, normalizeTrajectoryStyles, resolveTrajectoryStyle, setTrajectoryStyle,normalizeGridStyle,resolveGridStyle } from '@/utils/trajectoryStyles'
 
 export const trajectoryStyleStorageKey = userId => `drilling.trajectory-styles.v1.${encodeURIComponent(userId)}`
 
@@ -37,6 +37,8 @@ export default defineStore('trajectoryAppearance', () => {
   }
   return {
     preferences, engineeringStyles, storageError,
+    gridStyle:computed(()=>resolveGridStyle(preferences.value,engineeringStyles.value)),
+    applyGrid:value=>save({...preferences.value,grid:normalizeGridStyle(value)}),
     styleFor: trajectory => resolveTrajectoryStyle(preferences.value, trajectory, engineeringStyles.value),
     apply: options => {
       if (options.reset) return save(setTrajectoryStyle(preferences.value, options))

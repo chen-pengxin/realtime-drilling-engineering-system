@@ -57,3 +57,17 @@ def word_blocks(data: bytes, kind: str):
             block['semantic_type'] = 'FIGURE' if block['type'] == 'FIGURE' else 'TEXT'
         blocks.append(block)
     return blocks, dict(reader=parsed['reader'])
+
+
+def patch_word(data,table_index,rows):
+    helper=Path(os.environ.get('DRILLING_LEGACY_WORD_READER',str(Path(__file__).resolve().parents[2]/'tools/legacy-office-reader/target/legacy-office-reader.jar')))
+    with tempfile.TemporaryDirectory(prefix='drilling-doc-export-') as directory:
+        source=Path(directory)/'source.doc';source.write_bytes(data)
+        payload=Path(directory)/'table.json';payload.write_text(json.dumps({'table_index':table_index,'rows':rows},ensure_ascii=False))
+        result=subprocess.run([shutil.which('java') or 'java','-Xmx768m','-Dlog4j2.loggerContextFactory=org.apache.logging.log4j.simple.SimpleLoggerContextFactory','-jar',str(helper),'patch',str(source),str(payload)],capture_output=True,timeout=120)
+    if result.returncode or not result.stdout.startswith(bytes.fromhex('D0CF11E0')):raise ValueError('旧Word来源表回写失败；原件已保留，请核对表格行数或提供可编辑的Word原件')
+    verified=read_word(result.stdout)
+    table=next((b for b in verified['blocks'] if b.get('locator')==f'legacy:table:{table_index}'),None)
+    expected=[[str(v).strip() for v in row] for row in rows]
+    if table is None or table.get('rows')!=expected:raise ValueError('旧Word导出复核发现表格结构不一致，已停止下载；原件已保留')
+    return result.stdout

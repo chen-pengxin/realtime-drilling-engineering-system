@@ -152,6 +152,11 @@ def import_cases(db, profile):
             well = ensure('drilling_well', {'field_id': field, 'well_code': f'井{number}'}, dict(well_name=f'井{number}',
                 status=status, wellhead_n=first['north'], wellhead_e=first['east'], wellhead_tvd=first['tvd'],
                 metadata_json=js({'test_case': letter}), create_by='system-test'), 'well_id')
+            # 靶点属于具体井眼的工程数据。历史种子曾只写入井场范围，
+            # 迁移到井眼页面后补齐井1的归属，避免靶区在井眼页丢失。
+            if number == 1:
+                with db.cursor() as c:
+                    c.execute("UPDATE drilling_target SET well_id=%s WHERE field_id=%s AND target_name='井1目标点' AND status='ACTIVE'", (well, field))
             ensure('drilling_well_catalog', {'well_id': well}, dict(field_id=field, identity_key=f'井{number}'), 'well_id')
             bore = ensure('drilling_wellbore', {'well_id': well, 'wellbore_code': 'MAIN'},
                           dict(wellbore_name='主井眼', engineering_status=status), 'wellbore_id')

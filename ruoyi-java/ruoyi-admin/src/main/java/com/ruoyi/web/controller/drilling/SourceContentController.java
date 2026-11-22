@@ -45,6 +45,14 @@ public class SourceContentController {
     result.put("original_name",file.get("original_name"));result.put("display_name",file.get("display_name"));return result;
   }
 
+  @GetMapping("/original-preview") @RequiresPermissions("drilling:file:list")
+  public ResponseEntity<byte[]> originalPreview(@PathVariable Long fieldId,@PathVariable Long sourceId) throws IOException{
+    var file=source(fieldId,sourceId,false);var payload=new LinkedHashMap<String,Object>();
+    payload.put("original_base64",Base64.getEncoder().encodeToString(files.readBytes(fieldId,((Number)file.get("file_id")).longValue())));
+    payload.put("original_name",file.get("original_name"));
+    return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).header("Cache-Control","private, max-age=3600").body(engine.binary("/source/original-preview",payload));
+  }
+
   @GetMapping("/content/{sectionId}")
   @RequiresPermissions("drilling:file:list")
   public Map<String,Object> section(@PathVariable Long fieldId,@PathVariable Long sourceId,@PathVariable Long sectionId,
