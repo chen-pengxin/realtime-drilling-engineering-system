@@ -65,6 +65,7 @@ public class MenuManagementController {
                 m ->
                     m.get("routePath") != null
                         && (admin
+                            || "/index".equals(m.get("routePath"))
                             || String.valueOf(m.get("routePath")).startsWith("/drilling")
                             || String.valueOf(m.get("routePath")).startsWith("/navigation")))
             .toList());
@@ -103,7 +104,7 @@ public class MenuManagementController {
         path,
         state(b));
     AuthorizationUtils.clearAllCachedAuthorizationInfo();
-    return AjaxResult.success();
+    return AjaxResult.success(Map.of("menuId", id));
   }
 
   @PutMapping("/api/operations/menus/{id}")
@@ -112,7 +113,7 @@ public class MenuManagementController {
     ops.admin();
     lock();
     Map<String, Object> old = menu(id);
-    validate(id, b);
+    validate(old, b);
     if (!old.get("menuType").equals(text(b, "menuType", 1, true)))
       throw new IllegalArgumentException("菜单类型不可修改");
     if (ESSENTIAL.contains(String.valueOf(old.get("routePath")))
@@ -179,7 +180,8 @@ public class MenuManagementController {
     }
   }
 
-  private void validate(Long id, Map<String, Object> b) {
+  private void validate(Map<String, Object> existing, Map<String, Object> b) {
+    Long id = existing == null ? null : ((Number) existing.get("menuId")).longValue();
     String type = text(b, "menuType", 1, true);
     if (!Set.of("M", "C", "F").contains(type)) throw new IllegalArgumentException("菜单类型无效");
     if (!Set.of("0", "1").contains(text(b, "visible", 1, true)))
@@ -188,27 +190,44 @@ public class MenuManagementController {
     text(b, "menuName", 50, true);
     Set<Long> seen = new HashSet<>();
     Long p = parent(b);
+    boolean managementParent = false;
     while (p != 0) {
       if (Objects.equals(p, id) || !seen.add(p)) throw new IllegalArgumentException("菜单层级不能循环");
       var m = menu(p);
+      String ancestorPath = Objects.toString(m.get("routePath"), "");
+      if (ancestorPath.equals("/access") || ancestorPath.equals("/operations") || ancestorPath.startsWith("/access/") || ancestorPath.startsWith("/operations/"))
+        managementParent = true;
       if ("F".equals(m.get("menuType"))) throw new IllegalArgumentException("操作权限不能包含下级菜单");
       p = ((Number) m.get("parentId")).longValue();
     }
     if (type.equals("F")) {
       if (parent(b) == 0) throw new IllegalArgumentException("操作权限须归属业务菜单");
       String perm = text(b, "perms", 100, true);
-      if (!perm.matches("drilling:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+"))
-        throw new IllegalArgumentException("只允许配置 drilling:资源:操作 业务权限");
+      if (!perm.matches("drilling:(?:[A-Za-z0-9_-]+:)+[A-Za-z0-9_-]+"))
+        throw new IllegalArgumentException("权限标识须以 drilling 开头，后接资源和操作，资源可分多级");
     }
     if (!type.equals("F") && parent(b) != 0) {
       var parentMenu = menu(parent(b));
-      if (parentMenu.get("routePath") == null || !"M".equals(parentMenu.get("menuType")))
-        throw new IllegalArgumentException("目录和页面的上级须为导航目录");
+      boolean navigation = existing == null || existing.get("routePath") != null;
+      if (!"M".equals(parentMenu.get("menuType")))
+        throw new IllegalArgumentException("目录和页面的上级须为目录");
+      if (navigation && parentMenu.get("routePath") == null)
+        throw new IllegalArgumentException("导航菜单不能放在业务操作权限分组下");
+    }
+    if (managementParent && id != null && parent(b).longValue() != ((Number)existing.get("parentId")).longValue()) {
+      // The moved directory may be a custom folder containing registered engineering pages.
+      long engineering = ops.jdbc.queryForObject("""
+          WITH RECURSIVE subtree AS (
+            SELECT menu_id FROM sys_menu WHERE menu_id=?
+            UNION ALL SELECT m.menu_id FROM sys_menu m JOIN subtree t ON m.parent_id=t.menu_id
+          ) SELECT COUNT(*) FROM subtree t JOIN drilling_menu_setting s ON s.menu_id=t.menu_id
+            WHERE s.route_path='/drilling' OR s.route_path LIKE '/drilling/%'
+          """, Long.class, id);
+      if (engineering > 0) throw new IllegalArgumentException("工程功能须保留在系统管理和运行维护之外");
     }
     // Admin pages cannot be moved under an engineering-only navigation directory.
     if (id != null) {
-      var old = menu(id);
-      String route = Objects.toString(old.get("routePath"), "");
+      String route = Objects.toString(existing.get("routePath"), "");
       if ((route.startsWith("/access/") || route.startsWith("/operations/")) && parent(b) != 0) {
         String parentPath = Objects.toString(menu(parent(b)).get("routePath"), "");
         if (!(parentPath.startsWith("/access") || parentPath.startsWith("/operations")))

@@ -36,6 +36,15 @@ public class DrillingAccountPolicy {
         });
 
     }
+    public void auditDenied(String path,String method,String ip) {
+        try {
+            jdbc.update("INSERT INTO drilling_system_audit(actor_user_id,actor_name,action,request_id,resource_path,http_method,outcome,client_ip) VALUES(?,?,'权限拒绝',?,?,?,'FAILURE',?)",
+                com.ruoyi.common.utils.ShiroUtils.getUserId(),com.ruoyi.common.utils.ShiroUtils.getLoginName(),UUID.randomUUID().toString(),path.substring(0,Math.min(500,path.length())),method,ip);
+        } catch (org.springframework.dao.DataAccessException ex) {
+            org.slf4j.LoggerFactory.getLogger(getClass()).warn("Unable to record authorization denial");
+        }
+    }
+
     public boolean sessionRevoked(String sessionId) {
         try {
             String fingerprint=java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(sessionId.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
@@ -72,6 +81,7 @@ public class DrillingAccountPolicy {
     }
     public String unavailable(SysUser user) {
         if (user==null || !"0".equals(user.getDelFlag()) || !"0".equals(user.getStatus())) return "账号已停用或删除，请联系系统管理员";
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM drilling_account_lock WHERE user_id=?",Integer.class,user.getUserId())>0) return "账号已锁定，请联系管理员";
         Map<String,Object> p=policy(user.getUserId());
         if ("GUEST".equals(p.get("account_tier"))) {
             LocalDateTime now=LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai"));
@@ -122,6 +132,8 @@ public class DrillingAccountPolicy {
     }
     /** Module mapping for engineering API requests. Unmapped business paths fail closed. */
     public List<String> requiredModules(String path) {
+        if(path.equals("/api/drilling/library/tree")) return List.of("catalog","surveys","versions");
+        if(path.startsWith("/api/drilling/scoped-surveys")) return List.of("catalog","surveys","versions");
         if(path.startsWith("/api/drilling/centers/")) {
             String key=path.substring("/api/drilling/centers/".length()).split("/")[0];
             return Set.of("alerts","history","quality","reports","connectors","versions").contains(key)?List.of(key):List.of();

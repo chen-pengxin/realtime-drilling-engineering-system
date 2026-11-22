@@ -66,7 +66,7 @@ public class LogoutFilter extends org.apache.shiro.web.filter.authc.LogoutFilter
             }
             catch (SessionException ise)
             {
-                log.error("logout fail.", ise);
+                log.warn("Logout failed ({})", ise.getClass().getSimpleName());
             }
             if (ServletUtils.isAjaxRequest((HttpServletRequest) request))
             {
@@ -81,7 +81,7 @@ public class LogoutFilter extends org.apache.shiro.web.filter.authc.LogoutFilter
         }
         catch (Exception e)
         {
-            log.error("Encountered session exception during logout.  This can generally safely be ignored.", e);
+            log.warn("Session already unavailable during logout");
         }
         return false;
     }

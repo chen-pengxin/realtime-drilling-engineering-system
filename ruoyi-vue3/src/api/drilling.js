@@ -103,6 +103,10 @@ export function listPredictionTasks(fieldId) {
   return request({ url: '/api/drilling/predictions', method: 'get', params: fieldId ? { fieldId } : {} })
 }
 
+export function exportPredictionTrajectory(taskId) {
+  return request({ url: `/api/drilling/predictions/${encodeURIComponent(taskId)}/export`, method: 'get', responseType: 'blob' })
+}
+
 export function exportPredictionTasks(fieldId) {
   return request({ url: '/api/drilling/predictions/export', method: 'get', params: { fieldId }, responseType: 'blob' })
 }

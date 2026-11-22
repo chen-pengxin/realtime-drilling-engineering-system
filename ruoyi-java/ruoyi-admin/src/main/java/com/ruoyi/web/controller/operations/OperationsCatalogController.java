@@ -27,6 +27,12 @@ public class OperationsCatalogController {
     this.data = data;
   }
 
+  @PostMapping("/branding")
+  public AjaxResult uploadBranding(@RequestParam("file") org.springframework.web.multipart.MultipartFile file) throws Exception {
+    ops.admin();
+    return AjaxResult.success(Map.of("path",PlatformBranding.save(file)));
+  }
+
   @GetMapping("/settings")
   public AjaxResult settings(@RequestParam Map<String, String> p) {
     ops.admin();
@@ -47,6 +53,20 @@ public class OperationsCatalogController {
     String k = c.getConfigKey(), v = c.getConfigValue();
     if (OperationsSupport.SETTINGS.contains(k)) {
       switch (k) {
+        case "drilling.ui.density" -> choice(v,"small","default","large");
+        case "drilling.ui.preset" -> choice(v,"light","ocean");
+        case "drilling.ui.tags","drilling.ui.cache","drilling.ui.breadcrumb" -> choice(v,"true","false");
+        case "drilling.ui.pageSize" -> choice(v,"10","20","50","100");
+        case "drilling.ui.timezone" -> choice(v,"Asia/Shanghai","UTC");
+        case "drilling.ui.dateStyle" -> choice(v,"zh-CN","en-GB");
+        case "drilling.ui.home" -> choice(v,"/drilling/realtime","/user/profile");
+        case "drilling.ui.logo","drilling.ui.loginImage","drilling.ui.favicon" -> {
+          if (!v.equals("内置") && !v.matches("/branding/[a-zA-Z0-9_-]+[.](png|ico|jpg|webp)"))
+            throw new IllegalArgumentException("请选择有效的平台图片");
+        }
+        case "drilling.backup.days" -> OperationsSupport.integer(v,30,1,365);
+        case "drilling.login.captchaSeconds" -> OperationsSupport.integer(v,120,30,600);
+        case "drilling.login.maxFailures" -> OperationsSupport.integer(v,5,1,10);
         case "drilling.system.name" -> {
           if (v.length() < 2 || v.length() > 30 || v.matches(".*[<>\\r\\n].*"))
             throw new IllegalArgumentException("系统名称须为2～30个字符，不含尖括号与换行");
@@ -57,6 +77,10 @@ public class OperationsCatalogController {
       }
     } else if (!k.matches("drilling\\.custom\\.[a-zA-Z][a-zA-Z0-9_.]{0,80}"))
       throw new IllegalArgumentException("自定义配置键须以drilling.custom.开头");
+  }
+
+  private static void choice(String value,String... valid) {
+    if (!List.of(valid).contains(value)) throw new IllegalArgumentException("参数值不在可选范围内");
   }
 
   private SysConfig settingBody(Map<String, Object> b, Long id) {
@@ -80,7 +104,7 @@ public class OperationsCatalogController {
       throw new IllegalArgumentException("内置配置已存在");
     c.setCreateBy(ShiroUtils.getLoginName());
     configs.insertConfig(c);
-    return AjaxResult.success();
+    return AjaxResult.success(Map.of("configId", c.getConfigId()));
   }
 
   @PutMapping("/settings/{id}")
@@ -122,12 +146,12 @@ public class OperationsCatalogController {
     return ops.pageQuery(
         "SELECT dict_id AS dictId,dict_name AS dictName,dict_type AS"
             + " dictType,status,remark,create_time AS createTime,IF(dict_type LIKE 'sys_%' OR"
-            + " dict_type='drilling_data_source',TRUE,FALSE) AS builtin",
+            + " (dict_type='drilling_data_source' OR LEFT(dict_type,12)='drilling_ui_'),TRUE,FALSE) AS builtin",
         w.toString(), a, "ORDER BY dict_id", p);
   }
 
   private boolean builtin(String type) {
-    return type.startsWith("sys_") || type.equals("drilling_data_source");
+    return type.startsWith("sys_") || type.startsWith("drilling_ui_") || type.equals("drilling_data_source");
   }
 
   private SysDictType type(Long id) {
@@ -156,7 +180,7 @@ public class OperationsCatalogController {
     if (builtin(t.getDictType())) throw new IllegalArgumentException("不能新增内置字典");
     t.setCreateBy(ShiroUtils.getLoginName());
     types.insertDictType(t);
-    return AjaxResult.success();
+    return AjaxResult.success(Map.of("dictId", t.getDictId()));
   }
 
   @PutMapping("/dictionaries/{id}")
@@ -228,7 +252,7 @@ public class OperationsCatalogController {
     SysDictData d = itemBody(b, null, t);
     d.setCreateBy(ShiroUtils.getLoginName());
     data.insertDictData(d);
-    return AjaxResult.success();
+    return AjaxResult.success(Map.of("dictCode", d.getDictCode()));
   }
 
   @PutMapping("/dictionary-items/{id}")
@@ -239,7 +263,7 @@ public class OperationsCatalogController {
     if (old.getDictType().startsWith("sys_")) throw new IllegalArgumentException("系统字典仅供查看");
     SysDictData d = itemBody(b, id, old.getDictType());
     if (builtin(old.getDictType())
-        && (!old.getDictValue().equals(d.getDictValue()) || !old.getStatus().equals(d.getStatus())))
+        && (!old.getDictValue().equals(d.getDictValue())))
       throw new IllegalArgumentException("固定字典仅可修改显示名称和排序");
     d.setUpdateBy(ShiroUtils.getLoginName());
     data.updateDictData(d);

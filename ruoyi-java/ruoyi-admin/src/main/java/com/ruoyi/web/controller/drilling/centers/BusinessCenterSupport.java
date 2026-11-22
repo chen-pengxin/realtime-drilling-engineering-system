@@ -166,7 +166,7 @@ public class BusinessCenterSupport {
         action,
         type,
         id,
-        JSON.toJSONString(detail));
+        com.ruoyi.web.controller.drilling.BusinessAuditMetadata.json(detail));
   }
 
   public static ResponseEntity<byte[]> attachment(byte[] bytes, String name, String type) {

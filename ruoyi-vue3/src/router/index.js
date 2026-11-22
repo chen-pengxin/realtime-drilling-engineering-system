@@ -1,5 +1,6 @@
 import { createWebHistory, createRouter } from 'vue-router'
 /* Layout */
+import useSettingsStore from '@/store/modules/settings'
 import Layout from '@/layout'
 import ParentView from '@/components/ParentView'
 
@@ -56,7 +57,7 @@ export const constantRoutes = [
         meta: { title: '基础功能', icon: 'tool' },
         children: [
           { path: 'catalog', component: () => import('@/views/drilling/basic/CatalogPage.vue'), name: 'DrillingCatalog', meta: { title: '工程资料目录', icon: 'tree', modules:['catalog','surveys','versions'] } },
-          { path: 'surveys', hidden: true, redirect: to => ({path:'/drilling/basic/catalog',query:{...to.query,tab:'trajectory'}}) },
+          { path: 'surveys', hidden: true, redirect: to => ({path:'/drilling/basic/catalog',query:{...to.query,tab:to.query.tab==='versions'?'versions':'surveys'}}) },
           { path: 'realtime-data', component: () => import('@/views/drilling/basic/RealtimeDashboardPage.vue'), name: 'DrillingRealtimeData', meta: { title: '实时数据接入', icon: 'link', modules:['realtime-data','connectors'] } },
           { path: 'config', component: () => import('@/views/drilling/basic/ConfigPage.vue'), name: 'DrillingConfig', meta: { title: '系统配置', icon: 'edit' } },
           { path: 'files', component: () => import('@/views/drilling/basic/FilesAuditPage.vue'), name: 'DrillingFilesAudit', meta: { title: '文件与审计', icon: 'documentation', modules:['files','history','reports'] } }
@@ -95,7 +96,7 @@ export const constantRoutes = [
     { path: '', name: 'NoticeInbox', component: () => import('@/views/operations/NoticeInboxPage.vue'), meta: { title: '通知公告' } }
   ] },
   { path: '/', redirect: '/drilling/realtime', hidden: true },
-  { path: '/index', redirect: '/drilling/realtime', hidden: true },
+  { path: '/index', redirect: () => useSettingsStore().platform.home || '/drilling/realtime', meta:{title:'首页',icon:'dashboard'} },
   {
     path: "/:pathMatch(.*)*",
     component: () => import('@/views/error/404'),
@@ -144,7 +145,7 @@ export const dynamicRoutes = [
     { path: 'configuration', component: ParentView, alwaysShow: true, meta: { title: '配置与公告', icon: 'system' }, children: [
       { path: '/access/dictionaries', name: 'DrillingDictionaries', component: () => import('@/views/operations/DictionariesPage.vue'), meta: { title: '字典管理', icon: 'dict' } },
       { path: '/access/settings', name: 'DrillingSystemSettings', component: () => import('@/views/operations/SettingsPage.vue'), meta: { title: '参数配置', icon: 'edit' } },
-      { path: '/access/notices', name: 'DrillingNoticesAdmin', component: () => import('@/views/operations/NoticesAdminPage.vue'), meta: { title: '通知公告', icon: 'message' } }
+      { path: '/access/notices', name: 'DrillingNoticesAdmin', component: () => import('@/views/operations/NoticesAdminPage.vue'), meta: { title: '通知公告管理', icon: 'message' } }
     ] },
     { path: 'activity', component: ParentView, alwaysShow: true, meta: { title: '日志与会话', icon: 'log' }, children: [
       { path: '/access/login-logs', name: 'DrillingLoginLogs', component: () => import('@/views/operations/LoginLogsPage.vue'), meta: { title: '登录日志', icon: 'logininfor' } },
@@ -154,6 +155,7 @@ export const dynamicRoutes = [
   ] },
   { path: '/operations', component: Layout, alwaysShow: true, roles: ['admin'], meta: { title: '运行维护', icon: 'monitor' }, children: [
     { path: 'monitor', name: 'DrillingOperationsMonitor', component: () => import('@/views/operations/MonitorPage.vue'), meta: { title: '运行监控', icon: 'server' } },
+    { path: 'backups', name:'DrillingBackups', component: () => import('@/views/operations/BackupsPage.vue'), meta:{title:'备份与恢复',icon:'documentation'} },
     { path: 'maintenance', name: 'DrillingMaintenance', component: () => import('@/views/operations/MaintenancePage.vue'), meta: { title: '后台维护任务', icon: 'job' } }
   ] },
   {

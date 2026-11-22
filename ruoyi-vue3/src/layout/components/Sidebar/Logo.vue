@@ -1,11 +1,11 @@
 <template>
   <div class="sidebar-logo-container" :class="{ 'collapse': collapse }">
     <transition name="sidebarLogoFade">
-      <router-link v-if="collapse" key="collapse" class="sidebar-logo-link" to="/drilling/realtime">
+      <router-link v-if="collapse" key="collapse" class="sidebar-logo-link" to="/index">
         <img v-if="logo" :src="logo" class="sidebar-logo" />
         <h1 v-else class="sidebar-title">{{ title }}</h1>
       </router-link>
-      <router-link v-else key="expand" class="sidebar-logo-link" to="/drilling/realtime">
+      <router-link v-else key="expand" class="sidebar-logo-link" to="/index">
         <img v-if="logo" :src="logo" class="sidebar-logo" />
         <h1 class="sidebar-title">{{ title }}</h1>
       </router-link>
@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-import logo from '@/assets/logo/logo.png'
+import defaultLogo from '@/assets/logo/logo.png'
 import useSettingsStore from '@/store/modules/settings'
 import variables from '@/assets/styles/variables.module.scss'
 
@@ -27,6 +27,7 @@ defineProps({
 
 const title = computed(() => settingsStore.systemName || import.meta.env.VITE_APP_TITLE)
 const settingsStore = useSettingsStore()
+const logo=computed(()=>settingsStore.platform.logo?.startsWith('/branding/') ? import.meta.env.VITE_APP_BASE_API+settingsStore.platform.logo : defaultLogo)
 const sideTheme = computed(() => settingsStore.sideTheme)
 
 // 获取Logo背景色

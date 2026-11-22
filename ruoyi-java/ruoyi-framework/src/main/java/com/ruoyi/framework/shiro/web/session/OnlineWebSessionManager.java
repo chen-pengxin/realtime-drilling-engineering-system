@@ -129,7 +129,7 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
                 if (log.isDebugEnabled())
                 {
                     boolean expired = (e instanceof ExpiredSessionException);
-                    String msg = "Invalidated session with id [" + userOnline.getSessionId() + "]"
+                    String msg = "Invalidated session"
                             + (expired ? " (expired)" : " (stopped)");
                     log.debug(msg);
                 }
@@ -147,7 +147,7 @@ public class OnlineWebSessionManager extends DefaultWebSessionManager
             }
             catch (Exception e)
             {
-                log.error("batch delete db session error.", e);
+                log.error("Batch session removal failed ({})", e.getClass().getSimpleName());
             }
         }
 

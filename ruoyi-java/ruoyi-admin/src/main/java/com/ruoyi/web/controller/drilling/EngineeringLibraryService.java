@@ -101,7 +101,7 @@ public class EngineeringLibraryService {
     var r=rows.get(0);node(id(r.get("node_id")),write);return r;
   }
   void audit(Long p,String action,Object detail){
-    db.update("INSERT INTO drilling_audit_log(field_id,user_id,action,resource_type,detail_json) VALUES(?,?,?,'ENGINEERING_LIBRARY',?)",p,ShiroUtils.getUserId(),action,JSON.toJSONString(detail));
+    db.update("INSERT INTO drilling_audit_log(field_id,user_id,action,resource_type,detail_json) VALUES(?,?,?,'ENGINEERING_LIBRARY',?)",p,ShiroUtils.getUserId(),action,com.ruoyi.web.controller.drilling.BusinessAuditMetadata.json(detail));
   }
   public List<Map<String,Object>> tree(Long fieldId){
     access(fieldId,false);

@@ -3,6 +3,7 @@ export const tierLabels = { ADMIN: '系统管理员', ENGINEER: '工程师', GUE
 export const modulePaths = { realtime: '/drilling/realtime', anticollision: '/drilling/tasks/anticollision', prediction: '/drilling/tasks/prediction/overview', models: '/drilling/tasks/prediction/models', replanning: '/drilling/tasks/replanning', catalog: '/drilling/basic/catalog', surveys: '/drilling/basic/surveys', 'realtime-data': '/drilling/basic/realtime-data', config: '/drilling/basic/config', files: '/drilling/basic/files', ...Object.fromEntries(['alerts','history','reports','connectors','versions'].map(key=>[key,`/drilling/centers/${key}`])) }
 export function moduleForPath(path, query = {}) {
   const groups={'/drilling/basic/catalog':['catalog','surveys','versions'],'/drilling/basic/surveys':['surveys','versions'],'/drilling/basic/files':['files','history','reports'],'/drilling/basic/realtime-data':['realtime-data','connectors'],'/drilling/realtime':['realtime','alerts']}
+  if(path==='/drilling/basic/catalog' && query.tab==='trajectory')return 'surveys'
   if(groups[path]?.includes(query.tab))return query.tab
   if (path.startsWith('/demo/')) return path.split('/')[2]
   return Object.keys(modulePaths).find(key => path === modulePaths[key] || path.startsWith(`${modulePaths[key]}/`))

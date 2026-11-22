@@ -2,8 +2,8 @@
   <DrillingPageFrame title="系统配置">
     <el-alert v-if="!fieldId" title="暂无可配置的工程范围" type="warning" :closable="false" />
     <section v-else class="config-layout">
-      <div class="panel"><div class="panel-title"><span>当前配置 v{{ currentConfig?.config_version || '—' }}</span><el-button type="primary" :loading="saving" @click="save">保存新版本</el-button></div>
-        <el-form :model="configForm" label-position="top" class="config-form">
+      <div class="panel"><div class="panel-title"><span>当前配置 v{{ currentConfig?.config_version || '—' }}</span><el-button type="primary" :loading="saving" v-if="canConfigure" @click="save">保存新版本</el-button></div>
+        <el-form :disabled="!canConfigure" :model="configForm" label-position="top" class="config-form">
           <el-tabs v-model="configTab">
           <el-tab-pane label="坐标与测量" name="0"><div class="config-section"><div class="field-grid">
             <el-form-item label="坐标轴约定"><el-select v-model="configForm.coordinateSystem"><el-option label="N/E/TVD 向下" value="NED"/><el-option label="本地工程坐标" value="LOCAL_ENU"/></el-select></el-form-item><el-form-item label="坐标参考系（如 EPSG:32631）"><el-input v-model="configForm.algorithmDefaults.reference.crs" placeholder="本地坐标可留空，跨参考系评价须配置"/></el-form-item><el-form-item label="深度基准名称"><el-input v-model="configForm.algorithmDefaults.reference.depth_datum" /></el-form-item><el-form-item label="深度基准高程（m）"><el-input-number v-model="configForm.algorithmDefaults.reference.depth_datum_elevation_m" /></el-form-item>
@@ -29,7 +29,7 @@
           </el-tabs>
         </el-form>
       </div>
-      <div class="panel"><div class="panel-title">配置版本</div><el-table :data="versions"><el-table-column prop="config_version" label="版本" width="80"/><el-table-column prop="coordinate_system" label="坐标系"/><el-table-column prop="status" label="状态" width="80"/><el-table-column prop="create_time" label="创建时间" min-width="160"/><el-table-column label="操作" width="100"><template #default="s"><el-button v-if="String(s.row.status)!=='0'" link type="primary" @click="activate(s.row.config_version)">启用</el-button></template></el-table-column></el-table></div>
+      <div class="panel"><div class="panel-title">配置版本</div><el-table :data="versions"><el-table-column prop="config_version" label="版本" width="80"/><el-table-column prop="coordinate_system" label="坐标系"/><el-table-column prop="status" label="状态" width="80"/><el-table-column prop="create_time" label="创建时间" min-width="160"/><el-table-column label="操作" width="100"><template #default="s"><el-button v-if="canConfigure && String(s.row.status)!=='0'" link type="primary" @click="activate(s.row.config_version)">启用</el-button></template></el-table-column></el-table></div>
     </section>
   </DrillingPageFrame>
 </template>
@@ -52,7 +52,7 @@ const sfParameterKeys=computed(()=>separationFactorParameterKeys(configForm.algo
 function syncSettingsJson(){settingsJson.value=JSON.stringify(configForm.algorithmDefaults.errorModel.settings,null,2)}
 function applySettingsJson(value){try{const s=JSON.parse(value);if(!catalog.value.models.some(m=>m.name===s.uncertainty_model?.type))throw Error('请选择支持的轨道不确定性模型');configForm.algorithmDefaults.errorModel.settings=s;configForm.algorithmDefaults.errorModel.modelVersion=s.uncertainty_model.type;syncSettingsJson()}catch(e){ElMessage.error('模型配置无效：'+e.message)}}
 function changeModel(name){const model=catalog.value.models.find(m=>m.name===name);if(model){configForm.algorithmDefaults.errorModel.modelVersion=name;configForm.algorithmDefaults.errorModel.mode=name==='md_scalar_radius'?'NATIVE_RADIUS':'ISCWSA';configForm.algorithmDefaults.errorModel.settings=JSON.parse(JSON.stringify(model.settings));syncSettingsJson()}}
-const { fieldId, currentConfig, configForm, loadFields, loadFieldContext } = useDrillingContext(); const versions=ref([]); const models=ref([]); const templates=ref([]); const saving=ref(false); const configTab=ref(route.query.tab==='errorModel'?'1':'0')
+const { fieldId, canConfigure, currentConfig, configForm, loadFields, loadFieldContext } = useDrillingContext(); const versions=ref([]); const models=ref([]); const templates=ref([]); const saving=ref(false); const configTab=ref(route.query.tab==='errorModel'?'1':'0')
 async function load(){if(!fieldId.value)return;const [configResult,modelResult,templateResult]=await Promise.allSettled([listFieldConfigs(fieldId.value),listModels(fieldId.value),listTrainingTemplates(fieldId.value)]);if(configResult.status==='fulfilled')versions.value=configResult.value||[];if(modelResult.status==='fulfilled')models.value=modelResult.value?.models||[];if(templateResult.status==='fulfilled')templates.value=templateResult.value||[];await getCurrentFieldConfig(fieldId.value)}
 async function save(){if(!fieldId.value)return;const prediction=configForm.algorithmDefaults.prediction;if(prediction.modelVersionId&&!prediction.templateRuntimePath){ElMessage.warning('选择训练模型版本后，还需要选择姿态推理模板');return}saving.value=true;try{await createFieldConfig(fieldId.value,{...configForm,algorithmDefaults:configForm.algorithmDefaults});await loadFieldContext();await load();ElMessage.success('配置版本已创建')}catch(e){ElMessage.error(e.message||'配置保存失败')}finally{saving.value=false}}
 async function activate(version){try{await activateFieldConfig(fieldId.value,version);await loadFieldContext();await load();ElMessage.success(`已启用配置 v${version}`)}catch(e){ElMessage.error(e.message||'配置启用失败')}}

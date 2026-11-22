@@ -33,6 +33,11 @@ public class CenterTaskSnapshots {
             "SELECT * FROM drilling_field_config WHERE field_id=? AND status='0' AND"
                 + " effective_to IS NULL ORDER BY config_version DESC LIMIT 1",
             fieldId);
+    return startWithConfig(type,fieldId,input,configs.isEmpty() ? null : configs.get(0));
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public long startWithConfig(String type, Long fieldId, Map<String,Object> input, Object config) {
     Object well = input.getOrDefault("reference_well_id", input.get("well_id"));
     GeneratedKeyHolder key = new GeneratedKeyHolder();
     jdbc.update(
@@ -47,7 +52,7 @@ public class CenterTaskSnapshots {
           ps.setObject(2, well);
           ps.setString(3, type);
           ps.setString(4, JSON.toJSONString(input));
-          ps.setString(5, JSON.toJSONString(configs.isEmpty() ? null : configs.get(0)));
+          ps.setString(5, JSON.toJSONString(config));
           ps.setString(6, ShiroUtils.getLoginName());
           return ps;
         },

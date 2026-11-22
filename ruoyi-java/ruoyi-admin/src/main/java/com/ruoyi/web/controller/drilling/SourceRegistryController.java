@@ -195,7 +195,7 @@ public class SourceRegistryController {
             + " VALUES(?,?,'REGISTRY',NULL,?,?)",
         p,
         action,
-        JSON.toJSONString(detail),
+        com.ruoyi.web.controller.drilling.BusinessAuditMetadata.json(detail),
         ShiroUtils.getUserId());
   }
 
@@ -334,6 +334,8 @@ public class SourceRegistryController {
     writeBore(fieldId,wellboreId);
     bore(fieldId, wellboreId);
     String status = required(body, "engineeringStatus", 32);
+    if (db.queryForObject("SELECT COUNT(*) FROM sys_dict_data WHERE dict_type='drilling_ui_wellbore_state' AND dict_value=? AND status='1'",Integer.class,status)>0)
+      throw new IllegalArgumentException("所选施工状态已停用");
     if (!Set.of(
             "UNPLANNED", "PLANNED", "DRILLING", "SUSPENDED", "COMPLETED", "ABANDONED", "UNKNOWN")
         .contains(status)) throw new IllegalArgumentException("无效施工状态");

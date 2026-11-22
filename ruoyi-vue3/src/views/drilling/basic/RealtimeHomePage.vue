@@ -42,6 +42,8 @@
 </template>
 
 <script setup>
+import {useDisplayDictionary} from '@/views/operations/useDisplayDictionary'
+const riskDictionary=useDisplayDictionary('risk_level')
 import TrajectoryVisibility from '../layout/TrajectoryVisibility.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import {defineAsyncComponent} from 'vue'
@@ -63,7 +65,7 @@ const boreLabel=b=>[b?.block_name,b?.field_name,b?.well_name||b?.well_code,b?.we
 const selectedWellName=computed(()=>bore.value?boreLabel(bore.value):'暂无正钻井眼')
 const refreshedAt=computed(()=>live.refreshedAt.value?new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(live.refreshedAt.value):'—')
 const riskLevel=computed(()=>futureRisk.value?.level||network.value?.operational_risk_level||'未评价')
-const riskLevelText=computed(()=>({RED:'危险',ORANGE:'警告',YELLOW:'关注',BLUE:'安全',UNKNOWN:'未完成评价'}[riskLevel.value]||riskLevel.value))
+const riskLevelText=computed(()=>riskDictionary.value.find(x=>x.dictValue===riskLevel.value)?.dictLabel || ({RED:'危险',ORANGE:'警告',YELLOW:'关注',BLUE:'安全',UNKNOWN:'未完成评价'}[riskLevel.value]||riskLevel.value))
 const riskLabel=computed(()=>network.value?`全井网风险 · ${riskLevelText.value}`:'等待有效评价')
 const connectionLabel=computed(()=>liveError.value?'待处理':network.value?'数据已同步':latestReading.value?'已接收测斜':'等待数据')
 const connectionType=computed(()=>liveError.value?'warning':network.value?'success':'info')

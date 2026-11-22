@@ -40,7 +40,7 @@
           <el-button v-if="constraintMode==='PER_SEGMENT'" plain icon="Plus" :disabled="segmentConstraints.length>=engineSegmentCount" @click="addConstraint">添加分段约束</el-button>
           </el-collapse-item>
         </el-collapse>
-          <div v-if="pendingNeighborConfirmation" class="field-help">所选范围候选尚未保存确认，确认后才能用于规划计算。</div><el-button type="primary" :loading="busy" :disabled="pendingNeighborConfirmation||!detail||detail.quality_status!=='READY'" style="width:100%;margin-top:12px" @click="solve">生成规划方案</el-button>
+          <div v-if="pendingNeighborConfirmation" class="field-help">所选范围候选尚未保存确认，确认后才能用于规划计算。</div><el-button type="primary" :loading="busy" :disabled="pendingNeighborConfirmation||!detail||detail.quality_status!=='READY'" style="width:100%;margin-top:12px" v-hasPermi="['drilling:plan:run']" @click="solve">生成规划方案</el-button>
         <p v-if="busy && solveStarted" class="field-help" role="status">正在求解并复核，已用 {{ elapsedSeconds }} 秒；任务时限 {{ taskTimeout }} 秒。</p><el-alert v-if="solveError" :title="solveError" type="error" :closable="false" style="margin-top:10px" />
         </el-form>
       </template>

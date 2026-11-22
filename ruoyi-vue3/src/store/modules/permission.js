@@ -164,16 +164,6 @@ function visibleRoutes(routes, parent = '') {
 
 // Navigation metadata changes the menu tree; executable components remain in the local registry.
 function configuredNavigation(routes, config) {
-  // Older drilling menu rows used Font Awesome names ("warning" or
-  // "fa fa-warning").  The Vue client renders the RuoYi SVG icon set, so
-  // normalize those legacy values before they reach SidebarItem.
-  const normalizeIcon = (icon, path) => {
-    const value = String(icon || '').trim()
-    // The anti-collision page has one canonical RuoYi icon. This also
-    // repairs legacy values such as `#` or an arbitrary Font Awesome class.
-    if (path === '/drilling/tasks/anticollision') return 'form'
-    return value
-  }
   const registry=new Map()
   function collect(nodes,parent=''){for(const n of nodes){const path=n.path.startsWith('/')?n.path:`${parent}/${n.path}`;registry.set(path,n);if(n.children)collect(n.children,path)}}
   collect(routes)
@@ -185,7 +175,9 @@ function configuredNavigation(routes, config) {
     // saved menu must not resurrect them as orphaned top-level functions.
     if(local?.redirect&&local.hidden)continue
     if(!local&&!n.routePath?.startsWith('/navigation/'))continue
-    const icon = normalizeIcon(n.icon, n.routePath)
+    const iconName=String(n.icon || '').trim()
+    const legacyIcon=!iconName || iconName==='#' || iconName==='warning' || /^fa(?:-|\s)/.test(iconName)
+    const icon=n.routePath==='/drilling/tasks/anticollision' && legacyIcon ? 'form' : iconName
     if(local?.meta){local.meta.title=n.menuName;local.meta.icon=icon}
     map.set(n.menuId,{...local,path:n.routePath,hidden:n.visible==='1',alwaysShow:local?.alwaysShow??true,meta:{...local?.meta,title:n.menuName,icon},component:local?.component||ParentView,children:[],orderNum:n.orderNum,parentId:n.parentId,directory:n.menuType==='M'})
   }

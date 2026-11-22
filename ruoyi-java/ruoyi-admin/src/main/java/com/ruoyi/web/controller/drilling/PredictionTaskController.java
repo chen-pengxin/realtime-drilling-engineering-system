@@ -18,7 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +43,7 @@ public class PredictionTaskController
     private final JdbcTemplate jdbc;
     private final ModelRepositoryController models;
     @org.springframework.beans.factory.annotation.Autowired private com.ruoyi.web.controller.drilling.centers.CenterTaskSnapshots centerSnapshots;
+    @org.springframework.beans.factory.annotation.Autowired private TransactionTemplate transactions;
 
     public PredictionTaskController(JdbcTemplate jdbc, ModelRepositoryController models)
     {
@@ -55,10 +56,8 @@ public class PredictionTaskController
 
     @PostMapping
     @RequiresPermissions("drilling:prediction:run")
-    @Transactional
     public ResponseEntity<String> create(@RequestBody String body) throws IOException, InterruptedException
     {
-        java.sql.Timestamp executionStarted=new java.sql.Timestamp(System.currentTimeMillis());
         Map<String, Object> payload = object(body);
         Long fieldId = fieldId(payload);
         requireFieldRole(fieldId, "OWNER", "ENGINEER");
@@ -95,6 +94,26 @@ public class PredictionTaskController
         double step=number(payload.get("prediction_step"),number(prediction.get("predictionStep"),9));
         if(!Double.isFinite(step)||step<=0||step>1000)throw new IllegalArgumentException("预测步长必须在 0–1000 m 范围内");
         payload.put("prediction_step",step);
+        payload.put("field_id", fieldId);
+        if (prediction.get("modelVersionId") != null)
+            payload.put("model_version",String.valueOf(prediction.get("modelVersionId")));
+        long execution = centerSnapshots.startWithConfig("PREDICTION",fieldId,payload,configRow);
+        try {
+            ResponseEntity<String> response = computePrediction(fieldId,wellId,surveyVersionId,payload,prediction,step);
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                centerSnapshots.fail(execution,"预测服务返回 HTTP " + response.getStatusCode().value());
+                return response;
+            }
+            transactions.executeWithoutResult(tx -> savePrediction(execution,fieldId,wellId,surveyVersionId,inputFileId,payload,response));
+            return response;
+        } catch (IOException | InterruptedException | RuntimeException ex) {
+            centerSnapshots.fail(execution,"预测计算或结果保存失败（" + ex.getClass().getSimpleName() + "）");
+            throw ex;
+        }
+    }
+
+    private ResponseEntity<String> computePrediction(Long fieldId, Long wellId, Long surveyVersionId,
+            Map<String,Object> payload, Map<String,Object> prediction, double step) throws IOException, InterruptedException {
         ResponseEntity<String> response;
         if(prediction.get("modelVersionId") != null && !String.valueOf(prediction.getOrDefault("templateRuntimePath","")).isBlank()) {
             List<Map<String,Object>> rawStations=jdbc.queryForList("SELECT md,inclination,azimuth,north,east,tvd FROM drilling_survey_station WHERE survey_version_id=? ORDER BY md",surveyVersionId);
@@ -111,14 +130,13 @@ public class PredictionTaskController
             inference.put("input",Map.of("contract","drilling.pose-extrapolation.v1","prediction_step",step,"prediction_steps",List.of(9,28,step),"stations",stations,"current_pose",new java.util.LinkedHashMap<>(stations.get(stations.size()-1))));
             long modelId=Long.parseLong(String.valueOf(prediction.get("modelVersionId")));
             ResponseEntity<String> inferred=models.inferTest(fieldId,modelId,inference);
-            if(!inferred.getStatusCode().is2xxSuccessful())return inferred;
+            if(!inferred.getStatusCode().is2xxSuccessful()) return inferred;
             Map<String,Object> modelResult=object(inferred.getBody());
             Map<String,Object> task=new java.util.LinkedHashMap<>();
             task.put("task_id",java.util.UUID.randomUUID().toString()); task.put("status","SUCCEEDED");
             task.put("field_id",fieldId); task.put("well_id",wellId); task.put("survey_version_id",surveyVersionId);
             task.put("prediction_step",step); task.put("model_version",String.valueOf(modelId));
             task.put("result",modelResult.get("result")); task.put("created_at",java.time.Instant.now().toString());
-            payload.put("model_version",String.valueOf(modelId));
             response=ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(JSON.toJSONString(task));
         } else {
             Map<String,Object> task=new java.util.LinkedHashMap<>();
@@ -127,7 +145,11 @@ public class PredictionTaskController
             task.put("created_at",java.time.Instant.now().toString());
             response=ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(JSON.toJSONString(task));
         }
-        if (!response.getStatusCode().is2xxSuccessful()) return response;
+        return response;
+    }
+
+    private void savePrediction(long execution, Long fieldId, Long wellId, Long surveyVersionId,
+            Long inputFileId, Map<String,Object> payload, ResponseEntity<String> response) {
         Map<String, Object> task = object(response.getBody());
         String externalId = String.valueOf(task.get("task_id"));
         jdbc.update("""
@@ -144,8 +166,7 @@ public class PredictionTaskController
                 textOr(payload.get("device"), "auto"), textOr(task.get("status"), "MODEL_NOT_CONFIGURED"),
                 json(payload.get("input_summary")), JSON.toJSONString(task), ShiroUtils.getLoginName());
         Long centerSourceId=jdbc.queryForObject("SELECT prediction_id FROM prediction_task WHERE task_id=?",Long.class,externalId);
-        centerSnapshots.capture("PREDICTION",centerSourceId,fieldId,payload,configRow,executionStarted);
-        return response;
+        centerSnapshots.complete(execution,"PREDICTION",centerSourceId);
     }
 
     @GetMapping
@@ -181,6 +202,36 @@ public class PredictionTaskController
         ResponseEntity<String> response = call("POST", "/prediction/cancel/" + taskId, null);
         if (response.getStatusCode().is2xxSuccessful()) persistStatus(taskId, response.getBody());
         return response;
+    }
+
+    @GetMapping(value = "/{taskId}/export", produces = "text/csv")
+    @RequiresPermissions("drilling:prediction:list")
+    public ResponseEntity<byte[]> exportTrajectory(@PathVariable String taskId, jakarta.servlet.http.HttpServletRequest request)
+    {
+        Map<String,Object> row = find(taskId);
+        long fieldId = ((Number)row.get("field_id")).longValue();
+        requireFieldAccess(fieldId);
+        request.setAttribute("audit.fieldId",fieldId);
+        request.setAttribute("audit.wellId",row.get("well_id"));
+        Object result = row.get("result_json")==null ? null : object(String.valueOf(row.get("result_json"))).get("result");
+        if (!(result instanceof Map<?,?> output)) throw new IllegalArgumentException("该任务没有预测结果");
+        List<?> stations = output.get("predicted_stations") instanceof List<?> list ? list
+                : output.get("predicted_pose") instanceof Map<?,?> pose ? List.of(pose) : List.of();
+        if (stations.isEmpty()) throw new IllegalArgumentException("该任务没有预测轨迹");
+        List<String> keys = List.of("md","inclination","azimuth","north","east","tvd");
+        StringBuilder csv = new StringBuilder("\ufeff").append(String.join(",", keys)).append('\n');
+        for (Object station : stations) {
+            if (!(station instanceof Map<?,?> point)) throw new IllegalArgumentException("预测站点格式无效");
+            var cells = new java.util.StringJoiner(",");
+            for (String key : keys) {
+                Object value = point.get(key);
+                cells.add(value == null ? "" : new java.math.BigDecimal(value.toString()).toPlainString());
+            }
+            csv.append(cells).append('\n');
+        }
+        return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=prediction-trajectory.csv")
+                .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     @GetMapping(value = "/export", produces = "text/csv")

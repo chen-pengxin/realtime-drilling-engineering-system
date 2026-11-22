@@ -26,10 +26,10 @@ public class UnifiedAuditController {
         NULL AS surveyVersionId,
         CONVERT(NULL USING utf8mb4) COLLATE utf8mb4_general_ci AS taskId,
         CONVERT(NULL USING utf8mb4) COLLATE utf8mb4_general_ci AS requestId,
-        CONVERT(CAST(a.target_id AS CHAR) USING utf8mb4) COLLATE utf8mb4_general_ci AS resource,
-        CONVERT('SUCCESS' USING utf8mb4) COLLATE utf8mb4_general_ci AS outcome,
+        CONVERT(COALESCE(CAST(a.target_id AS CHAR),JSON_UNQUOTE(JSON_EXTRACT(a.detail_json,'$.resource'))) USING utf8mb4) COLLATE utf8mb4_general_ci AS resource,
+        CONVERT(JSON_UNQUOTE(JSON_EXTRACT(a.detail_json,'$.outcome')) USING utf8mb4) COLLATE utf8mb4_general_ci AS outcome,
         CONVERT(a.detail_json USING utf8mb4) COLLATE utf8mb4_general_ci AS detailJson,
-        CONVERT('' USING utf8mb4) COLLATE utf8mb4_general_ci AS clientIp,
+        CONVERT(JSON_UNQUOTE(JSON_EXTRACT(a.detail_json,'$.clientIp')) USING utf8mb4) COLLATE utf8mb4_general_ci AS clientIp,
         0 AS durationMs,
         a.create_time AS createTime FROM drilling_account_audit a LEFT JOIN sys_user u ON u.user_id=a.actor_id
       UNION ALL SELECT CONVERT(CONCAT('BUSINESS:',a.audit_id) USING utf8mb4) COLLATE utf8mb4_general_ci AS eventKey,
@@ -49,7 +49,7 @@ public class UnifiedAuditController {
         0 AS durationMs,
         a.create_time AS createTime FROM drilling_audit_log a LEFT JOIN sys_user u ON u.user_id=a.user_id
       UNION ALL SELECT CONVERT(CONCAT('REQUEST:',event_id) USING utf8mb4) COLLATE utf8mb4_general_ci AS eventKey,
-        CONVERT('REQUEST' USING utf8mb4) COLLATE utf8mb4_general_ci AS source,
+        CONVERT(IF(resource_path LIKE '/api/access/%','ACCOUNT','REQUEST') USING utf8mb4) COLLATE utf8mb4_general_ci AS source,
         CONVERT(action USING utf8mb4) COLLATE utf8mb4_general_ci AS action,
         actor_user_id AS userId,
         CONVERT(actor_name USING utf8mb4) COLLATE utf8mb4_general_ci AS actorName,
@@ -121,7 +121,7 @@ public class UnifiedAuditController {
             a.toArray());
     return OperationsSupport.csv(
         "audit.csv",
-        List.of("记录", "来源", "账号ID", "操作", "井场", "井", "测斜版本", "任务", "结果", "资源", "时间"),
+        List.of("记录", "来源", "账号ID", "操作", "井场", "井", "测斜版本", "任务", "结果", "资源", "来源IP", "时间"),
         rows.stream()
             .map(
                 r ->
@@ -136,6 +136,7 @@ public class UnifiedAuditController {
                         r.get("taskId"),
                         r.get("outcome"),
                         r.get("resource"),
+                        r.get("clientIp"),
                         r.get("createTime")))
             .toList());
   }

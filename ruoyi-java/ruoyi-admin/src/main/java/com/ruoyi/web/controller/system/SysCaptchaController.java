@@ -64,6 +64,7 @@ public class SysCaptchaController extends BaseController
                 bi = captchaProducer.createImage(capStr);
             }
             session.setAttribute(Constants.KAPTCHA_SESSION_KEY, code);
+            session.setAttribute("captchaIssuedAt", System.currentTimeMillis());
             out = response.getOutputStream();
             ImageIO.write(bi, "jpg", out);
             out.flush();

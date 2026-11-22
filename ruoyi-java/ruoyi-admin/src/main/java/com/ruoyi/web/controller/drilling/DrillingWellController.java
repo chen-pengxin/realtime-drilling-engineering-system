@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import com.alibaba.fastjson.JSON;
 import com.ruoyi.common.utils.ShiroUtils;
+import com.ruoyi.framework.security.DrillingDataScope;
+import org.apache.shiro.authz.UnauthorizedException;
 
 /** Field-scoped well CRUD and immutable survey version persistence. */
 @RestController
@@ -34,7 +36,13 @@ public class DrillingWellController
     @RequiresPermissions("drilling:well:list")
     public List<Map<String, Object>> list(@PathVariable Long fieldId)
     {
-        requireFieldAccess(fieldId);
+        DrillingDataScope scope=DrillingDataScope.current();
+        String wellLimit="";
+        if (!scope.hasFieldAccess(fieldId)) {
+            List<Long> wells=scope.grantedWells(fieldId);
+            if (wells.isEmpty()) throw new UnauthorizedException("没有该井场的整井读取权限");
+            wellLimit=" AND w.well_id IN ("+String.join(",",wells.stream().map(String::valueOf).toList())+")";
+        }
         return jdbc.queryForList("""
                 SELECT well_id, field_id, well_code, well_name, well_type, status,
                        wellhead_n, wellhead_e, wellhead_tvd, magnetic_declination,
@@ -44,8 +52,7 @@ public class DrillingWellController
                                     WHERE en.field_id=w.field_id AND en.well_id=w.well_id
                                       AND en.node_type='WELL' AND en.entity_kind='PLANNED_RELIEF'
                                       AND en.status='ACTIVE')
-                 ORDER BY well_id DESC
-                """, fieldId);
+                """ + wellLimit + " ORDER BY well_id DESC", fieldId);
     }
 
     @PostMapping
@@ -74,7 +81,7 @@ public class DrillingWellController
     @RequiresPermissions("drilling:well:list")
     public Map<String, Object> get(@PathVariable Long fieldId, @PathVariable Long wellId)
     {
-        requireFieldAccess(fieldId);
+        requireWellRead(fieldId,wellId);
         return getWell(fieldId, wellId);
     }
 
@@ -114,7 +121,7 @@ public class DrillingWellController
     @RequiresPermissions("drilling:well:list")
     public List<Map<String, Object>> surveys(@PathVariable Long fieldId, @PathVariable Long wellId)
     {
-        requireFieldAccess(fieldId);
+        requireWellRead(fieldId,wellId);
         requireWell(fieldId, wellId);
         return jdbc.queryForList("""
                 SELECT v.survey_version_id, v.well_id, COALESCE(t.trajectory_version_no,v.version_no) AS version_no, v.parent_version_id, v.source_file_id,
@@ -212,7 +219,7 @@ public class DrillingWellController
     public Map<String, Object> survey(@PathVariable Long fieldId, @PathVariable Long wellId,
                                       @PathVariable Long surveyVersionId)
     {
-        requireFieldAccess(fieldId);
+        requireWellRead(fieldId,wellId);
         requireWell(fieldId, wellId);
         Map<String, Object> result = jdbc.queryForMap("""
                 SELECT v.survey_version_id, v.well_id, COALESCE(t.trajectory_version_no,v.version_no) AS version_no, v.parent_version_id,
@@ -326,9 +333,11 @@ public class DrillingWellController
             throw new IllegalArgumentException("source file does not belong to the fieldId");
     }
 
-    private void requireFieldAccess(Long fieldId)
+    private void requireWellRead(Long fieldId,Long wellId)
     {
-        com.ruoyi.framework.security.DrillingDataScope.current().requireAccess(fieldId);
+        DrillingDataScope scope=DrillingDataScope.current();
+        if (!scope.hasFieldAccess(fieldId) && !scope.grantedWells(fieldId).contains(wellId))
+            throw new UnauthorizedException("井不存在或超出数据权限范围");
     }
 
     private void requireFieldRole(Long fieldId, String... allowedRoles)

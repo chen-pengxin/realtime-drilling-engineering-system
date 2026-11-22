@@ -24,11 +24,11 @@ INSERT IGNORE INTO sys_menu(menu_id,menu_name,parent_id,order_num,url,target,men
 INSERT IGNORE INTO drilling_menu_setting(menu_id,route_path,module_key,builtin) VALUES(7002,'/drilling/tasks','',TRUE);
 INSERT IGNORE INTO sys_menu(menu_id,menu_name,parent_id,order_num,url,target,menu_type,visible,is_refresh,perms,icon,create_by,create_time) VALUES(7003,'防碰评价',7002,1,'/drilling/tasks/anticollision','','C','0','1','','form','system',NOW());
 INSERT IGNORE INTO drilling_menu_setting(menu_id,route_path,module_key,builtin) VALUES(7003,'/drilling/tasks/anticollision','anticollision',TRUE);
--- Existing installations may already have the menu row from an older
--- bootstrap where "warning" was not a Vue SVG icon. Keep the live database
--- aligned with the client icon set on every safe, idempotent initialization.
+-- Repair only old icon names. A valid configured SVG must survive startup.
 UPDATE sys_menu SET icon='form', update_by='system', update_time=NOW()
- WHERE url='/drilling/tasks/anticollision' OR menu_name='防碰评价';
+ WHERE (url='/drilling/tasks/anticollision' OR menu_name='防碰评价')
+   AND (icon IS NULL OR TRIM(icon) IN ('', '#', 'warning') OR TRIM(icon) REGEXP '^fa(-|[[:space:]])');
+
 INSERT IGNORE INTO drilling_schema_version(version_code,script_name,status,applied_by,notes)
  VALUES('V30','V30__fix_anticollision_menu_icon.sql','APPLIED','application','防碰评价使用 RuoYi SVG form 图标');
 INSERT IGNORE INTO sys_menu(menu_id,menu_name,parent_id,order_num,url,target,menu_type,visible,is_refresh,perms,icon,create_by,create_time) VALUES(7004,'井眼轨迹预测',7002,2,'/drilling/tasks/prediction','','M','0','1','','job','system',NOW());

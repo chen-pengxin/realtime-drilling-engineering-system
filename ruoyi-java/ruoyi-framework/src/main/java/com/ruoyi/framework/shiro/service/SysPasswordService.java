@@ -39,8 +39,28 @@ public class SysPasswordService
         loginRecordCache = cacheManager.getCache(ShiroConstants.LOGIN_RECORD_CACHE);
     }
 
-    public void validate(SysUser user, String password)
+    private int failureLimit()
     {
+        String configured = com.ruoyi.common.utils.spring.SpringUtils.getBean(com.ruoyi.system.service.ISysConfigService.class).selectConfigByKey("drilling.login.maxFailures");
+        return Integer.parseInt(configured == null || configured.isBlank() ? maxRetryCount : configured);
+    }
+
+    public boolean isFailureLocked(String loginName)
+    {
+        AtomicInteger count = loginRecordCache.get(loginName);
+        return count != null && count.get() >= failureLimit();
+    }
+
+    public synchronized boolean unlockFailures(String loginName)
+    {
+        if (!isFailureLocked(loginName)) return false;
+        clearLoginRecordCache(loginName);
+        return true;
+    }
+
+    public synchronized void validate(SysUser user, String password)
+    {
+        int limit = failureLimit();
         String loginName = user.getLoginName();
 
         AtomicInteger retryCount = loginRecordCache.get(loginName);
@@ -50,14 +70,15 @@ public class SysPasswordService
             retryCount = new AtomicInteger(0);
             loginRecordCache.put(loginName, retryCount);
         }
-        if (retryCount.incrementAndGet() > Integer.valueOf(maxRetryCount).intValue())
+        if (retryCount.get() >= limit)
         {
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGIN_FAIL, MessageUtils.message("user.password.retry.limit.exceed", maxRetryCount)));
-            throw new UserPasswordRetryLimitExceedException(Integer.valueOf(maxRetryCount).intValue());
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGIN_FAIL, MessageUtils.message("user.password.retry.limit.exceed", limit)));
+            throw new UserPasswordRetryLimitExceedException(limit);
         }
 
         if (!matches(user, password))
         {
+            retryCount.incrementAndGet();
             AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginName, Constants.LOGIN_FAIL, MessageUtils.message("user.password.retry.limit.count", retryCount)));
             loginRecordCache.put(loginName, retryCount);
             throw new UserPasswordNotMatchException();
@@ -73,7 +94,7 @@ public class SysPasswordService
         return user.getPassword().equals(encryptPassword(user.getLoginName(), newPassword, user.getSalt()));
     }
 
-    public void clearLoginRecordCache(String loginName)
+    public synchronized void clearLoginRecordCache(String loginName)
     {
         loginRecordCache.remove(loginName);
     }

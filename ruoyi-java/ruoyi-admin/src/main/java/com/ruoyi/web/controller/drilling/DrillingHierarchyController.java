@@ -69,7 +69,14 @@ public class DrillingHierarchyController
     @RequiresPermissions("drilling:field:list")
     public List<Map<String, Object>> fields(@RequestParam(required=false) Long blockId)
     {
-        return jdbc.queryForList("SELECT f.field_id, f.block_id, b.block_name, f.field_code, f.field_name, f.operator_name, f.description, f.status, f.create_time, f.update_time FROM drilling_field f JOIN drilling_block b ON b.block_id=f.block_id WHERE f.status='0' AND b.status='0' AND (? IS NULL OR f.block_id=?) AND ("+(ShiroUtils.isAdmin(ShiroUtils.getUserId())?"1=1":com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id"))+") ORDER BY f.field_name", blockId, blockId);
+        return jdbc.queryForList("""
+                SELECT f.field_id, f.block_id, b.block_name, f.field_code, f.field_name, f.operator_name,
+                       f.description, f.status, f.create_time, f.update_time, o.owner_user_id
+                FROM drilling_field f JOIN drilling_block b ON b.block_id=f.block_id
+                LEFT JOIN drilling_field_organization o ON o.field_id=f.field_id
+                WHERE f.status='0' AND b.status='0' AND (? IS NULL OR f.block_id=?) AND (
+                """ + com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id")
+                + ") ORDER BY f.field_name", blockId, blockId);
     }
 
     @PostMapping("/fields")

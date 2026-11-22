@@ -46,7 +46,7 @@ public class OnlineSessionFactory implements SessionFactory
             }
             catch (Exception e)
             {
-                log.warn("deserialize OnlineSession failed, sessionId={}", userOnline.getSessionId(), e);
+                log.warn("Unable to restore online session ({})", e.getClass().getSimpleName());
             }
         }
         // 降级：仅用基础字段重建（无认证信息，会触发重新登录）

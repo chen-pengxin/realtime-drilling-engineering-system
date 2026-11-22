@@ -31,6 +31,12 @@ public class DrillingNoticeController {
     return AjaxResult.success(ops.settings());
   }
 
+  @GetMapping("/api/reference/display/{type}")
+  public AjaxResult display(@PathVariable String type) {
+    if (!type.matches("[a-z_]{1,40}")) throw new IllegalArgumentException("字典编码无效");
+    return AjaxResult.success(ops.jdbc.queryForList("SELECT dict_label AS dictLabel,dict_value AS dictValue,status FROM sys_dict_data WHERE dict_type=? ORDER BY dict_sort,dict_code","drilling_ui_"+type));
+  }
+
   @GetMapping("/api/reference/dictionaries/{type}")
   public AjaxResult dictionary(@PathVariable String type) {
     if (!type.matches("[a-z][a-z0-9_]{1,99}")) throw new IllegalArgumentException("字典编码无效");
@@ -96,7 +102,7 @@ public class DrillingNoticeController {
     OperationsSupport.like(p, "keyword", "n.notice_title", w, a);
     String s = p.get("status");
     if (s != null && !s.isBlank()) {
-      if (!Set.of("0", "1").contains(s)) throw new IllegalArgumentException("公告状态无效");
+      if (!Set.of("0", "1","2").contains(s)) throw new IllegalArgumentException("公告状态无效");
       w.append(" AND n.status=?");
       a.add(s);
     }
@@ -123,9 +129,11 @@ public class DrillingNoticeController {
     n.setNoticeId(id);
     n.setNoticeTitle(OperationsSupport.text(b, "noticeTitle", 50, true));
     String t = OperationsSupport.text(b, "noticeType", 1, true);
-    if (!Set.of("1", "2").contains(t)) throw new IllegalArgumentException("公告类型无效");
+    if (ops.jdbc.queryForObject("SELECT COUNT(*) FROM sys_dict_data WHERE dict_type='drilling_ui_notice_type' AND dict_value=? AND status='0'",Integer.class,t)==0 && (id==null || !t.equals(notices.selectNoticeById(id).getNoticeType()))) throw new IllegalArgumentException("公告类型无效");
     n.setNoticeType(t);
-    n.setStatus(OperationsSupport.state(b));
+    String state = OperationsSupport.text(b,"status",1,true);
+    if (!Set.of("0","1","2").contains(state)) throw new IllegalArgumentException("公告状态无效");
+    n.setStatus(state);
     String content = OperationsSupport.text(b, "noticeContent", 20000, true);
     n.setNoticeContent(content);
     n.setRemark(OperationsSupport.text(b, "remark", 255, false));

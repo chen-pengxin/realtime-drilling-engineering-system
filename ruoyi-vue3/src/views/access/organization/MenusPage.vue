@@ -9,10 +9,26 @@ import {menus,saveMenu,deleteMenu,treeRows} from '@/api/organization'
 import usePermissionStore from '@/store/modules/permission'
 import useUserStore from '@/store/modules/user'
 const expanded=ref(false),rows=ref([]),keyword=ref(''),showSearch=ref(true),loading=ref(false),saving=ref(false),visible=ref(false),form=reactive({}),formRef=ref()
-const rules={menuName:[{required:true,message:'请输入菜单名称',trigger:'blur'}],perms:[{required:true,pattern:/^drilling:[A-Za-z0-9_-]+:[A-Za-z0-9_-]+$/,message:'请输入 drilling:资源:操作 格式的权限标识',trigger:'blur'}]}
+const rules={menuName:[{required:true,message:'请输入菜单名称',trigger:'blur'}],perms:[{required:true,pattern:/^drilling:(?:[A-Za-z0-9_-]+:)+[A-Za-z0-9_-]+$/,message:'请输入 drilling:资源:操作，资源可分多级',trigger:'blur'}]}
 const filtered=computed(()=>{const keep=nodes=>nodes.flatMap(n=>{const children=keep(n.children);return children.length||!keyword.value||`${n.menuName} ${n.perms}`.includes(keyword.value)?[{...n,children}]:[]});return keep(treeRows(rows.value,'menuId','menuName'))})
+const containsEngineering = node => node.routePath==='/drilling' || node.routePath?.startsWith('/drilling/') || node.children.some(containsEngineering)
+const movingEngineering = computed(() => {
+  const nodes=treeRows(rows.value,'menuId','menuName')
+  function containsMove(items) {
+    return items.some(node => node.menuId===form.menuId ? containsEngineering(node) : containsMove(node.children))
+  }
+  return containsMove(nodes)
+})
 const parentTree=computed(()=>[{value:0,label:'主目录',children:convert(treeRows(rows.value.filter(n=>n.menuType!=='F'),'menuId','menuName'))}])
-function convert(nodes,blocked=false){return nodes.map(n=>({...n,value:n.menuId,disabled:blocked||n.menuId===form.menuId||(form.menuType!=='F'&&(!n.routePath||n.menuType!=='M')),children:convert(n.children,blocked||n.menuId===form.menuId)}))}
+function convert(nodes,blocked=false,inManagement=false){
+  const navigation=!form.menuId || !!form.routePath
+  return nodes.map(node=>{
+    const cyclic=blocked || node.menuId===form.menuId
+    const invalidParent=form.menuType!=='F' && (node.menuType!=='M' || (navigation && !node.routePath))
+    const management=inManagement || node.routePath==='/access' || node.routePath==='/operations' || node.routePath?.startsWith('/access/') || node.routePath?.startsWith('/operations/')
+    return {...node,value:node.menuId,disabled:cyclic || invalidParent || (management && movingEngineering.value),children:convert(node.children,cyclic,management)}
+  })
+}
 async function load(){loading.value=true;try{rows.value=(await menus()).data}finally{loading.value=false}}
 function open(row,parentId=0){Object.keys(form).forEach(k=>delete form[k]);Object.assign(form,{parentId,menuType:parentId?'F':'M',menuName:'',orderNum:0,visible:'0',status:'0',icon:'tree',perms:''},row||{});visible.value=true}
 async function refresh(){await useUserStore().getInfo();await usePermissionStore().generateRoutes();await load()}

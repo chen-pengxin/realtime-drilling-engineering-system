@@ -13,7 +13,7 @@ import oshi.SystemInfo;
 @Service
 public class GpuMonitorService {
   private final HttpClient client =
-      HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+      HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).connectTimeout(Duration.ofSeconds(2)).build();
 
   @Value("${drilling.algorithm.url:http://localhost:8000}")
   private String algorithmUrl;
@@ -35,7 +35,14 @@ public class GpuMonitorService {
       if (response.statusCode() != 200) throw new IllegalStateException();
       Map<?, ?> payload = JSON.parseObject(response.body(), Map.class);
       if (payload.get("gpu_monitor") instanceof Map<?, ?> gpu
-          && gpu.get("devices") instanceof List<?>) result.put("algorithm", gpu);
+          && gpu.get("devices") instanceof List<?>) {
+        Map<String,Object> node = new LinkedHashMap<>();
+        gpu.forEach((key,value)->node.put(String.valueOf(key),value));
+        if (Set.of("UP","NO_DEVICE").contains(node.get("status"))
+            && payload.get("gpu_runtime_available") instanceof Boolean available)
+          node.put("trainingAvailable",available);
+        result.put("algorithm",node);
+      }
       else if (payload.get("gpus") instanceof List<?> rows)
         result.put(
             "algorithm",
@@ -92,7 +99,7 @@ public class GpuMonitorService {
                 "message",
                 rows.isEmpty() ? "未检测到 GPU 设备" : "");
       } catch (Exception e) {
-        local = unavailable("业务节点 GPU 硬件信息暂不可用");
+        return unavailable("业务节点 GPU 硬件信息暂不可用");
       }
       return local;
     }

@@ -17,9 +17,9 @@
         </template>
       </el-table-column>
       <el-table-column label="系统名称" min-width="260" show-overflow-tooltip><template #default="s">{{ displayFileName(s.row) }}</template></el-table-column>
-      <el-table-column prop="source_format" label="格式" width="90" />
+      <el-table-column label="格式" width="100"><template #default="{row}">{{formats.find(x=>x.dictValue===row.source_format?.toUpperCase())?.dictLabel || row.source_format}}</template></el-table-column>
       <el-table-column label="解析状态" width="110"><template #default="s">{{ statuses[s.row.parse_status] || s.row.parse_status }}</template></el-table-column>
-      <el-table-column label="资料状态" width="105"><template #default="s"><el-tag :type="s.row.review_status === 'CONFIRMED' ? 'success' : 'warning'">{{ s.row.review_status === 'CONFIRMED' ? '已确认' : '需确认' }}</el-tag></template></el-table-column>
+      <el-table-column label="资料状态" width="105"><template #default="s"><el-tag :type="s.row.review_status === 'CONFIRMED' ? 'success' : 'warning'">{{ reviewStates.find(x=>x.dictValue===(s.row.review_status==='CONFIRMED'?'CONFIRMED':'REVIEW_REQUIRED'))?.dictLabel || s.row.review_status }}</el-tag></template></el-table-column>
       <el-table-column prop="create_time" label="入库时间" width="175" />
       <el-table-column label="操作" width="470"><template #default="s"><el-button link type="primary" @click="choose(s.row)">选择资料</el-button><el-button link type="primary" @click="preview.show(s.row)">查看表格</el-button><el-button link type="primary" @click="originalPreview.show(s.row)">原件预览</el-button><el-button v-hasPermi="['drilling:well:survey:import']" link type="primary" @click="review.show(s.row)">核对资料</el-button><el-button v-hasPermi="['drilling:well:survey:import']" link type="primary" @click="mapping.show(s.row)">字段映射</el-button><el-button link @click="download(s.row)">下载原件</el-button></template></el-table-column>
     </el-table>
@@ -32,6 +32,8 @@
 </template>
 
 <script setup>
+import {useDisplayDictionary} from '@/views/operations/useDisplayDictionary'
+const formats=useDisplayDictionary('file_format'), reviewStates=useDisplayDictionary('review_state')
 import { reactive, ref } from 'vue'
 import { fileDisplayName } from '@/utils/fileNames'
 import { ElMessage } from 'element-plus'

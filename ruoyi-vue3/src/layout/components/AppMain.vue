@@ -2,7 +2,7 @@
   <section class="app-main">
     <router-view v-slot="{ Component, route }">
       <transition name="fade-transform" mode="out-in">
-        <keep-alive :include="tagsViewStore.cachedViews">
+        <keep-alive :include="layout.platform.cache === 'false' ? [] : tagsViewStore.cachedViews">
           <component v-if="!route.meta.link" :is="Component" :key="route.path"/>
         </keep-alive>
       </transition>
@@ -17,6 +17,8 @@ import copyright from "./Copyright/index"
 import iframeToggle from "./IframeToggle/index"
 import useTagsViewStore from '@/store/modules/tagsView'
 
+import useSettingsStore from '@/store/modules/settings'
+const layout = useSettingsStore()
 const route = useRoute()
 const tagsViewStore = useTagsViewStore()
 
