@@ -20,6 +20,19 @@ _cache: tuple[float, dict[str, Any]] | None = None
 _lock = threading.Lock()
 
 
+def _safe_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
+    """Run a read-only hardware probe without forking the threaded API process.
+
+    On macOS, the algorithm service has already loaded pyproj/PROJ.  Python's
+    default ``subprocess`` settings can then use ``fork`` for a probe such as
+    ``system_profiler``; PROJ's SQLite at-fork cleanup may crash the child
+    before exec.  Keeping file descriptors open lets Python use macOS
+    ``posix_spawn``.  The probes do not receive request data or write files.
+    """
+    kwargs.setdefault("close_fds", False)
+    return subprocess.run(command, **kwargs)
+
+
 def _metric(value: Any) -> float | None:
     try:
         n = float(value)
@@ -36,7 +49,7 @@ def _device(**values: Any) -> dict[str, Any]:
 
 
 def _nvidia(executable: str) -> list[dict[str, Any]]:
-    result = subprocess.run(
+    result = _safe_run(
         [executable, "--query-gpu=index,uuid,name,driver_version,memory.total,memory.used,utilization.gpu,temperature.gpu,power.draw",
          "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=4, check=True)
     devices = []
@@ -55,7 +68,7 @@ def _nvidia(executable: str) -> list[dict[str, Any]]:
 
 
 def _apple() -> list[dict[str, Any]]:
-    result = subprocess.run(["/usr/sbin/system_profiler", "SPDisplaysDataType", "-json"],
+    result = _safe_run(["/usr/sbin/system_profiler", "SPDisplaysDataType", "-json"],
                             capture_output=True, text=True, timeout=4, check=True)
     devices = []
     for index, row in enumerate(json.loads(result.stdout).get("SPDisplaysDataType", [])):
@@ -72,7 +85,7 @@ def _apple() -> list[dict[str, Any]]:
     # Do not attribute one accelerator's counters to another card on a multi-GPU Mac.
     if len(devices) == 1 and devices[0]["name"].startswith("Apple"):
         try:
-            report = subprocess.run(
+            report = _safe_run(
                 ["/usr/sbin/ioreg", "-a", "-r", "-d", "1", "-c", "AGXAccelerator", "-k", "PerformanceStatistics"],
                 capture_output=True, timeout=1, check=True)
             controllers = plistlib.loads(report.stdout)
