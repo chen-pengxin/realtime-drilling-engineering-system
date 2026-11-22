@@ -78,6 +78,27 @@ def test_execute_planning_returns_structured_timeout(monkeypatch):
     assert result['execution']['timeout_seconds'] == 30
 
 
+def test_all_solver_selection_keeps_first_valid_parallel_result(monkeypatch):
+    calls=[]
+    def fake_worker(payload, seconds, command=None, pool=None):
+        calls.append(payload['solver'])
+        time.sleep({'SLSQP':0.02,'trust-constr':0.15,'COBYLA':0.2,'COBYQA':0.25}[payload['solver']])
+        return {'status':'SUCCESS','solver_converged':True,'feasible_solution':True,
+                'solver_metadata':{'actual_solver':payload['solver']},
+                'total_length':float({'SLSQP':40,'trust-constr':30,'COBYLA':50,'COBYQA':35}[payload['solver']]),
+                'target_error':0.1,'trajectory':[{'md':1}],'segments':[],'timing':{'execution_total_seconds':0.01}}
+    monkeypatch.setattr('app.tasks.replanning.execution._run_worker', fake_worker)
+    payload=PlanningInput(start_md=0,start_north=0,start_east=0,start_tvd=0,
+                          start_inclination=10,start_azimuth=0,
+                          target={'north':0,'east':0,'tvd':10},solver='ALL')
+    result=execute_planning(payload)
+    assert set(calls)=={'SLSQP','trust-constr','COBYLA','COBYQA'}
+    assert result['solver']=='ALL'
+    assert result['selected_solver']=='SLSQP'
+    assert 'algorithm_runs' not in result
+    assert result['timing']['parallel_algorithms'] is True
+
+
 def test_real_worker_returns_a_validated_plan():
     point=minimum_curvature_increment(20,20,0,20,0)[0]
     result=_run_worker({'start_md':0,'start_north':0,'start_east':0,'start_tvd':0,'start_inclination':20,'start_azimuth':0,'target':dict(zip(('north','east','tvd'),point)),'native_options':{'trajectory_mode':'straight-arc','n_segments':1}},10)

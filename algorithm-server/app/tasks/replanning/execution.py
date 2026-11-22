@@ -6,6 +6,7 @@ deadline without leaving a timed-out numerical thread consuming CPU.
 """
 import json
 import logging
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 import os
 from pathlib import Path
 import queue
@@ -17,6 +18,7 @@ import time
 
 _slots = threading.BoundedSemaphore(max(1, int(os.getenv('DRILLING_PLANNING_WORKERS', '2'))))
 _worker_count = max(1, int(os.getenv('DRILLING_PLANNING_WORKERS', '2')))
+_ALL_SOLVERS = ('SLSQP', 'trust-constr', 'COBYLA', 'COBYQA')
 
 
 class _PersistentWorker:
@@ -143,6 +145,10 @@ class _PersistentWorkerPool:
 
 
 _persistent_workers = _PersistentWorkerPool(_worker_count)
+# Keep a dedicated four-worker pool for an “all algorithms” request. Reusing
+# the normal pool here would serialize four solvers behind the default two
+# worker slots and make the comparison misleading.
+_all_persistent_workers = _PersistentWorkerPool(len(_ALL_SOLVERS))
 
 
 class PlanningBusy(RuntimeError):
@@ -157,11 +163,11 @@ class PlanningWorkerFailed(RuntimeError):
     pass
 
 
-def _run_worker(payload, seconds, command=None):
+def _run_worker(payload, seconds, command=None, pool=None):
     # Tests and explicit commands retain the disposable-process behavior. The
     # production path reuses a prewarmed process to remove import/startup cost.
     if command is None:
-        return _persistent_workers.run(payload, seconds)
+        return (pool or _persistent_workers).run(payload, seconds)
     env = {**os.environ, 'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1', 'MKL_NUM_THREADS': '1',
            'PYTHONFAULTHANDLER': '1'}
     command=command or [sys.executable, '-m', 'app.tasks.replanning.worker']
@@ -207,13 +213,93 @@ def _run_worker(payload, seconds, command=None):
     return result
 
 
+def _run_all_algorithms(payload, seconds):
+    """Race all native optimizers and return the first valid plan.
+
+    The four algorithms receive identical input.  The first result that has a
+    usable trajectory and passes the worker's terminal validation wins; later
+    results are discarded.  This keeps the response latency equal to the
+    fastest solver instead of waiting for the slowest or comparing objective
+    values after all solvers finish.
+    """
+    started = time.monotonic()
+    request = payload.model_dump() if hasattr(payload, 'model_dump') else dict(payload)
+    executor = ThreadPoolExecutor(max_workers=len(_ALL_SOLVERS), thread_name_prefix='planning-all')
+    futures = {}
+    for solver in _ALL_SOLVERS:
+        item = dict(request)
+        item['solver'] = solver
+        futures[executor.submit(_run_worker, item, seconds, None, _all_persistent_workers)] = solver
+
+    finished = []
+    winner = None
+    deadline = started + seconds
+    try:
+        pending = set(futures)
+        while pending:
+            remaining = max(0.05, deadline - time.monotonic())
+            done, pending = wait(pending, timeout=remaining, return_when=FIRST_COMPLETED)
+            if not done:
+                break
+            for future in done:
+                solver = futures[future]
+                try:
+                    value = future.result()
+                    finished.append((solver, value, None))
+                    status = str(value.get('status') or '').upper() if isinstance(value, dict) else ''
+                    valid = status in {'SUCCESS', 'FEASIBLE_NOT_CONVERGED', 'BEST_EFFORT'} and bool(value.get('trajectory'))
+                    if valid and winner is None:
+                        winner = (solver, value)
+                        break
+                except Exception as exc:  # a failed solver does not hide other answers
+                    finished.append((solver, None, exc))
+            if winner is not None:
+                break
+    finally:
+        # Running workers may finish their own bounded request in the
+        # background; their results are intentionally discarded.
+        for future in futures:
+            if not future.done():
+                future.cancel()
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    if winner is None:
+        # No solver produced a usable trajectory before the common patience
+        # limit. Preserve a structured timeout/failure result for history.
+        errors = [error for _, _, error in finished if error is not None]
+        all_deadline = errors and all(isinstance(error, PlanningDeadline) for error in errors)
+        solver = finished[0][0] if finished else None
+        best = {'status': 'TIMEOUT' if all_deadline or time.monotonic() >= deadline else 'FAILED',
+                'solver_converged': False, 'feasible_solution': False,
+                'stop_reason': 'MAX_WAIT_SECONDS' if all_deadline or time.monotonic() >= deadline else 'NO_SOLVER_RESULT',
+                'time_limit_reached': bool(all_deadline or time.monotonic() >= deadline),
+                'trajectory': [], 'segments': [],
+                'constraint_violations': [str(errors[0]) if errors else '所有并行算法均未返回可行结果'],
+                'solver_metadata': {'engine': 'well_control_iscwsa', 'actual_solver': solver}}
+        selected_solver = solver
+    else:
+        selected_solver, best = winner
+        best = dict(best)
+
+    best['solver'] = 'ALL'
+    best['selected_solver'] = selected_solver
+    best['solver_selection'] = 'ALL'
+    best.setdefault('solver_metadata', {})['selected_solver'] = selected_solver
+    best.setdefault('timing', {})['parallel_algorithms'] = True
+    best['timing']['algorithm_parallel_total_seconds'] = time.monotonic() - started
+    return best
+
+
 def execute_planning(payload):
     if not _slots.acquire(blocking=False):
         raise PlanningBusy('再规划计算资源正忙，请稍后重试')
     try:
         start = time.monotonic()
         try:
-            result = _run_worker(payload.model_dump(), payload.execution_timeout_seconds)
+            if str(payload.solver).upper() == 'ALL':
+                result = _run_all_algorithms(payload, payload.execution_timeout_seconds)
+            else:
+                result = _run_worker(payload.model_dump(), payload.execution_timeout_seconds)
         except PlanningDeadline as exc:
             # The worker is intentionally killed at the configured outer
             # patience boundary.
@@ -267,7 +353,9 @@ def execute_planning(payload):
 def warm_planning_workers():
     """Preload numerical modules during service startup, outside request time."""
     _persistent_workers.warm()
+    _all_persistent_workers.warm()
 
 
 def close_planning_workers():
     _persistent_workers.close()
+    _all_persistent_workers.close()

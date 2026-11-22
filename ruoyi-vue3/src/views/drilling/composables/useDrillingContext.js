@@ -14,6 +14,8 @@ const wells = ref([])
 const fieldFiles = ref([])
 const loading = ref(false)
 let contextRequest = 0
+let fieldsRequest = null
+let fieldsRequestKey = ''
 
 import nativeDefaults from './native-defaults.json'
 import { normalizeTrajectoryStyles } from '@/utils/trajectoryStyles'
@@ -37,10 +39,18 @@ function mergeDefaults(raw) {
 }
 
 async function loadFields(options = {}) {
-  fields.value = await listDrillingFields() || []
-  if (!fields.value.some(item => Number(item.field_id) === Number(fieldId.value))) fieldId.value = fields.value[0]?.field_id || null
-  if (fieldId.value) await loadFieldContext(options)
-  else { wells.value = []; currentConfig.value = null; fieldFiles.value = [] }
+  const key = options.basicOnly ? 'basic' : 'full'
+  if (fieldsRequest && fieldsRequestKey === key) return fieldsRequest
+  fieldsRequestKey = key
+  fieldsRequest = (async () => {
+    fields.value = await listDrillingFields() || []
+    if (!fields.value.some(item => Number(item.field_id) === Number(fieldId.value))) fieldId.value = fields.value[0]?.field_id || null
+    if (fieldId.value) await loadFieldContext(options)
+    else { wells.value = []; currentConfig.value = null; fieldFiles.value = [] }
+  })().finally(() => {
+    if (fieldsRequestKey === key) { fieldsRequest = null; fieldsRequestKey = '' }
+  })
+  return fieldsRequest
 }
 
 async function loadFieldContext(options = {}) {

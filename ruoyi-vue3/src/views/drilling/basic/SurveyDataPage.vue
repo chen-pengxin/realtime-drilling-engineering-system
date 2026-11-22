@@ -17,7 +17,7 @@
         <div v-if="selectedBore" class="drilling-toolbar"><span>施工状态：{{ statusLabels[selectedBore.engineering_status] || selectedBore.engineering_status }}</span><el-button v-hasPermi="['drilling:well:edit']" link type="primary" icon="Edit" @click="showStatus">修改状态</el-button></div>
         <el-tabs v-model="kind"><el-tab-pane label="实钻测斜版本" name="ACTUAL" /><el-tab-pane label="设计方案版本" name="DESIGN" /></el-tabs>
         <div class="drilling-toolbar">
-          <el-button v-hasPermi="['drilling:well:survey:import']" type="primary" plain icon="Upload" :disabled="!selectedBore" @click="importDialog.show('FULL')">导入</el-button><el-button v-hasPermi="['drilling:well:survey:import']" plain icon="FolderOpened" :disabled="!fieldId" @click="batchInput?.click()">批量导入资料</el-button><input ref="batchInput" hidden type="file" multiple accept=".xls,.xlsx,.csv,.tsv,.txt,.xml,.witsml,.dat,.asc,.mwd,.doc,.docx,.pdf" @change="batchUpload" />
+          <el-button v-hasPermi="['drilling:well:survey:import']" type="primary" plain icon="Upload" :disabled="!selectedBore" @click="importDialog.show('FULL')">导入</el-button><el-button v-hasPermi="['drilling:well:survey:import']" plain icon="FolderOpened" :disabled="!fieldId" @click="batchInput?.click()">批量导入资料</el-button><el-button v-hasPermi="['drilling:well:survey:import']" plain icon="Folder" :disabled="!fieldId" @click="batchFolderInput?.click()">导入文件夹</el-button><input ref="batchInput" hidden type="file" multiple accept=".xls,.xlsx,.csv,.tsv,.txt,.xml,.witsml,.dat,.asc,.mwd,.doc,.docx,.pdf" @change="batchUpload" /><input ref="batchFolderInput" hidden type="file" webkitdirectory directory multiple @change="batchUpload" />
           <el-button v-hasPermi="['drilling:well:survey:import']" type="success" plain :disabled="!currentVersion" @click="importDialog.show('INCREMENTAL',currentVersion)">增量导入</el-button>
           <el-button v-if="kind==='ACTUAL'" v-hasPermi="['drilling:well:survey:import']" type="warning" plain :disabled="!currentVersion" @click="importDialog.show('RESURVEY',currentVersion)">复测修订</el-button>
           <el-button icon="Sort" :disabled="versions.length<2" @click="diffDialog.show(displayedVersion||versions[0])">版本对比</el-button>
@@ -121,6 +121,7 @@ const wellOpen = ref(false),
   wellTable = ref(),
   importDialog = ref(),
   batchInput = ref(),
+  batchFolderInput = ref(),
   diffDialog = ref(),
   loadingBores = ref(false),
   loadingVersions = ref(false),

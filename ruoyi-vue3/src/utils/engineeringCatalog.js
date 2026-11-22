@@ -10,7 +10,7 @@ export function catalogNodeWritable(node) {
 }
 
 export function catalogFileTargetAllowed(node) {
-  return catalogNodeWritable(node) && ['FIELD', 'INBOX', 'WELL', 'WELLBORE', 'PLAN', 'SURVEY'].includes(node.node_type)
+  return catalogNodeWritable(node) && ['BLOCK', 'FIELD', 'INBOX', 'WELL', 'WELLBORE', 'PLAN', 'SURVEY'].includes(node.node_type)
 }
 
 export function catalogAccess(node, permissions = []) {
@@ -27,11 +27,13 @@ export function catalogAccess(node, permissions = []) {
 }
 
 export function catalogUploadError(node, role, kind) {
-  if (!catalogFileTargetAllowed(node)) return '请选择可编辑的井场、井、井眼或资料目录'
-  if (role === 'TRAJECTORY_DATA' && !node.wellbore_id) return '轨迹数据请选择具体井眼'
+  if (!catalogFileTargetAllowed(node)) return '请选择可编辑的区块、井场、井、井眼或资料目录'
+  // Block/field/well imports are staged for parser confirmation; the
+  // confirmation form resolves or creates the missing wellbore.
+  if (role === 'TRAJECTORY_DATA' && !node.wellbore_id && !['BLOCK','FIELD','INBOX','WELL'].includes(node.node_type)) return '轨迹数据请选择具体井眼'
   if (role === 'TRAJECTORY_DATA' && !kind) return '请选择设计方案或实钻测斜'
   if (kind) {
-    if (!['DESIGN', 'ACTUAL'].includes(kind) || !node.wellbore_id) return '设计或实钻资料请选择具体井眼'
+    if (!['DESIGN', 'ACTUAL'].includes(kind) || (!node.wellbore_id && !['BLOCK','FIELD','INBOX','WELL'].includes(node.node_type))) return '设计或实钻资料请选择具体井眼'
     if (node.node_type === 'PLAN' && kind !== 'DESIGN' || node.node_type === 'SURVEY' && kind !== 'ACTUAL') return '文件用途与所选资料目录不一致'
   }
   return ''

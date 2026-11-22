@@ -137,6 +137,19 @@ public class SourceRegistryController {
     return s;
   }
 
+  private static String normalizeSourcePath(String value, String fallback) {
+    String path = Objects.toString(value, "").replace('\\', '/').trim();
+    if (path.isBlank()) return fallback;
+    var parts = new ArrayList<String>();
+    for (String part : path.split("/")) {
+      if (part.isBlank() || ".".equals(part) || "..".equals(part)) continue;
+      parts.add(DrillingFileController.safeName(part));
+    }
+    if (parts.isEmpty()) return fallback;
+    String normalized = String.join("/", parts);
+    return normalized.length() > 1024 ? normalized.substring(normalized.length() - 1024) : normalized;
+  }
+
   /**
    * Explain the evidence gate instead of collapsing every import diagnostic
    * into "坐标未确认".  A source may contain X/Y values while its projection
@@ -556,10 +569,12 @@ public class SourceRegistryController {
       @RequestParam(required=false) Long documentId,
       @RequestParam(required=false) Integer expectedEditionNo,
       @RequestParam(required=false) String displayName,
-      @RequestParam(defaultValue="false") boolean deferTrajectory) throws Exception {
+      @RequestParam(defaultValue="false") boolean deferTrajectory,
+      @RequestParam(required=false) String sourcePath) throws Exception {
     var target=engineeringLibrary.uploadTarget(fieldId,nodeId,wellboreId,documentRole,trajectoryKind,documentId,expectedEditionNo);
     if(target!=null)target.put("defer_trajectory",deferTrajectory);
-    return importSource(fieldId,file,target,documentRole,trajectoryKind,displayName);
+    var scope=engineeringLibrary.importScope(fieldId,nodeId);
+    return importSource(fieldId,file,target,documentRole,trajectoryKind,displayName,sourcePath,scope);
   }
 
   private Map<String,Object> finishSourceUpload(Long fieldId,Map<String,Object> source,
@@ -569,10 +584,12 @@ public class SourceRegistryController {
     if(target!=null){
       var association=new LinkedHashMap<String,Object>();association.put("documentRole",role);association.put("trajectoryKind",kind);
       if(target.get("upload_document_id")!=null){association.put("documentId",target.get("upload_document_id"));association.put("revisionId",target.get("upload_revision_id"));association.put("expectedEditionNo",target.get("upload_expected_edition_no"));}
-      var attached=engineeringLibrary.attachFile(id(target.get("node_id")),sourceId,association);
-      result.put("document_id",attached.get("documentId"));result.put("edition_no",attached.get("editionNo"));result.put("file_unchanged",attached.get("alreadyLinked"));
+      boolean staging=Boolean.TRUE.equals(target.get("staging_scope"));
+      var attached=staging ? Map.<String,Object>of("alreadyLinked",false) : engineeringLibrary.attachFile(id(target.get("node_id")),sourceId,association);
+      result.put("document_id",staging?null:attached.get("documentId"));result.put("edition_no",staging?null:attached.get("editionNo"));result.put("file_unchanged",attached.get("alreadyLinked"));
+      if (staging) { result.put("trajectory_status", "PENDING_CONFIRMATION"); }
       if(Boolean.TRUE.equals(target.get("defer_trajectory"))&&!Boolean.TRUE.equals(attached.get("alreadyLinked")))db.update("UPDATE drilling_engineering_document_file SET usage_state='DRAFT' WHERE document_id=? AND source_id=? AND edition_no=?",attached.get("documentId"),sourceId,attached.get("editionNo"));
-      if(!Boolean.TRUE.equals(attached.get("alreadyLinked"))){
+      if(!staging&&!Boolean.TRUE.equals(attached.get("alreadyLinked"))){
         String generated=engineeringSystemName(target,role,kind,((Number)attached.get("editionNo")).intValue());
         if(generated!=null)db.update("UPDATE data_file SET display_name=? WHERE file_id=?",generated,source.get("file_id"));
       }
@@ -601,6 +618,11 @@ public class SourceRegistryController {
     if(target!=null&&target.get("wellbore_id")!=null)engineeringTables.importTargets(fieldId,id(target.get("wellbore_id")),obj(source.get("metadata_json")));
     var file=db.queryForMap("SELECT original_name,display_name FROM data_file WHERE file_id=?",source.get("file_id"));
     result.put("original_name",file.get("original_name"));result.put("display_name",file.get("display_name"));
+    Map<String,Object> parsedMetadata=obj(source.get("metadata_json"));
+    result.put("parsed_metadata",parsedMetadata);
+    result.put("parsed_engineering",parsedMetadata.get("engineering"));
+    result.put("import_scope_type",parsedMetadata.get("import_scope_type"));
+    result.put("import_scope_id",parsedMetadata.get("import_scope_id"));
     result.put("associations",engineeringLibrary.sourceAssociations(sourceId));
     result.put("review_status",db.queryForObject("SELECT status FROM drilling_source_review WHERE field_id=? AND source_id=?",String.class,fieldId,sourceId));
     if(target!=null)result.put("upload_node_id",target.get("node_id"));
@@ -638,10 +660,11 @@ public class SourceRegistryController {
   }
 
   private Map<String,Object> importSource(Long fieldId,MultipartFile file,
-      Map<String,Object> target,String documentRole,String trajectoryKind,String displayName) throws Exception {
+      Map<String,Object> target,String documentRole,String trajectoryKind,String displayName,String sourcePath,Map<String,Object> importScope) throws Exception {
     write(fieldId);
     if (file.getSize() > 256L * 1024 * 1024) throw new IllegalArgumentException("单文件上限256MiB");
     String name = DrillingFileController.safeName(file.getOriginalFilename());
+    String relativePath = normalizeSourcePath(sourcePath, name);
     // System names are generated from the confirmed well, trajectory kind and
     // edition.  The original filename remains the source filename.
     String alias = null;
@@ -675,12 +698,28 @@ public class SourceRegistryController {
       if(!sourceContents.exists(sourceId))saveInspectedContent(sourceId,engine.inspect(name,file.getBytes()));
       return finishSourceUpload(fieldId,existing.get(0),target,documentRole,trajectoryKind);
     }
-    var parsed = engine.inspect(name, file.getBytes());
+    // Directory names are parser context; the stored original filename stays
+    // the basename used for download and audit.
+    var parsed = engine.inspect(relativePath, file.getBytes());
     var stored = files.upload(fieldId, file, "SURVEY", "SOURCE_DOCUMENT", null, false);
     Long fid = id(stored.containsKey("file_id") ? stored.get("file_id") : stored.get("fileId"));
     if(alias!=null)db.update("UPDATE data_file SET display_name=? WHERE file_id=?",alias,fid);
     String sourceKey=NativeEngineSupport.hash(name+":"+hash);
     var sourceMetadata = obj(parsed.get("metadata"));
+    if (importScope != null) sourceMetadata.putAll(importScope);
+    sourceMetadata.put("original_name", name);
+    sourceMetadata.put("source_path", relativePath);
+    sourceMetadata.put("document_role", documentRole);
+    if (trajectoryKind != null && !trajectoryKind.isBlank()) sourceMetadata.put("trajectory_kind", trajectoryKind);
+    if (target != null) {
+      sourceMetadata.put("import_scope_type", target.get("node_type"));
+      sourceMetadata.put("import_scope_id", target.get("node_id"));
+      sourceMetadata.put("import_scope_path", target.get("engineering_path"));
+      sourceMetadata.put("import_scope_block_id", target.get("block_id"));
+      sourceMetadata.put("import_scope_field_id", target.get("field_id"));
+      sourceMetadata.put("import_scope_well_id", target.get("well_id"));
+      sourceMetadata.put("import_scope_wellbore_id", target.get("wellbore_id"));
+    }
     if (parsed.get("engineering") != null) sourceMetadata.put("engineering", parsed.get("engineering"));
     // Keep a bounded text excerpt with source metadata so PDF/Word/TXT files
     // can be reviewed without modifying or replacing the original binary.
@@ -695,7 +734,7 @@ public class SourceRegistryController {
             + " VALUES(?,?,?,?,?,?,?,?)",
         fid,
         fieldId,
-        name,
+        relativePath,
         sourceKey,
         parsed.get("format"),
         parsed.get("status"),
@@ -707,9 +746,11 @@ public class SourceRegistryController {
             Long.class,
             fieldId,
             sourceKey);
+    // Parsing only proposes identities.  The engineer's explicit review
+    // confirmation is the write gate that creates missing directory nodes.
     db.update(
-        "INSERT IGNORE INTO drilling_source_review(field_id,source_id,status,proposed_json,confirmed_json,reviewed_by,reviewed_at) VALUES(?,?, 'CONFIRMED',?,?,?,NOW())",
-        fieldId, source, JSON.toJSONString(sourceMetadata), JSON.toJSONString(sourceMetadata), ShiroUtils.getLoginName());
+        "INSERT IGNORE INTO drilling_source_review(field_id,source_id,status,proposed_json) VALUES(?,?, 'PENDING',?)",
+        fieldId, source, JSON.toJSONString(sourceMetadata));
     saveInspectedContent(source,parsed);
     audit(
         fieldId,
@@ -734,18 +775,27 @@ public class SourceRegistryController {
       @RequestParam(defaultValue="REFERENCE") String documentRole,
       @RequestParam(defaultValue="") String trajectoryKind,
       @RequestParam(required=false) Long documentId,
-      @RequestParam(required=false) Integer expectedEditionNo) throws Exception {
+      @RequestParam(required=false) Integer expectedEditionNo,
+      @RequestParam(required=false) String sourcePaths) throws Exception {
     write(fieldId);
     // Reject invalid ownership before any file in the batch can be stored.
     engineeringLibrary.uploadTarget(fieldId,nodeId,wellboreId,documentRole,trajectoryKind,documentId,expectedEditionNo);
     if (files == null || files.length == 0 || files.length > 200) throw new IllegalArgumentException("批量文件数量必须为1～200");
     if(documentId!=null&&files.length!=1)throw new IllegalArgumentException("更新已有文件时一次只能上传一个文件");
+    List<String> paths = new ArrayList<>();
+    if (sourcePaths != null && !sourcePaths.isBlank()) {
+      try { var parsedPaths = JSON.parseArray(sourcePaths, String.class); if (parsedPaths != null) paths.addAll(parsedPaths); }
+      catch (Exception ignored) { }
+    }
     var summary=new LinkedHashMap<String,Object>(); var rows=new ArrayList<Map<String,Object>>(); int ok=0,failed=0;
-    for (MultipartFile file:files) {
+    for (int index=0; index<files.length; index++) {
+      MultipartFile file=files[index];
+      String relativePath=index<paths.size()?paths.get(index):file.getOriginalFilename();
       try { rows.add(uploadTransactions.execute(status->{
         try {
           var target=engineeringLibrary.uploadTarget(fieldId,nodeId,wellboreId,documentRole,trajectoryKind,documentId,expectedEditionNo);
-          return importSource(fieldId,file,target,documentRole,trajectoryKind,null);
+          return importSource(fieldId,file,target,documentRole,trajectoryKind,null,relativePath,
+              engineeringLibrary.importScope(fieldId,nodeId));
         } catch(Exception ex){throw new IllegalArgumentException(Objects.toString(ex.getMessage(),"文件导入失败"),ex);}
       })); ok++; }
       catch (Exception ex) { failed++; rows.add(Map.of("name",Objects.toString(file.getOriginalFilename(),"source"),"status","FAILED","message",Objects.toString(ex.getMessage(),ex.getClass().getSimpleName()))); }
@@ -1046,10 +1096,36 @@ public class SourceRegistryController {
     Map<String,Object> confirmed = obj(body.get("confirmed"));
     if (confirmed.isEmpty()) confirmed = obj(current.get("proposed"));
     if ("CONFIRMED".equals(status)) {
+      if (!Boolean.TRUE.equals(confirmed.get("association_confirmed")))
+        throw new IllegalArgumentException("请勾选“是否确认关联层级正确”后再确认");
+      String reviewedKind=Objects.toString(confirmed.get("trajectory_kind"),"").trim().toUpperCase(Locale.ROOT);
+      String reviewedRole=Objects.toString(confirmed.get("document_role"),"").trim().toUpperCase(Locale.ROOT);
+      if (!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT","WELL_SUMMARY","ENGINEERING_REPORT","PRODUCTION_DATA","ARCHIVE","REFERENCE").contains(reviewedRole))
+        reviewedRole="REFERENCE";
+      // The parser's initial role is only a proposal.  Persist the edited
+      // role before attaching the source; otherwise a CSV initially classified
+      // as TRAJECTORY_DATA still reaches attachFile with an empty kind even
+      // after the engineer changes it to ordinary reference material.
+      if (Set.of("DESIGN","ACTUAL").contains(reviewedKind)) {
+        db.update("UPDATE drilling_source_document SET metadata_json=JSON_SET(COALESCE(metadata_json,JSON_OBJECT()),'$.trajectory_kind',?,'$.document_role',?) WHERE field_id=? AND source_id=?", reviewedKind, reviewedRole, fieldId, sourceId);
+      } else {
+        db.update("UPDATE drilling_source_document SET metadata_json=JSON_SET(COALESCE(metadata_json,JSON_OBJECT()),'$.document_role',?, '$.trajectory_kind', NULL) WHERE field_id=? AND source_id=?", reviewedRole, fieldId, sourceId);
+      }
       String well = Objects.toString(confirmed.get("well"), "").trim();
       String scope = Objects.toString(confirmed.get("document_scope"), "").trim().toUpperCase(Locale.ROOT);
-      if (well.isBlank())
+      if (well.isBlank() && !"FIELD".equals(scope))
         throw new IllegalArgumentException("确认前必须填写归属井；来源文件必须归入井或井眼");
+
+      // The parser supplies a candidate identity, while the confirmation form
+      // remains authoritative.  If the confirmed well/bore is absent from the
+      // current field, create it before validating the final relationship.  The
+      // whole operation is transactional, so a failed confirmation cannot
+      // leave a half-created well in the engineering catalog.
+      applyImportScopeMetadata(sourceId, confirmed);
+      ensureConfirmedDirectory(fieldId, confirmed);
+      Long resolvedFieldId = id(confirmed.get("resolved_field_id"));
+      if (resolvedFieldId == null) resolvedFieldId = fieldId;
+      validateImportScope(sourceId, confirmed, resolvedFieldId);
 
       // Normalize the editable form to one canonical candidate list.  Never
       // silently accept a parser name that is not an actual fieldId wellbore.
@@ -1073,7 +1149,7 @@ public class SourceRegistryController {
             "SELECT b.wellbore_id FROM drilling_well w JOIN drilling_wellbore b ON b.well_id=w.well_id "
                 + "JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id "
                 + "WHERE x.field_id=? AND (w.well_code=? OR w.well_name=? OR b.wellbore_code=? OR b.wellbore_name=?) "
-                + "ORDER BY b.wellbore_id", fieldId, well, well, well, well);
+                + "ORDER BY b.wellbore_id", resolvedFieldId, well, well, well, well);
         if (reference.isEmpty()) throw new IllegalArgumentException("归属井/井眼不属于当前工程目录，请先在工程层级中建立或关联");
       }
       var unresolved = new ArrayList<String>();
@@ -1082,7 +1158,7 @@ public class SourceRegistryController {
             "SELECT b.wellbore_id FROM drilling_well w JOIN drilling_wellbore b ON b.well_id=w.well_id "
                 + "JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id "
                 + "WHERE x.field_id=? AND (w.well_code=? OR w.well_name=? OR b.wellbore_code=? OR b.wellbore_name=?) "
-                + "ORDER BY b.wellbore_id", fieldId, code, code, code, code);
+                + "ORDER BY b.wellbore_id", resolvedFieldId, code, code, code, code);
         if (neighbor.isEmpty()) unresolved.add(code);
       }
       if (!unresolved.isEmpty())
@@ -1094,14 +1170,17 @@ public class SourceRegistryController {
     db.update("UPDATE drilling_source_document SET metadata_json=JSON_SET(COALESCE(metadata_json,JSON_OBJECT()),'$.review_status',?,'$.confirmed_engineering',?) WHERE field_id=? AND source_id=?",
         status, JSON.toJSONString(confirmed), fieldId, sourceId);
     if ("CONFIRMED".equals(status)) {
+      attachConfirmedSource(sourceId, confirmed);
       String wellCode = Objects.toString(confirmed.get("well"), "").trim();
       String wellboreCode = Objects.toString(confirmed.get("wellbore"), "").trim();
+      Long resolvedFieldId = id(confirmed.get("resolved_field_id"));
+      if (resolvedFieldId == null) resolvedFieldId = fieldId;
       var reference = db.queryForList(
           "SELECT b.wellbore_id FROM drilling_well w JOIN drilling_wellbore b ON b.well_id=w.well_id "
               + "JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id WHERE x.field_id=? "
               + "AND (w.well_code=? OR w.well_name=? OR b.wellbore_code=? OR b.wellbore_name=?) "
               + "AND (?='' OR b.wellbore_code=? OR b.wellbore_name=?) ORDER BY b.wellbore_id",
-          fieldId, wellCode, wellCode, wellCode, wellCode, wellboreCode, wellboreCode, wellboreCode);
+          resolvedFieldId, wellCode, wellCode, wellCode, wellCode, wellboreCode, wellboreCode, wellboreCode);
       Object candidatesValue = confirmed.get("neighbor_candidates");
       if (!reference.isEmpty()) {
         // The edited form is authoritative for this source confirmation. A
@@ -1109,7 +1188,7 @@ public class SourceRegistryController {
         // longer participate in a default scan.
         Long referenceBore=id(reference.get(0).get("wellbore_id"));
         db.update("UPDATE drilling_neighbor_selection SET included=FALSE WHERE field_id=? AND reference_wellbore_id=?",
-            fieldId, referenceBore);
+            resolvedFieldId, referenceBore);
         if (!(candidatesValue instanceof List<?>)) candidatesValue = List.of();
       }
       if (!reference.isEmpty() && candidatesValue instanceof List<?> candidates) {
@@ -1120,16 +1199,171 @@ public class SourceRegistryController {
               "SELECT b.wellbore_id FROM drilling_well w JOIN drilling_wellbore b ON b.well_id=w.well_id "
                   + "JOIN drilling_field_wellbore x ON x.wellbore_id=b.wellbore_id WHERE x.field_id=? "
                   + "AND (w.well_code=? OR w.well_name=? OR b.wellbore_code=? OR b.wellbore_name=?) "
-                  + "ORDER BY b.wellbore_id", fieldId, code, code, code, code);
+                  + "ORDER BY b.wellbore_id", resolvedFieldId, code, code, code, code);
           if (neighbor.isEmpty()) continue; // pre-validation rejects this case
           Long referenceBore=id(reference.get(0).get("wellbore_id")), neighborBore=id(neighbor.get(0).get("wellbore_id"));
           if (referenceBore.equals(neighborBore)) continue;
-          db.update("INSERT INTO drilling_neighbor_selection(field_id,reference_wellbore_id,neighbor_wellbore_id,included,version_policy) VALUES(?,?,?,TRUE,'CURRENT_ACTUAL') ON DUPLICATE KEY UPDATE included=TRUE,version_policy='CURRENT_ACTUAL',pinned_version_id=NULL", fieldId, referenceBore, neighborBore);
+          db.update("INSERT INTO drilling_neighbor_selection(field_id,reference_wellbore_id,neighbor_wellbore_id,included,version_policy) VALUES(?,?,?,TRUE,'CURRENT_ACTUAL') ON DUPLICATE KEY UPDATE included=TRUE,version_policy='CURRENT_ACTUAL',pinned_version_id=NULL", resolvedFieldId, referenceBore, neighborBore);
         }
       }
     }
     audit(fieldId, "CONFIRM_SOURCE_REVIEW", Map.of("sourceId",sourceId,"status",status,"confirmed",confirmed));
     return sourceReview(fieldId, sourceId);
+  }
+
+  private void validateImportScope(Long sourceId, Map<String,Object> confirmed, Long resolvedFieldId) {
+    var rows=db.queryForList("SELECT metadata_json FROM drilling_source_document WHERE source_id=?",sourceId);
+    if(rows.isEmpty()) return;
+    Map<String,Object> metadata=obj(rows.get(0).get("metadata_json"));
+    String scope=Objects.toString(metadata.get("import_scope_type"),"").toUpperCase(Locale.ROOT);
+    if(scope.isBlank()) return;
+    Long expectedField=id(metadata.get("import_scope_field_id"));
+    Long expectedBlock=id(metadata.get("import_scope_block_id"));
+    Long expectedWell=id(metadata.get("import_scope_well_id"));
+    Long expectedBore=id(metadata.get("import_scope_wellbore_id"));
+    Long resolvedWell=id(confirmed.get("resolved_well_id")), resolvedBore=id(confirmed.get("resolved_wellbore_id"));
+    Long resolvedBlock=id(confirmed.get("resolved_block_id"));
+    if(expectedBlock!=null&&!expectedBlock.equals(resolvedBlock)) throw new IllegalArgumentException("导入资料不能修改当前区块及其上级层级");
+    if(Set.of("FIELD","WELL","WELLBORE").contains(scope)&&expectedField!=null&&!expectedField.equals(resolvedFieldId)) throw new IllegalArgumentException("导入资料不能修改当前井场及其上级层级");
+    if(Set.of("WELL","WELLBORE").contains(scope)&&expectedWell!=null&&!expectedWell.equals(resolvedWell)) throw new IllegalArgumentException("导入资料不能修改当前井及其上级层级");
+    if("WELLBORE".equals(scope)&&expectedBore!=null&&!expectedBore.equals(resolvedBore)) throw new IllegalArgumentException("导入资料不能修改当前井眼及其上级层级");
+  }
+
+  private void applyImportScopeMetadata(Long sourceId, Map<String,Object> confirmed) {
+    var rows=db.queryForList("SELECT metadata_json FROM drilling_source_document WHERE source_id=?",sourceId);
+    if(rows.isEmpty()) return;
+    Map<String,Object> metadata=obj(rows.get(0).get("metadata_json"));
+    for(String key: List.of("import_scope_type","import_scope_node_id","import_scope_block_id","import_scope_field_id","import_scope_well_id","import_scope_wellbore_id"))
+      if(metadata.get(key)!=null) confirmed.put("_"+key, metadata.get(key));
+    if(confirmed.get("_import_scope_type")!=null) confirmed.put("import_scope_type", confirmed.get("_import_scope_type"));
+  }
+
+  private void attachConfirmedSource(Long sourceId, Map<String,Object> confirmed) {
+    Long resolvedNode = id(confirmed.get("resolved_node_id"));
+    Long resolvedField = id(confirmed.get("resolved_field_id"));
+    if (resolvedNode == null || resolvedField == null) return;
+    var metadataRows = db.queryForList("SELECT metadata_json FROM drilling_source_document WHERE source_id=?", sourceId);
+    Map<String,Object> metadata = metadataRows.isEmpty() ? Map.of() : obj(metadataRows.get(0).get("metadata_json"));
+    String role = Objects.toString(metadata.get("document_role"), Objects.toString(confirmed.get("document_role"), "REFERENCE"));
+    String kind = Objects.toString(metadata.get("trajectory_kind"), Objects.toString(confirmed.get("trajectory_kind"), "")).toUpperCase(Locale.ROOT);
+    if (!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT","WELL_SUMMARY","ENGINEERING_REPORT","PRODUCTION_DATA","ARCHIVE","REFERENCE").contains(role)) role = "REFERENCE";
+    Long attachNode = resolvedNode;
+    if (Set.of("DESIGN","ACTUAL").contains(kind)) {
+      String nodeType = "DESIGN".equals(kind) ? "PLAN" : "SURVEY";
+      Long bore = id(confirmed.get("resolved_wellbore_id"));
+      if (bore != null) {
+        var resultNodes = db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND wellbore_id=? AND node_type=? AND status='ACTIVE' ORDER BY node_id LIMIT 1", resolvedField, bore, nodeType);
+        if (!resultNodes.isEmpty()) attachNode = id(resultNodes.get(0).get("node_id"));
+        else {
+          var body = new LinkedHashMap<String,Object>(); body.put("fieldId", resolvedField); body.put("parentId", resolvedNode); body.put("nodeType", nodeType); body.put("name", "DESIGN".equals(kind)?"设计轨迹":"实钻测斜"); body.put("code", nodeType);
+          attachNode = id(engineeringLibrary.createNode(body).get("node_id"));
+        }
+      }
+    }
+    var association = new LinkedHashMap<String,Object>(); association.put("documentRole", role); association.put("trajectoryKind", kind); association.put("title", Objects.toString(metadata.get("original_name"), "工程资料")); association.put("fileLabel", Objects.toString(metadata.get("original_name"), "工程资料"));
+    engineeringLibrary.attachFile(attachNode, sourceId, association);
+  }
+
+  /** Create missing well/wellbore directory nodes from a confirmed import. */
+  @Transactional
+  private void ensureConfirmedDirectory(Long fieldId, Map<String,Object> confirmed) {
+    var currentScope = db.queryForMap("SELECT f.field_id,f.block_id,f.field_code,f.field_name,b.block_code,b.block_name FROM drilling_field f JOIN drilling_block b ON b.block_id=f.block_id WHERE f.field_id=?", fieldId);
+    Map<String,Object> engineering = obj(confirmed.get("engineering"));
+    String blockName = Objects.toString(confirmed.get("block"), Objects.toString(engineering.get("block"), Objects.toString(currentScope.get("block_name"), ""))).trim();
+    String blockCode = Objects.toString(confirmed.get("block_code"), Objects.toString(engineering.get("block_code"), blockName)).trim();
+    Long blockId = id(currentScope.get("block_id"));
+    Long expectedBlockId=id(confirmed.get("_import_scope_block_id"));
+    if (expectedBlockId != null) {
+      var expected=db.queryForMap("SELECT block_id,block_code,block_name FROM drilling_block WHERE block_id=? AND status='0'", expectedBlockId);
+      blockId=expectedBlockId; blockCode=Objects.toString(expected.get("block_code"), blockCode); blockName=Objects.toString(expected.get("block_name"), blockName);
+    } else if (!blockName.isBlank() && !blockName.equals(Objects.toString(currentScope.get("block_name"), ""))) {
+      var blocks = db.queryForList("SELECT block_id,block_code,block_name FROM drilling_block WHERE status='0' AND (block_code=? OR block_name=?) ORDER BY block_id LIMIT 1", blockCode, blockName);
+      if (blocks.isEmpty()) {
+        if (blockCode.isBlank()) blockCode = "IMPORT_BLOCK_" + NativeEngineSupport.hash(blockName).substring(0, 8);
+        db.update("INSERT INTO drilling_block(block_code,block_name,basin,province,authorized_user,coordinate_system,wellhead_n,wellhead_e,magnetic_declination,meridian_convergence,construction_status,enabled,create_by) VALUES(?,?,?,? ,?,?,0,0,0,0,'UNPLANNED','1',?)", blockCode, blockName, "未填写", "未填写", "未填写", "LOCAL_ENU", ShiroUtils.getLoginName());
+        blockId = db.queryForObject("SELECT block_id FROM drilling_block WHERE block_code=?", Long.class, blockCode);
+      } else blockId = id(blocks.get(0).get("block_id"));
+    }
+    String fieldName = Objects.toString(confirmed.get("field"), Objects.toString(engineering.get("field"), Objects.toString(confirmed.get("site"), Objects.toString(currentScope.get("field_name"), "")))).trim();
+    String fieldCode = Objects.toString(confirmed.get("field_code"), Objects.toString(engineering.get("field_code"), fieldName)).trim();
+    Long resolvedFieldId = fieldId;
+    Long expectedFieldId=id(confirmed.get("_import_scope_field_id"));
+    if (expectedFieldId != null) {
+      var expected=db.queryForMap("SELECT field_id,block_id,field_code,field_name FROM drilling_field WHERE field_id=? AND status='0'", expectedFieldId);
+      resolvedFieldId=expectedFieldId; blockId=id(expected.get("block_id")); fieldCode=Objects.toString(expected.get("field_code"), fieldCode); fieldName=Objects.toString(expected.get("field_name"), fieldName);
+      var expectedBlock=db.queryForMap("SELECT block_code,block_name FROM drilling_block WHERE block_id=?", blockId); blockCode=Objects.toString(expectedBlock.get("block_code"), blockCode); blockName=Objects.toString(expectedBlock.get("block_name"), blockName);
+    } else if (!fieldName.isBlank() && (!fieldName.equals(Objects.toString(currentScope.get("field_name"), "")) || !Objects.equals(blockId, id(currentScope.get("block_id"))))) {
+      var fields = db.queryForList("SELECT field_id,field_name,field_code FROM drilling_field WHERE block_id=? AND status='0' AND (field_code=? OR field_name=?) ORDER BY field_id LIMIT 1", blockId, fieldCode, fieldName);
+      if (fields.isEmpty()) {
+        if (fieldCode.isBlank()) fieldCode = "IMPORT_FIELD_" + NativeEngineSupport.hash(fieldName).substring(0, 8);
+        db.update("INSERT INTO drilling_field(block_id,field_code,field_name,province,authorized_user,coordinate_system,wellhead_n,wellhead_e,magnetic_declination,meridian_convergence,construction_status,enabled,create_by) VALUES(?,?,?,? ,?,?,0,0,0,0,'UNPLANNED','1',?)", blockId, fieldCode, fieldName, "未填写", "未填写", "LOCAL_ENU", ShiroUtils.getLoginName());
+        resolvedFieldId = db.queryForObject("SELECT field_id FROM drilling_field WHERE field_code=?", Long.class, fieldCode);
+        DrillingDataScope.current().initializeField(resolvedFieldId);
+      } else resolvedFieldId = id(fields.get(0).get("field_id"));
+    }
+    confirmed.put("resolved_field_id", resolvedFieldId);
+    confirmed.put("resolved_block_id", blockId);
+    confirmed.put("block", blockName); confirmed.put("field", fieldName);
+    String wellCode = Objects.toString(confirmed.get("well"), "").trim();
+    Long expectedWellId=id(confirmed.get("_import_scope_well_id"));
+    if (expectedWellId != null) {
+      var expected=db.queryForMap("SELECT well_id,well_code,well_name FROM drilling_well WHERE well_id=? AND status<>'ARCHIVED'", expectedWellId);
+      wellCode=Objects.toString(expected.get("well_code"), wellCode); confirmed.put("well", Objects.toString(expected.get("well_name"), wellCode));
+    }
+    if (wellCode.isBlank()) {
+      var folders=db.queryForList("SELECT node_id FROM drilling_engineering_node WHERE field_id=? AND node_type='INBOX' AND well_id IS NULL AND status='ACTIVE' ORDER BY node_id LIMIT 1", resolvedFieldId);
+      Long folderId;
+      if (!folders.isEmpty()) folderId=id(folders.get(0).get("node_id"));
+      else {
+        var body=new LinkedHashMap<String,Object>(); body.put("fieldId",resolvedFieldId); body.put("parentId",-2_000_000_000_000L-resolvedFieldId); body.put("nodeType","INBOX"); body.put("name","井场资料"); body.put("code","INBOX-"+NativeEngineSupport.hash(sourceIdentity(confirmed)).substring(0,8));
+        folderId=id(engineeringLibrary.createNode(body).get("node_id"));
+      }
+      confirmed.put("resolved_node_id",folderId);
+      return;
+    }
+    String boreCode = Objects.toString(confirmed.get("wellbore"), "").trim();
+    Long expectedBoreId=id(confirmed.get("_import_scope_wellbore_id"));
+    if (expectedBoreId != null) {
+      var expected=db.queryForMap("SELECT wellbore_id,well_id,wellbore_code,wellbore_name FROM drilling_wellbore WHERE wellbore_id=?", expectedBoreId);
+      boreCode=Objects.toString(expected.get("wellbore_code"), boreCode); confirmed.put("wellbore", Objects.toString(expected.get("wellbore_name"), boreCode));
+    }
+    var existingWell = db.queryForList(
+        "SELECT w.well_id,n.node_id,n.node_name FROM drilling_well w "
+            + "LEFT JOIN drilling_engineering_node n ON n.field_id=w.field_id AND n.well_id=w.well_id "
+            + "AND n.node_type='WELL' AND n.status='ACTIVE' WHERE w.field_id=? "
+            + "AND w.status<>'ARCHIVED' AND (w.well_code=? OR w.well_name=?) ORDER BY w.well_id LIMIT 1",
+        resolvedFieldId, wellCode, wellCode);
+    Map<String,Object> wellNode;
+    if (existingWell.isEmpty() || existingWell.get(0).get("node_id") == null) {
+      Long parentId = -2_000_000_000_000L - fieldId;
+      var body = new LinkedHashMap<String,Object>();
+      body.put("fieldId", resolvedFieldId); body.put("parentId", -2_000_000_000_000L - resolvedFieldId); body.put("nodeType", "WELL");
+      body.put("name", wellCode); body.put("code", wellCode); body.put("entityKind", "WELL");
+      wellNode = engineeringLibrary.createNode(body);
+    } else {
+      wellNode = engineeringLibrary.node(id(existingWell.get(0).get("node_id")), false);
+    }
+    confirmed.put("resolved_well_id", wellNode.get("well_id"));
+    if (boreCode.isBlank()) { confirmed.put("resolved_node_id", wellNode.get("node_id")); return; }
+    var existingBore = db.queryForList(
+        "SELECT n.node_id FROM drilling_wellbore b JOIN drilling_engineering_node n "
+            + "ON n.wellbore_id=b.wellbore_id AND n.node_type='WELLBORE' AND n.status='ACTIVE' "
+            + "WHERE b.well_id=? AND (b.wellbore_code=? OR b.wellbore_name=?) ORDER BY b.wellbore_id LIMIT 1",
+        id(wellNode.get("well_id")), boreCode, boreCode);
+    Long resolvedNodeId;
+    if (existingBore.isEmpty()) {
+      var body = new LinkedHashMap<String,Object>();
+      body.put("fieldId", resolvedFieldId); body.put("parentId", wellNode.get("node_id"));
+      body.put("nodeType", "WELLBORE"); body.put("name", boreCode); body.put("code", boreCode);
+      body.put("engineeringStatus", "UNPLANNED"); body.put("entityKind", "UNKNOWN");
+      resolvedNodeId = id(engineeringLibrary.createNode(body).get("node_id"));
+    } else resolvedNodeId = id(existingBore.get(0).get("node_id"));
+    confirmed.put("resolved_wellbore_id", db.queryForObject("SELECT wellbore_id FROM drilling_engineering_node WHERE node_id=?", Long.class, resolvedNodeId));
+    confirmed.put("resolved_node_id", resolvedNodeId);
+  }
+
+  private static String sourceIdentity(Map<String,Object> confirmed) {
+    return Objects.toString(confirmed.get("block"),"")+":"+Objects.toString(confirmed.get("field"),"")+":"+Objects.toString(confirmed.get("well"),"");
   }
 
   private Map<String, Object> previewPayload(

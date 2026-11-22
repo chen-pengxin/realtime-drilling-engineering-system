@@ -14,11 +14,11 @@ from typing import Any
 from app.shared.trajectory.min_curvature import compute_minimum_curvature
 
 ALIASES={
- 'md':('measureddepth','md','测深','井深','测量深度'),
+ 'md':('measureddepth','measured depth','md','depth','测深','井深','测量深度'),
  'inclination':('inclination','incl','inc','井斜角','井斜','斜度'),
- 'azimuth':('azimuth','azim','azi','网格方位','井眼方位','方位角','方位'),
- 'north':('northing','north','utmn/s','北坐标','北位移','（N）值','N/S'),
- 'east':('easting','east','utme/w','东坐标','东位移','（E）值','E/W'),
+ 'azimuth':('azimuth','azim','azi','az','网格方位','井眼方位','方位角','方位'),
+ 'north':('northing','north','n','utmn/s','北坐标','北位移','（N）值','N/S'),
+ 'east':('easting','east','e','utme/w','东坐标','东位移','（E）值','E/W'),
  'tvd':('tvd','垂深','垂直深度'),
  'dogleg':('dogleg','dls','狗腿度','井眼曲率','全角变化率'),
  'closure_distance':('水平位移','闭合距'),

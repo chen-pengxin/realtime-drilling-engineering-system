@@ -51,7 +51,7 @@
     "curveToleranceM": 0.01
   },
   "planning": {
-    "solver": "SLSQP",
+    "solver": "ALL",
     "maxDoglegDegPer30m": 6.0,
     "minDoglegDegPer30m": 0.0,
     "minSegmentLength": 3.0,

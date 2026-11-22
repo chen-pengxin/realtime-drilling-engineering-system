@@ -79,7 +79,11 @@ service.interceptors.response.use(async res => {
     // 未设置状态码则默认成功状态
     const code = res.data.code || 200
     // 获取错误信息
-    const msg = errorCode[code] || res.data.msg || errorCode['default']
+    // Business errors from login and engineering APIs use RuoYi's 500 code,
+    // but their response message explains the actual cause (for example,
+    // “验证码错误”). Preserve that message instead of replacing it with the
+    // generic “系统接口500异常”.
+    const msg = res.data.msg || errorCode[code] || errorCode['default']
     // 二进制数据则直接返回
     if (res.request.responseType ===  'blob' || res.request.responseType ===  'arraybuffer') {
       if(String(res.headers?.['content-type']||'').includes('application/json')){

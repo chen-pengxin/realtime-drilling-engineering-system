@@ -484,7 +484,7 @@ def engine_catalog():
     from wellpath.anticollision.error_models.registry import MODEL_NAMES,load_model_settings
     from wellpath.optimization.runner import ALGORITHMS
     from .tasks.replanning.native_profiles import ensure_native_profiles
-    return {'engine':'wellpath-engine','version':'1.0.0','default_model':'iscwsa_rev0','default_solver':'SLSQP','models':[{'name':n,'settings':load_model_settings(n)} for n in MODEL_NAMES],'algorithms':list(ALGORITHMS),'trajectory_modes':list(ensure_native_profiles()),'segment_counts':[1,2,3,4,5],
+    return {'engine':'wellpath-engine','version':'1.0.0','default_model':'iscwsa_rev0','default_solver':'ALL','models':[{'name':n,'settings':load_model_settings(n)} for n in MODEL_NAMES],'algorithms':list(ALGORITHMS),'trajectory_modes':list(ensure_native_profiles()),'segment_counts':[1,2,3,4,5],
       'arc_segment_models':['minimum_curvature','constant_toolface'],'default_arc_segment_model':'minimum_curvature','sf_methods':[
       # ``name`` is an engine contract used by the request payload.  The
       # catalog deliberately exposes only the engineering formula and symbol
@@ -506,7 +506,7 @@ def validate_engine(payload: dict):
     from wellpath.api import calculate_uncertainty
     from wellpath.optimization.runner import ALGORITHMS
     model=ErrorModelConfig(**payload.get('error_model',{}));settings=model.resolved()
-    if payload.get('solver','SLSQP') not in ALGORITHMS:raise ValueError('不支持的求解器')
+    if payload.get('solver','SLSQP') not in (*ALGORITHMS, 'ALL'):raise ValueError('不支持的求解器')
     if 'native_options' in payload:
       options=payload['native_options']
       from .tasks.replanning.native_profiles import ensure_native_profiles

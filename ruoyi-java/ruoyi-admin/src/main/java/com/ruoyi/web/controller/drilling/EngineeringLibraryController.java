@@ -2,6 +2,10 @@ package com.ruoyi.web.controller.drilling;
 
 import com.ruoyi.framework.security.DrillingDataScope;
 import java.util.*;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -99,6 +103,46 @@ public class EngineeringLibraryController {
   public List<Map<String,Object>> documentHistory(@PathVariable Long fieldId,@PathVariable Long documentId){
     library.documentContext(fieldId,documentId,false);
     return library.documentHistory(documentId);
+  }
+
+  @PostMapping("/nodes/{nodeId}/files/export")
+  @RequiresPermissions("drilling:file:list")
+  public org.springframework.http.ResponseEntity<byte[]> exportFiles(@PathVariable Long fieldId,
+      @PathVariable Long nodeId, @RequestBody Map<String,Object> body) throws IOException {
+    // Resolve the selected directory once so the archive name always reflects
+    // the level from which the user started the export.  The same endpoint is
+    // used for synthetic block/field nodes and persisted well/wellbore nodes.
+    var selectedNode = library.nodeInField(fieldId, nodeId, false);
+    var available=library.sourceFilesForExport(fieldId,nodeId);
+    var byId=new LinkedHashMap<Long,Map<String,Object>>();
+    for(var row:available) byId.put(EngineeringLibraryService.id(row.get("source_id")),row);
+    var requested=new ArrayList<Long>();
+    Object ids=body==null?null:body.get("sourceIds");
+    if(ids instanceof Collection<?> values) for(Object value:values){Long source=EngineeringLibraryService.id(value);if(source!=null&&!requested.contains(source))requested.add(source);}
+    if(requested.size()<2) throw new IllegalArgumentException("批量导出至少选择两个文件");
+    for(Long source:requested) if(!byId.containsKey(source)) throw new IllegalArgumentException("所选文件不属于当前工程层级");
+    var bytes=new ByteArrayOutputStream();var used=new HashSet<String>();
+    try(var zip=new ZipOutputStream(bytes)) {
+      for(Long source:requested){var row=byId.get(source);String name=DrillingFileController.safeName(Objects.toString(row.get("original_name"),"工程资料"));String entry=name;int suffix=2;while(!used.add(entry))entry=name+" ("+(suffix++)+")";zip.putNextEntry(new ZipEntry(entry));zip.write(files.readBytes(EngineeringLibraryService.id(row.get("storage_field_id")),EngineeringLibraryService.id(row.get("file_id"))));zip.closeEntry();}
+    }
+    String nodeName = archiveNamePart(selectedNode.get("node_name"));
+    String archiveName = nodeName + "_工程资料.zip";
+    return org.springframework.http.ResponseEntity.ok().header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+        org.springframework.http.ContentDisposition.attachment().filename(archiveName,java.nio.charset.StandardCharsets.UTF_8).build().toString())
+        .contentType(org.springframework.http.MediaType.parseMediaType("application/zip")).contentLength(bytes.size()).body(bytes.toByteArray());
+  }
+
+  /** Make a filesystem-safe archive name while retaining the complete level name. */
+  private static String archiveNamePart(Object raw) {
+    String value = Objects.toString(raw, "工程项目").trim();
+    StringBuilder safe = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      safe.append("\\/:*?\"<>|".indexOf(c) >= 0 ? '_' : c);
+    }
+    String result = safe.toString().trim();
+    if (result.isBlank()) result = "工程项目";
+    return result.length() > 180 ? result.substring(0, 180).trim() : result;
   }
   @PutMapping("/documents/{documentId}/status") @RequiresPermissions("drilling:file:upload") @Transactional
   public void updateFileStatus(@PathVariable Long fieldId,@PathVariable Long documentId,@RequestBody Map<String,Object> body){

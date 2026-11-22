@@ -1,6 +1,15 @@
 import request from '@/utils/request'
 const root = fieldId => `/api/drilling/fields/${fieldId}/library`
-export const catalogTree = () => request({ silentError: true, url: '/api/drilling/library/tree', method: 'get' })
+// Several engineering pages mount together and can ask for the same catalog
+// during the first render. Share that request so one slow query cannot create
+// a stack of identical timeout notifications.
+let catalogTreeRequest = null
+export const catalogTree = () => {
+  if (catalogTreeRequest) return catalogTreeRequest
+  catalogTreeRequest = request({ silentError: true, url: '/api/drilling/library/tree', method: 'get', timeout: 30000 })
+    .finally(() => { catalogTreeRequest = null })
+  return catalogTreeRequest
+}
 export const libraryTree = fieldId => request({ silentError: true, url: `${root(fieldId)}/tree`, method: 'get' })
 export const libraryNode = (fieldId, nodeId, params = {}) => request({ silentError: true, url: `${root(fieldId)}/nodes/${nodeId}`, method: 'get', params })
 export const createLibraryNode = (fieldId, data) => request({ silentError: true, url: `${root(fieldId)}/nodes`, method: 'post', data })
@@ -26,4 +35,5 @@ export const engineeringTableData=(p,b,versionId)=>request({url:`${root(p)}/well
 export const saveEngineeringBasic=(p,b,data)=>request({url:`${root(p)}/wellbores/${b}/basic-data`,method:'put',data})
 export const engineeringFileImpact=(p,d)=>request({url:`${root(p)}/documents/${d}/impact`})
 export const deleteEngineeringDocument=(p,d)=>request({url:`${root(p)}/documents/${d}`,method:'delete'})
+export const exportLibraryFiles=(p,nodeId,sourceIds)=>request({silentError:true,url:`${root(p)}/nodes/${nodeId}/files/export`,method:'post',data:{sourceIds},responseType:'blob',timeout:240000})
 export const createTrajectoryTargetPoint=(p,b,data)=>request({url:`${root(p)}/wellbores/${b}/trajectory-target-points`,method:'post',data})

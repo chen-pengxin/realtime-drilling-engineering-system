@@ -189,6 +189,39 @@ public class EngineeringLibraryService {
     return rows;
   }
   public Map<String,Object> engineeringNode(Long nodeId){ return node(nodeId,false); }
+
+  /** Describe the user's import scope. Parsed descendants may be edited, but
+   * the selected level and all of its ancestors are immutable constraints. */
+  public Map<String,Object> importScope(Long fieldId, Long nodeId) {
+    var result = new LinkedHashMap<String,Object>();
+    if (nodeId == null) return result;
+    Map<String,Object> selected;
+    if (isScope(nodeId)) selected = scopeNode(fieldId, nodeId);
+    else selected = nodeInField(fieldId, nodeId, false);
+    if (selected == null) return result;
+    String type = Objects.toString(selected.get("node_type"), "").toUpperCase(Locale.ROOT);
+    result.put("import_scope_type", type);
+    result.put("import_scope_node_id", nodeId);
+    result.put("import_scope_id", nodeId);
+    Long blockId = id(selected.get("block_id"));
+    Long selectedField = id(selected.get("field_id"));
+    Long wellId = id(selected.get("well_id"));
+    Long boreId = id(selected.get("wellbore_id"));
+    if ("BLOCK".equals(type)) blockId = id(selected.get("block_id"));
+    if (selectedField == null && blockId != null && !"BLOCK".equals(type)) {
+      var row = db.queryForList("SELECT field_id FROM drilling_field WHERE block_id=? AND status='0' ORDER BY field_id LIMIT 1", blockId);
+      if (!row.isEmpty()) selectedField = id(row.get(0).get("field_id"));
+    }
+    if (selectedField != null) {
+      result.put("import_scope_field_id", selectedField);
+      var row = db.queryForList("SELECT f.block_id FROM drilling_field f WHERE f.field_id=?", selectedField);
+      if (!row.isEmpty()) blockId = id(row.get(0).get("block_id"));
+    }
+    if (wellId != null) result.put("import_scope_well_id", wellId);
+    if (boreId != null) result.put("import_scope_wellbore_id", boreId);
+    if (blockId != null) result.put("import_scope_block_id", blockId);
+    return result;
+  }
   String descendants(){return "WITH RECURSIVE scope AS (SELECT node_id FROM drilling_engineering_node WHERE node_id=? UNION ALL SELECT n.node_id FROM drilling_engineering_node n JOIN scope s ON n.parent_id=s.node_id WHERE n.status='ACTIVE') ";}
   /** Resolve paths in one query for a whole page, including uploaded files. */
   private void decorateDocumentPaths(List<Map<String,Object>> rows){
@@ -238,8 +271,9 @@ public class EngineeringLibraryService {
       if(!folders.isEmpty())return fileTarget(fieldId,id(folders.get(0).get("node_id")));
       return createNode(Map.of("fieldId",fieldId,"parentId",nodeId,"nodeType","INBOX","name","井场资料","code","INBOX-"+UUID.randomUUID()));
     }
+    if("BLOCK".equals(target.get("node_type"))) return target;
     if(nodeId<0||!Set.of("INBOX","WELL","WELLBORE","PLAN","SURVEY").contains(target.get("node_type")))
-      throw new IllegalArgumentException("请选择井场、井、井眼或资料目录");
+      throw new IllegalArgumentException("请选择区块、井场、井、井眼或资料目录");
     return target;
   }
 
@@ -267,23 +301,51 @@ public class EngineeringLibraryService {
       registerWellboreReference(fieldId,wellboreId);
       nodeId=db.queryForObject("SELECT MIN(node_id) FROM drilling_engineering_node WHERE field_id=? AND wellbore_id=? AND node_type='WELLBORE' AND status='ACTIVE'",Long.class,fieldId,wellboreId);
     }
+    var requested=nodeInField(fieldId,nodeId,false);
     var n=fileTarget(fieldId,nodeId);
+    // A block upload is an unassigned staging import.  The parser review will
+    // resolve its field, well and wellbore before any document association is
+    // created.
+    if (Set.of("BLOCK","FIELD","WELL","INBOX").contains(requested.get("node_type"))
+        || ("WELLBORE".equals(requested.get("node_type")) && (kind == null || kind.isBlank()))) n.put("staging_scope", true);
     if(wellboreId!=null&&!wellboreId.equals(id(n.get("wellbore_id"))))throw new IllegalArgumentException("上传节点与所选井眼不一致");
     validateFileUsage(n,role,kind);
+    if (n.get("wellbore_id")==null && kind!=null && !kind.isBlank() && Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(role)) return null;
     if(n.get("well_id")!=null)access(db.queryForObject("SELECT field_id FROM drilling_well WHERE well_id=?",Long.class,n.get("well_id")),true);
     if(document!=null){n.put("upload_document_id",documentId);n.put("upload_expected_edition_no",expectedEditionNo);n.put("upload_revision_id",document.get("revision_id"));}
     return n;
   }
 
   static void validateFileUsage(Map<String,Object> node,String role,String kind){
-    if("TRAJECTORY_DATA".equals(role)&&(node.get("wellbore_id")==null||kind==null||kind.isBlank()))
-      throw new IllegalArgumentException("轨迹数据必须选择具体井眼，并指定设计轨道或实钻测斜");
-    if(kind!=null&&!kind.isBlank()){
-      if(!Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(role)||!Set.of("DESIGN","ACTUAL").contains(kind)||node.get("wellbore_id")==null)
-        throw new IllegalArgumentException("设计或实钻资料必须关联到具体井眼");
-      if("PLAN".equals(node.get("node_type"))&&!"DESIGN".equals(kind)||"SURVEY".equals(node.get("node_type"))&&!"ACTUAL".equals(kind))
-        throw new IllegalArgumentException("文件用途与所选资料目录不一致");
+    String type=Objects.toString(node.get("node_type"),"").toUpperCase(Locale.ROOT);
+    boolean trajectory=Set.of("TRAJECTORY_DATA","TRAJECTORY_REPORT").contains(role);
+    String normalizedKind=Objects.toString(kind,"").trim().toUpperCase(Locale.ROOT);
+    if (!trajectory) {
+      if (!normalizedKind.isBlank()) throw new IllegalArgumentException("非轨迹资料不能指定设计或实钻类别");
+      return;
     }
+
+    // Block/field/well/folder uploads are staging imports.  The parser fills
+    // the trajectory category and the engineer may correct it in the same
+    // upload form before the single confirmation checkbox is submitted.
+    if (Set.of("BLOCK","FIELD","INBOX","WELL").contains(type)) {
+      if (!normalizedKind.isBlank()) throw new IllegalArgumentException("批量解析阶段不能在资料目录上指定轨迹类别，请在解析结果中确认");
+      return;
+    }
+    if (!Set.of("DESIGN","ACTUAL").contains(normalizedKind))
+      throw new IllegalArgumentException("轨迹数据必须指定设计轨道或实钻测斜");
+    if ("WELLBORE".equals(type)) {
+      // Direct API callers must choose a concrete trajectory directory.  The
+      // catalog upload dialog is the exception: a wellbore-level batch is a
+      // parser staging import and can determine DESIGN/ACTUAL per file before
+      // the single confirmation checkbox is submitted.
+      if (normalizedKind.isBlank() && !Boolean.TRUE.equals(node.get("staging_scope")))
+        throw new IllegalArgumentException("井眼上传轨迹资料必须先选择设计轨道或实钻测斜资料目录");
+      return;
+    }
+    if ("PLAN".equals(type) && !"DESIGN".equals(normalizedKind)
+        || "SURVEY".equals(type) && !"ACTUAL".equals(normalizedKind))
+      throw new IllegalArgumentException("文件用途与所选资料目录不一致");
   }
 
   public Map<String,Object> documentContext(Long fieldId,Long documentId,boolean write){
@@ -359,16 +421,19 @@ public class EngineeringLibraryService {
   public Map<String,Object> scopedContents(Long fieldId,Long nodeId,String keyword,String role,String trajectoryKind,int page,int size,String sort,String order){
     if(!isScope(nodeId))return contents(nodeId,keyword,role,trajectoryKind,page,size,sort,order);
     var n=nodeInField(fieldId,nodeId,false);size=Math.max(1,Math.min(size,100));page=Math.max(1,page);
-    String where=" FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id LEFT JOIN drilling_engineering_revision r ON r.revision_id=d.revision_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE df.usage_state<>'DELETED' AND df.edition_no=(SELECT MAX(current_file.edition_no) FROM drilling_engineering_document_file current_file WHERE current_file.document_id=d.document_id) AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL AND n.field_id=? AND (?='' OR f.original_name LIKE ? OR d.document_title LIKE ? OR f.display_name LIKE ?) AND (?='' OR d.document_role=?) AND (?='' OR "+FILE_KIND_SQL+"=?)";
-    Object[] args={fieldId,keyword,"%"+keyword+"%","%"+keyword+"%","%"+keyword+"%",role,role,trajectoryKind,trajectoryKind};
+    boolean blockScope="BLOCK".equals(scopeType(nodeId));
+    String scopeWhere=blockScope?"n.field_id IN (SELECT field_id FROM drilling_field WHERE block_id=?)":"n.field_id=?";
+    Object scopeId=blockScope?n.get("block_id"):fieldId;
+    String where=" FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id LEFT JOIN drilling_engineering_revision r ON r.revision_id=d.revision_id JOIN drilling_engineering_node n ON n.node_id=d.node_id WHERE n.status='ACTIVE' AND df.usage_state<>'DELETED' AND df.edition_no=(SELECT MAX(current_file.edition_no) FROM drilling_engineering_document_file current_file WHERE current_file.document_id=d.document_id) AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL AND "+scopeWhere+" AND (?='' OR f.original_name LIKE ? OR d.document_title LIKE ? OR f.display_name LIKE ?) AND (?='' OR d.document_role=?) AND (?='' OR "+FILE_KIND_SQL+"=?)";
+    Object[] args={scopeId,keyword,"%"+keyword+"%","%"+keyword+"%","%"+keyword+"%",role,role,trajectoryKind,trajectoryKind};
     long total=db.queryForObject("SELECT COUNT(*)"+where,Long.class,args);
     String column=Map.of("name","f.original_name","date","df.create_time","role","d.document_role").getOrDefault(sort,"df.create_time");
     var params=new ArrayList<Object>(Arrays.asList(args));params.add(size);params.add((page-1)*size);
     var files=db.queryForList("SELECT d.*,df.document_file_id,df.edition_no,df.representation_format,df.usage_state AS file_usage_state,df.file_label,df.properties_json AS file_properties,s.source_id,s.field_id AS source_field_id,s.source_path,s.parse_status,f.file_id,f.original_name,f.display_name,f.sha256,f.file_size,df.create_time,r.business_revision,r.outcome_name,r.phase,n.wellbore_id,n.node_type,"+FILE_KIND_SQL+" AS trajectory_kind,(SELECT MAX(history.edition_no) FROM drilling_engineering_document_file history WHERE history.document_id=d.document_id) AS latest_edition_no"+where+" ORDER BY "+column+("asc".equalsIgnoreCase(order)?" ASC":" DESC")+",df.document_file_id DESC LIMIT ? OFFSET ?",params.toArray());
     decorateDocumentPaths(files);
-    var revisions=db.queryForList("SELECT r.*,n.node_name,n.node_type,n.wellbore_id,h.revision_id AS published_revision_id,h.survey_version_id AS published_data_id,(SELECT COUNT(*) FROM drilling_engineering_revision_data rd WHERE rd.revision_id=r.revision_id) dataset_count,EXISTS(SELECT 1 FROM drilling_engineering_revision_data rd JOIN drilling_trajectory_head th ON th.survey_version_id=rd.survey_version_id WHERE rd.revision_id=r.revision_id) selected_for_calculation FROM drilling_engineering_revision r JOIN drilling_engineering_node n ON n.node_id=r.node_id LEFT JOIN drilling_engineering_head h ON h.node_id=n.node_id AND h.revision_id=r.revision_id WHERE n.field_id=? AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL ORDER BY r.source_date DESC,r.revision_id DESC",fieldId);
+    var revisions=db.queryForList("SELECT r.*,n.node_name,n.node_type,n.wellbore_id,h.revision_id AS published_revision_id,h.survey_version_id AS published_data_id,(SELECT COUNT(*) FROM drilling_engineering_revision_data rd WHERE rd.revision_id=r.revision_id) dataset_count,EXISTS(SELECT 1 FROM drilling_engineering_revision_data rd JOIN drilling_trajectory_head th ON th.survey_version_id=rd.survey_version_id WHERE rd.revision_id=r.revision_id) selected_for_calculation FROM drilling_engineering_revision r JOIN drilling_engineering_node n ON n.node_id=r.node_id LEFT JOIN drilling_engineering_head h ON h.node_id=n.node_id AND h.revision_id=r.revision_id WHERE n.status='ACTIVE' AND "+scopeWhere+" AND JSON_EXTRACT(r.properties_json,'$.canonical_revision_id') IS NULL ORDER BY r.source_date DESC,r.revision_id DESC",scopeId);
     var children=tree(fieldId).stream().filter(x->Objects.equals(x.get("parent_id"),nodeId)).toList();
-    return Map.of("node",n,"files",files,"total",total,"revisions",revisions,"trajectoryVersions",trajectoryVersions(fieldId,nodeId,true),"children",children);
+    return Map.of("node",n,"files",files,"total",total,"revisions",revisions,"trajectoryVersions",blockScope?List.of():trajectoryVersions(fieldId,nodeId,true),"children",children);
   }
 
   public List<Map<String,Object>> targets(Long fieldId, Long wellboreId) {
@@ -566,6 +631,11 @@ public class EngineeringLibraryService {
     db.update("UPDATE drilling_engineering_node SET status='ARCHIVED',update_time=NOW() WHERE node_id IN ("+marks+")",ids.toArray());
     db.update("UPDATE drilling_wellbore b JOIN drilling_engineering_node n ON n.wellbore_id=b.wellbore_id SET b.engineering_status='ABANDONED',b.update_time=NOW() WHERE n.node_id IN ("+marks+")",ids.toArray());
     db.update("UPDATE drilling_well w JOIN drilling_engineering_node n ON n.well_id=w.well_id SET w.status='ARCHIVED',w.update_time=NOW() WHERE n.node_id IN ("+marks+") AND n.node_type='WELL' AND w.status<>'ARCHIVED'",ids.toArray());
+    // Removing the last wellbore also removes the now-orphaned well from the
+    // active engineering tree. A well with another active wellbore remains
+    // visible and keeps its parent record.
+    db.update("UPDATE drilling_engineering_node wn JOIN drilling_well w ON w.well_id=wn.well_id LEFT JOIN (SELECT DISTINCT well_id FROM drilling_engineering_node WHERE node_type='WELLBORE' AND status='ACTIVE') active_bore ON active_bore.well_id=w.well_id SET wn.status='ARCHIVED',wn.update_time=NOW() WHERE wn.node_type='WELL' AND wn.status='ACTIVE' AND w.status<>'ARCHIVED' AND active_bore.well_id IS NULL");
+    db.update("UPDATE drilling_well w LEFT JOIN (SELECT DISTINCT well_id FROM drilling_engineering_node WHERE node_type='WELLBORE' AND status='ACTIVE') active_bore ON active_bore.well_id=w.well_id JOIN (SELECT DISTINCT well_id FROM drilling_engineering_node WHERE status='ARCHIVED') archived_node ON archived_node.well_id=w.well_id SET w.status='ARCHIVED',w.update_time=NOW() WHERE w.status<>'ARCHIVED' AND active_bore.well_id IS NULL");
     audit(id(old.get("field_id")),"ARCHIVE_ENGINEERING_NODE",Map.of("nodeId",nodeId,"nodeType",old.get("node_type"),"descendantCount",ids.size()));
   }
   public Map<String,Object> deletionImpact(Long fieldId,Long nodeId){
@@ -678,7 +748,7 @@ public class EngineeringLibraryService {
     var n=node(nodeId,true);Long p=id(n.get("field_id"));
     if(!"ACTIVE".equals(n.get("status"))||Boolean.TRUE.equals(obj(n.getOrDefault("properties",n.get("properties_json"))).get("reference_only")))throw new IllegalArgumentException("请在所属井场选择可编辑的资料目录");
     var sources=db.queryForList("SELECT s.*,f.original_name,f.display_name,f.sha256 FROM drilling_source_document s JOIN data_file f ON f.file_id=s.file_id WHERE s.source_id=?",sourceId);
-    if(sources.isEmpty())throw new IllegalArgumentException("来源文件不存在");var s=sources.get(0);access(id(s.get("field_id")),false);
+    if(sources.isEmpty())throw new IllegalArgumentException("来源文件不存在");var s=sources.get(0);if(p==null)p=id(s.get("field_id"));access(id(s.get("field_id")),false);
     // Linking an accessible original is read-only with respect to its owner;
     // shared multiwell reports do not need another upload or another source.
     boolean referenceOnly=!p.equals(id(s.get("field_id")));
@@ -754,8 +824,17 @@ public class EngineeringLibraryService {
 
   /** Return each distinct immutable source object below an engineering node. */
   public List<Map<String,Object>> sourceFilesForExport(Long fieldId, Long nodeId) {
-    nodeInField(fieldId, nodeId, false);
+    var selected=nodeInField(fieldId, nodeId, false);
     if (isScope(nodeId)) {
+      if ("BLOCK".equals(scopeType(nodeId))) {
+        return db.queryForList(
+            "SELECT DISTINCT s.source_id,s.field_id AS storage_field_id,f.file_id,f.original_name,f.content_type,f.file_size,f.sha256,s.source_path "
+                + "FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id "
+                + "JOIN drilling_source_document s ON s.source_id=df.source_id JOIN data_file f ON f.file_id=s.file_id "
+                + "JOIN drilling_engineering_node n ON n.node_id=d.node_id JOIN drilling_field fld ON fld.field_id=n.field_id "
+                + "WHERE fld.block_id=? AND JSON_EXTRACT(df.properties_json,'$.canonical_document_file_id') IS NULL ORDER BY s.source_id",
+            id(selected.get("block_id")));
+      }
       return db.queryForList(
           "SELECT DISTINCT s.source_id,s.field_id AS storage_field_id,f.file_id,f.original_name,f.content_type,f.file_size,f.sha256,s.source_path "
               + "FROM drilling_engineering_document d JOIN drilling_engineering_document_file df ON df.document_id=d.document_id "

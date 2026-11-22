@@ -9,7 +9,6 @@ import shutil
 import subprocess
 import tempfile
 import threading
-import signal
 import zipfile
 import xml.etree.ElementTree as ET
 
@@ -78,23 +77,55 @@ def convert_office(data: bytes, suffix: str, target: str, *, preserve_tables=Fal
             config=directory/'fonts.conf'
             config.write_text('<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig><include ignore_missing="yes">/opt/homebrew/etc/fonts/fonts.conf</include><dir>/System/Library/Fonts</dir><dir>/System/Library/Fonts/Supplemental</dir><dir>/Library/Fonts</dir><cachedir>'+str(directory/'fontcache')+'</cachedir></fontconfig>')
             conversion_env['FONTCONFIG_FILE']=str(config)
-        process = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True,env=conversion_env)
+        # Keep the conversion subprocess on the platform's posix_spawn path.
+        # Forking a long-running Python process that has imported PROJ/SQLite
+        # can crash on macOS before Office even starts.
+        process = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=conversion_env)
         try:
             process.communicate(timeout=60)
         except subprocess.TimeoutExpired as error:
-            # Kill this converter's process group, never the user's Office app.
-            os.killpg(process.pid,signal.SIGKILL)
+            # Kill only the converter process; the user's Office application is
+            # never attached to this process because an isolated profile is
+            # supplied above.
+            process.kill()
             process.communicate()
             raise ValueError('文档转换超过60秒，已停止本次转换；原文件已保留，可重新解析') from error
         result = process
+        # Some legacy WPS/Word documents are accepted by textutil but fail in
+        # LibreOffice's direct PDF filter.  Convert a private copy to DOCX,
+        # then render that copy.  This remains an Office rendering fallback;
+        # it never invokes the engineering parser or changes the original.
+        if (result.returncode or not _valid_output(output, target)) and office and target == 'pdf' \
+                and suffix in ('.doc', '.wps', '.rtf') and shutil.which('textutil'):
+            fallback_source = directory / 'source-fallback.docx'
+            fallback_pdf = directory / 'source-fallback.pdf'
+            fallback_source.unlink(missing_ok=True)
+            fallback_pdf.unlink(missing_ok=True)
+            textutil = subprocess.run(
+                ['textutil', '-convert', 'docx', '-output', str(fallback_source), str(source)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+            if textutil.returncode == 0 and fallback_source.is_file() and fallback_source.stat().st_size:
+                fallback_command = [office, '-env:UserInstallation=' + (directory / 'fallback-profile').as_uri(),
+                                    '--headless', '--convert-to', 'pdf', '--outdir', str(directory), str(fallback_source)]
+                fallback_process = subprocess.Popen(fallback_command, stdout=subprocess.PIPE,
+                                                    stderr=subprocess.PIPE, env=conversion_env)
+                try:
+                    fallback_process.communicate(timeout=60)
+                except subprocess.TimeoutExpired as error:
+                    fallback_process.kill()
+                    fallback_process.communicate()
+                    raise ValueError('文档转换超过60秒，已停止本次转换；原文件已保留，可重新解析') from error
+                if fallback_process.returncode == 0 and _valid_output(fallback_pdf, 'pdf'):
+                    fallback_pdf.replace(output)
+                    result = fallback_process
         if (result.returncode or not _valid_output(output,target)) and command[0].endswith('textutil') and office:
             output.unlink(missing_ok=True)
             command = [office, '-env:UserInstallation=' + (directory / 'profile').as_uri(),
                        '--headless', '--convert-to', target, '--outdir', str(directory), str(source)]
-            process = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,start_new_session=True)
+            process = subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=conversion_env)
             try: process.communicate(timeout=60)
             except subprocess.TimeoutExpired as error:
-                os.killpg(process.pid,signal.SIGKILL);process.communicate();raise ValueError('文档转换超过60秒，已停止本次转换；原文件已保留，可重新解析') from error
+                process.kill();process.communicate();raise ValueError('文档转换超过60秒，已停止本次转换；原文件已保留，可重新解析') from error
             result = process
         if result.returncode or not _valid_output(output,target):
             raise ValueError('Office文档转换失败，请检查文件是否损坏或加密')

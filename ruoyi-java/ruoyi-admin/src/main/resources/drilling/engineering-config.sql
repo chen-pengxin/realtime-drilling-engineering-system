@@ -92,6 +92,18 @@ SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schem
 PREPARE drilling_schema_stmt FROM @ddl; EXECUTE drilling_schema_stmt; DEALLOCATE PREPARE drilling_schema_stmt;
 INSERT IGNORE INTO drilling_schema_version(version_code,script_name,status,applied_by,notes)
 VALUES('V64','V64__catalog_form_fields.sql','APPLIED','application','区块与井场表单字段和必填资料状态');
+
+-- V65: parallel solver racing is the default replanning policy.  Existing
+-- snapshots created with the former single-solver default are migrated once;
+-- operators can still choose an individual solver explicitly afterwards.
+UPDATE drilling_engineering_config
+   SET algorithm_defaults_json = JSON_SET(
+       COALESCE(algorithm_defaults_json, JSON_OBJECT()),
+       '$.planning.solver', 'ALL')
+ WHERE JSON_UNQUOTE(JSON_EXTRACT(algorithm_defaults_json, '$.planning.solver')) = 'SLSQP';
+
+INSERT IGNORE INTO drilling_schema_version(version_code,script_name,status,applied_by,notes)
+VALUES('V65','V65__parallel_solver_default.sql','APPLIED','application','再规划默认并行竞速，采用首个有效算法结果');
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='drilling_block' AND column_name='operator_name')=0, 'ALTER TABLE drilling_block ADD COLUMN operator_name VARCHAR(128) NULL', 'SELECT 1');
 PREPARE drilling_schema_stmt FROM @ddl; EXECUTE drilling_schema_stmt; DEALLOCATE PREPARE drilling_schema_stmt;
 SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='drilling_block' AND column_name='structural_position')=0, 'ALTER TABLE drilling_block ADD COLUMN structural_position VARCHAR(255) NULL', 'SELECT 1');

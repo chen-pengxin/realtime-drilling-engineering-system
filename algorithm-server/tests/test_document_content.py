@@ -66,6 +66,17 @@ def test_text_and_extensionless_encodings_full_content_and_stations(tmp_path,suf
     assert '测试井' in result['text_excerpt']
 
 
+def test_short_csv_trajectory_aliases_are_detected(tmp_path):
+    path=tmp_path/'井1_实钻.csv'
+    path.write_text('MD,Inc,Az,N,E,TVD\n0,0,0,0,0,0\n100,5,20,10,4,99\n',encoding='utf-8')
+    result=inspect_document(path)
+    assert result['status']=='PARSED'
+    assert len(result['trajectories'])==1
+    assert result['trajectories'][0]['rows'][-1]['azimuth']==20
+    assert result['trajectories'][0]['rows'][-1]['north']==10
+    assert result['trajectories'][0]['rows'][-1]['east']==4
+
+
 def test_statoil_tool_program_and_absolute_and_relative_coordinates_are_distinct(tmp_path):
     path=tmp_path/'F1'
     path.write_text('HEADER INFORMATION\nWell Name: F-1\nSurvey Program:\nH  0 - 100 MWD : Magnetic\n----------\nSURVEY LIST\nMD Inc Azim TVD Eoffset Noffset East North DLS\n0 0 0 0 2 3 435002 6478003 0\n100 10 20 99 4 5 435004 6478005 3\n')

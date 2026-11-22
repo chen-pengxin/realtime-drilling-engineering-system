@@ -315,7 +315,7 @@ public class DrillingFieldConfigController
                     throw new IllegalArgumentException("planning.nativeOptions.centerline_min_distance_m must be greater than zero");
             }
             String solver = String.valueOf(defaultIfNull(planning.get("solver"), "SLSQP"));
-            if (!List.of("SLSQP", "trust-constr", "COBYLA", "COBYQA").contains(solver)) throw new IllegalArgumentException("求解器必须来自wellpath-engine支持列表");
+            if (!List.of("SLSQP", "trust-constr", "COBYLA", "COBYQA", "ALL").contains(solver)) throw new IllegalArgumentException("求解器必须来自wellpath-engine支持列表，或选择全部并行");
             double taskTimeout=number(planning,"taskTimeoutSeconds",30);
             if (!Double.isFinite(taskTimeout)||taskTimeout<1||taskTimeout!=Math.rint(taskTimeout)) throw new IllegalArgumentException("再规划最大等待时间必须为大于等于1秒的整数");
             // Thirty seconds is only the initial default.  The value is an
