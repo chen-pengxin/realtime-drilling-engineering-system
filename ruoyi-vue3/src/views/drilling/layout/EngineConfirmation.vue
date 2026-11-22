@@ -1,6 +1,6 @@
 <template>
   <el-alert v-if="error && !visible && eligible" :title="error" type="warning" :closable="false" class="confirmation-read-error"><el-button link type="primary" :loading="busy" @click="check">重新读取</el-button><el-button link type="primary" @click="configure">检查参数</el-button></el-alert>
-  <el-dialog v-model="visible" title="确认工程评价配置" class="engine-confirmation-dialog" width="min(820px, calc(100vw - 24px))" align-center append-to-body :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false">
+  <ResizableDialog v-model="visible" title="确认工程评价配置" class="engine-confirmation-dialog" width="min(820px, calc(100vw - 24px))" align-center append-to-body :show-close="false" :close-on-click-modal="false" :close-on-press-escape="false">
     <el-alert title="请核对轨道不确定性模型、实际使用参数及分离系数公式" type="warning" :closable="false" />
     <div v-loading="busy" class="confirm-content">
       <template v-if="snapshot">
@@ -36,9 +36,10 @@
       <el-button v-if="error" @click="check">重试</el-button>
       <el-button type="primary" :loading="busy" :disabled="!checked || !snapshot || !!error" @click="confirm">确认配置</el-button>
     </template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { computed, reactive, ref, toRefs, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import useUserStore from '@/store/modules/user'

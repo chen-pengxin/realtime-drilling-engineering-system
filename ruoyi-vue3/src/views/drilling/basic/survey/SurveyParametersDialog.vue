@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" title="修订测量参数" width="min(980px, calc(100vw - 24px))" append-to-body :close-on-click-modal="false" :before-close="close">
+  <ResizableDialog v-model="open" title="修订测量参数" width="min(980px, calc(100vw - 24px))" append-to-body :close-on-click-modal="false" :before-close="close">
     <el-form label-width="140px" :disabled="saving">
       <el-row :gutter="20"><el-col :span="12"><el-form-item label="测斜工具" required><el-input v-model="tool.name" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="工具型号 / 代码"><el-input v-model="tool.code" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="仪器编号"><el-input v-model="tool.serial_number" maxlength="120" /></el-form-item></el-col><el-col :span="12"><el-form-item label="标定日期"><el-input v-model="tool.calibration_date" maxlength="120" /></el-form-item></el-col></el-row>
       <el-form-item label="轨道不确定性模型" required><el-input :model-value="errorModelName(profile.model_version)" readonly /></el-form-item>
@@ -10,9 +10,10 @@
     </el-form>
     <el-alert v-if="error" :title="error" type="error" :closable="false" style="margin-top:12px" />
     <template #footer><el-button :disabled="saving" @click="open=false">取消</el-button><el-button type="primary" :disabled="!checked" :loading="saving" @click="save">保存为新版本</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {ref,watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {registry,engineCatalog} from '@/api/drillingRegistry'

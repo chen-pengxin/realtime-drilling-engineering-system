@@ -99,12 +99,14 @@ public class SourceRegistryController {
     read(p);
     var rows =
         db.queryForList(
+            // A planned-relief well is still a valid engineering asset.  Its
+            // design and measured versions must be readable from the catalog;
+            // the planned-relief exclusion belongs only to task candidate
+            // lists (for example automatic neighbor selection), not to the
+            // ownership check for an explicitly selected wellbore.
             "SELECT b.* FROM drilling_wellbore b JOIN drilling_field_wellbore x ON"
                 + " x.wellbore_id=b.wellbore_id JOIN drilling_well w ON w.well_id=b.well_id"
-                + " WHERE x.field_id=? AND b.wellbore_id=? AND NOT EXISTS(SELECT 1"
-                + " FROM drilling_engineering_node en WHERE en.field_id=w.field_id"
-                + " AND en.well_id=w.well_id AND en.node_type='WELL'"
-                + " AND en.entity_kind='PLANNED_RELIEF' AND en.status='ACTIVE')",
+                + " WHERE x.field_id=? AND b.wellbore_id=? AND w.status<>'ARCHIVED'",
             p,
             b);
     if (rows.isEmpty()) throw new IllegalArgumentException("井眼不属于当前井场");

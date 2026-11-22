@@ -14,7 +14,7 @@
     <el-table-column prop="last_error" label="最近错误" min-width="220" show-overflow-tooltip />
     <template #actions="{row,fieldId,reload}"><el-button link type="primary" @click="show(row,fieldId)">详情</el-button><el-button v-hasPermi="['drilling:connectors:save']" link type="primary" :disabled="row.status!=='DISABLED'" @click="open(row,fieldId)">修改</el-button><el-button v-hasPermi="['drilling:connectors:save']" link :type="row.status==='DISABLED'?'success':'danger'" :disabled="busy" @click="state(row.status==='DISABLED'?'enable':'disable',[row],fieldId,reload)">{{ row.status==='DISABLED'?'启用':'停用' }}</el-button></template>
   </CenterList>
-  <el-dialog v-model="visible" :title="form.id?'修改连接器':'新增连接器'" width="760px" class="drilling-dialog" :close-on-click-modal="false">
+  <ResizableDialog v-model="visible" :title="form.id?'修改连接器':'新增连接器'" width="760px" class="drilling-dialog" :close-on-click-modal="false">
     <el-form ref="formRef" :model="form" :rules="rules" label-width="140px" v-loading="formLoading">
       <el-form-item label="连接器名称" prop="name"><el-input v-model="form.name" maxlength="128" /></el-form-item>
       <el-form-item label="类型" prop="type"><el-select v-model="form.type"><el-option v-for="x in options(kinds)" :key="x.value" :value="x.value" :label="x.label" /></el-select></el-form-item>
@@ -31,10 +31,11 @@
       <el-form-item v-if="form.type==='SERIAL'" label="波特率"><el-input-number v-model="form.config.baudrate" :min="1200" :max="921600" /></el-form-item>
       <el-form-item label="轮询间隔（s）"><el-input-number v-model="form.config.pollSeconds" :min="5" :max="3600" /></el-form-item><el-form-item label="读取超时（s）"><el-input-number v-model="form.config.timeoutSeconds" :min="1" :max="10" /></el-form-item><el-form-item label="每次读取条数"><el-input-number v-model="form.config.batchSize" :min="1" :max="2000" /></el-form-item><el-form-item label="乱序窗口（m）"><el-input-number v-model="form.config.reorderWindow" :min="0" :max="100" :precision="1" /></el-form-item>
     </el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">确定</el-button></template>
-  </el-dialog>
-  <el-dialog :model-value="!!detail" title="连接器详情" width="1000px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></el-dialog>
+  </ResizableDialog>
+  <ResizableDialog :model-value="!!detail" title="连接器详情" width="1000px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import { fileDisplayName } from '@/utils/fileNames'
 import {computed,onUnmounted,ref} from 'vue'

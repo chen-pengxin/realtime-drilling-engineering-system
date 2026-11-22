@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" title="文档内容" width="min(1320px, calc(100vw - 24px))" append-to-body class="drilling-dialog document-content-dialog" @closed="close">
+  <ResizableDialog v-model="visible" title="文档内容" width="min(1320px, calc(100vw - 24px))" append-to-body class="drilling-dialog document-content-dialog" @closed="close">
     <div class="document-toolbar">
       <span class="original-name">{{ manifest.original_name || source?.original_name }}</span>
       <el-select v-if="manifest.versions?.length" v-model="parseId" aria-label="解析版次" style="width:270px" @change="loadManifest">
@@ -55,11 +55,12 @@
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <div v-for="(warning,index) in manifest.warnings || []" :key="index" class="document-note">{{ warning.page ? `第${warning.page}页：` : '' }}{{ warning.message }}</div>
     <template #footer><el-button @click="visible=false">关 闭</el-button></template>
-  </el-dialog>
-  <el-dialog v-model="pageVisible" title="原文页面" width="min(1100px, calc(100vw - 24px))" append-to-body @closed="clearPage"><div v-loading="pageLoading"><el-image v-if="pageUrl" :src="pageUrl" fit="contain" class="document-original-page" /></div></el-dialog>
+  </ResizableDialog>
+  <ResizableDialog v-model="pageVisible" title="原文页面" width="min(1100px, calc(100vw - 24px))" append-to-body @closed="clearPage"><div v-loading="pageLoading"><el-image v-if="pageUrl" :src="pageUrl" fit="contain" class="document-original-page" /></div></ResizableDialog>
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { computed, ref } from 'vue'
 import request from '@/utils/request'
 import { ElMessage } from 'element-plus'

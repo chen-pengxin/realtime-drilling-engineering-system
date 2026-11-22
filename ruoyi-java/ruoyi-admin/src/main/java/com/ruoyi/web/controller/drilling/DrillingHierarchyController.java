@@ -23,7 +23,7 @@ public class DrillingHierarchyController
     @RequiresPermissions("drilling:block:list")
     public List<Map<String, Object>> blocks()
     {
-        return jdbc.queryForList("SELECT block_id, block_code, block_name, basin, location, operator_name, structural_position, remark, source_reference, description, status, create_time, update_time FROM drilling_block b WHERE status='0' AND ("+(ShiroUtils.isAdmin(ShiroUtils.getUserId())?"1=1":"EXISTS(SELECT 1 FROM drilling_field f WHERE f.block_id=b.block_id AND f.status='0' AND ("+com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id")+"))")+") ORDER BY block_name");
+        return jdbc.queryForList("SELECT block_id, block_code, block_name, basin, location, operator_name, structural_position, remark, source_reference, description, province, authorized_user, coordinate_system, wellhead_n, wellhead_e, magnetic_declination, meridian_convergence, construction_status, enabled, status, create_time, update_time FROM drilling_block b WHERE status='0' AND ("+(ShiroUtils.isAdmin(ShiroUtils.getUserId())?"1=1":"EXISTS(SELECT 1 FROM drilling_field f WHERE f.block_id=b.block_id AND f.status='0' AND ("+com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id")+"))")+") ORDER BY block_name");
     }
 
     @PostMapping("/blocks")
@@ -34,8 +34,8 @@ public class DrillingHierarchyController
         requireCatalogAdmin();
         String code = required(body, "blockCode");
         String name = required(body, "blockName");
-        jdbc.update("INSERT INTO drilling_block(block_code, block_name, basin, location, operator_name, structural_position, remark, source_reference, description, create_by) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                code, name, text(body, "basin"), text(body, "location"), text(body, "operatorName"), text(body, "structuralPosition"), text(body, "remark"), text(body, "sourceReference"), text(body, "description"), ShiroUtils.getLoginName());
+        jdbc.update("INSERT INTO drilling_block(block_code, block_name, basin, location, operator_name, structural_position, remark, source_reference, description, province, authorized_user, coordinate_system, wellhead_n, wellhead_e, magnetic_declination, meridian_convergence, construction_status, enabled, create_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                code, name, text(body, "basin"), text(body, "location"), text(body, "operatorName"), text(body, "structuralPosition"), text(body, "remark"), text(body, "sourceReference"), text(body, "description"), required(body, "province"), required(body, "authorizedUser"), required(body, "coordinateSystem"), requiredNumber(body, "wellheadNorth"), requiredNumber(body, "wellheadEast"), number(body, "magneticDeclination"), number(body, "meridianConvergence"), text(body, "constructionStatus", "UNPLANNED"), text(body, "enabled", "1"), ShiroUtils.getLoginName());
         return jdbc.queryForMap("SELECT * FROM drilling_block WHERE block_code=?", code);
     }
 
@@ -46,8 +46,8 @@ public class DrillingHierarchyController
     {
         requireCatalogAdmin();
         requireActiveBlock(blockId);
-        jdbc.update("UPDATE drilling_block SET block_name=COALESCE(?,block_name), basin=COALESCE(?,basin), location=COALESCE(?,location), operator_name=COALESCE(?,operator_name), structural_position=COALESCE(?,structural_position), remark=COALESCE(?,remark), source_reference=COALESCE(?,source_reference), description=COALESCE(?,description), update_by=?, update_time=CURRENT_TIMESTAMP WHERE block_id=? AND status='0'",
-                optional(body, "blockName"), optional(body, "basin"), optional(body, "location"), optional(body, "operatorName"), optional(body, "structuralPosition"), optional(body, "remark"), optional(body, "sourceReference"), optional(body, "description"), ShiroUtils.getLoginName(), blockId);
+        jdbc.update("UPDATE drilling_block SET block_name=COALESCE(?,block_name), basin=COALESCE(?,basin), location=COALESCE(?,location), operator_name=COALESCE(?,operator_name), structural_position=COALESCE(?,structural_position), remark=COALESCE(?,remark), source_reference=COALESCE(?,source_reference), description=COALESCE(?,description), province=COALESCE(?,province), authorized_user=COALESCE(?,authorized_user), coordinate_system=COALESCE(?,coordinate_system), wellhead_n=COALESCE(?,wellhead_n), wellhead_e=COALESCE(?,wellhead_e), magnetic_declination=COALESCE(?,magnetic_declination), meridian_convergence=COALESCE(?,meridian_convergence), construction_status=COALESCE(?,construction_status), enabled=COALESCE(?,enabled), update_by=?, update_time=CURRENT_TIMESTAMP WHERE block_id=? AND status='0'",
+                optional(body, "blockName"), optional(body, "basin"), optional(body, "location"), optional(body, "operatorName"), optional(body, "structuralPosition"), optional(body, "remark"), optional(body, "sourceReference"), optional(body, "description"), optional(body, "province"), optional(body, "authorizedUser"), optional(body, "coordinateSystem"), number(body, "wellheadNorth"), number(body, "wellheadEast"), number(body, "magneticDeclination"), number(body, "meridianConvergence"), optional(body, "constructionStatus"), optional(body, "enabled"), ShiroUtils.getLoginName(), blockId);
         return jdbc.queryForMap("SELECT * FROM drilling_block WHERE block_id=?", blockId);
     }
 
@@ -69,7 +69,7 @@ public class DrillingHierarchyController
     @RequiresPermissions("drilling:field:list")
     public List<Map<String, Object>> fields(@RequestParam(required=false) Long blockId)
     {
-        return jdbc.queryForList("SELECT f.field_id, f.block_id, b.block_name, f.field_code, f.field_name, f.operator_name, f.location, f.structural_position, f.remark, f.source_reference, f.description, f.status, f.create_time, f.update_time FROM drilling_field f JOIN drilling_block b ON b.block_id=f.block_id WHERE f.status='0' AND b.status='0' AND (? IS NULL OR f.block_id=?) AND ("+(ShiroUtils.isAdmin(ShiroUtils.getUserId())?"1=1":com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id"))+") ORDER BY f.field_name", blockId, blockId);
+        return jdbc.queryForList("SELECT f.field_id, f.block_id, b.block_name, f.field_code, f.field_name, f.operator_name, f.location, f.structural_position, f.remark, f.source_reference, f.description, f.province, f.authorized_user, f.coordinate_system, f.wellhead_n, f.wellhead_e, f.magnetic_declination, f.meridian_convergence, f.construction_status, f.enabled, f.status, f.create_time, f.update_time FROM drilling_field f JOIN drilling_block b ON b.block_id=f.block_id WHERE f.status='0' AND b.status='0' AND (? IS NULL OR f.block_id=?) AND ("+(ShiroUtils.isAdmin(ShiroUtils.getUserId())?"1=1":com.ruoyi.framework.security.DrillingDataScope.current().predicate("f.field_id"))+") ORDER BY f.field_name", blockId, blockId);
     }
 
     @PostMapping("/fields")
@@ -83,8 +83,8 @@ public class DrillingHierarchyController
         if (blockId == null) throw new IllegalArgumentException("blockId is required");
         requireActiveBlock(blockId);
         String code = required(body, "fieldCode");
-        jdbc.update("INSERT INTO drilling_field(block_id, field_code, field_name, operator_name, location, structural_position, remark, source_reference, description, create_by) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                blockId, code, required(body, "fieldName"), text(body, "operatorName"), text(body, "location"), text(body, "structuralPosition"), text(body, "remark"), text(body, "sourceReference"), text(body, "description"), ShiroUtils.getLoginName());
+        jdbc.update("INSERT INTO drilling_field(block_id, field_code, field_name, operator_name, location, structural_position, remark, source_reference, description, province, authorized_user, coordinate_system, wellhead_n, wellhead_e, magnetic_declination, meridian_convergence, construction_status, enabled, create_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                blockId, code, required(body, "fieldName"), text(body, "operatorName"), text(body, "location"), text(body, "structuralPosition"), text(body, "remark"), text(body, "sourceReference"), text(body, "description"), required(body, "province"), required(body, "authorizedUser"), required(body, "coordinateSystem"), requiredNumber(body, "wellheadNorth"), requiredNumber(body, "wellheadEast"), number(body, "magneticDeclination"), number(body, "meridianConvergence"), text(body, "constructionStatus", "UNPLANNED"), text(body, "enabled", "1"), ShiroUtils.getLoginName());
         Long fieldId=jdbc.queryForObject("SELECT field_id FROM drilling_field WHERE field_code=?",Long.class,code);
         com.ruoyi.framework.security.DrillingDataScope.current().initializeField(fieldId);
         return jdbc.queryForMap("SELECT * FROM drilling_field WHERE field_id=?", fieldId);
@@ -99,8 +99,8 @@ public class DrillingHierarchyController
         requireActiveField(fieldId);
         Long blockId = longValue(body.get("blockId"));
         if (blockId != null) requireActiveBlock(blockId);
-        jdbc.update("UPDATE drilling_field SET block_id=COALESCE(?,block_id), field_name=COALESCE(?,field_name), operator_name=COALESCE(?,operator_name), location=COALESCE(?,location), structural_position=COALESCE(?,structural_position), remark=COALESCE(?,remark), source_reference=COALESCE(?,source_reference), description=COALESCE(?,description), update_by=?, update_time=CURRENT_TIMESTAMP WHERE field_id=? AND status='0'",
-                blockId, optional(body, "fieldName"), optional(body, "operatorName"), optional(body, "location"), optional(body, "structuralPosition"), optional(body, "remark"), optional(body, "sourceReference"), optional(body, "description"), ShiroUtils.getLoginName(), fieldId);
+        jdbc.update("UPDATE drilling_field SET block_id=COALESCE(?,block_id), field_name=COALESCE(?,field_name), operator_name=COALESCE(?,operator_name), location=COALESCE(?,location), structural_position=COALESCE(?,structural_position), remark=COALESCE(?,remark), source_reference=COALESCE(?,source_reference), description=COALESCE(?,description), province=COALESCE(?,province), authorized_user=COALESCE(?,authorized_user), coordinate_system=COALESCE(?,coordinate_system), wellhead_n=COALESCE(?,wellhead_n), wellhead_e=COALESCE(?,wellhead_e), magnetic_declination=COALESCE(?,magnetic_declination), meridian_convergence=COALESCE(?,meridian_convergence), construction_status=COALESCE(?,construction_status), enabled=COALESCE(?,enabled), update_by=?, update_time=CURRENT_TIMESTAMP WHERE field_id=? AND status='0'",
+                blockId, optional(body, "fieldName"), optional(body, "operatorName"), optional(body, "location"), optional(body, "structuralPosition"), optional(body, "remark"), optional(body, "sourceReference"), optional(body, "description"), optional(body, "province"), optional(body, "authorizedUser"), optional(body, "coordinateSystem"), number(body, "wellheadNorth"), number(body, "wellheadEast"), number(body, "magneticDeclination"), number(body, "meridianConvergence"), optional(body, "constructionStatus"), optional(body, "enabled"), ShiroUtils.getLoginName(), fieldId);
         return jdbc.queryForMap("SELECT * FROM drilling_field WHERE field_id=?", fieldId);
     }
 
@@ -166,5 +166,17 @@ public class DrillingHierarchyController
     }
     private static String text(Map<String,Object> body, String key) { return optional(body, key); }
     private static String optional(Map<String,Object> body, String key) { Object value = body.get(key); return value == null ? null : String.valueOf(value).trim(); }
+    private static Object number(Map<String,Object> body, String key) { return number(body, key, null); }
+    private static Object requiredNumber(Map<String,Object> body, String key) {
+        Object value=body.get(key);
+        if(value==null || String.valueOf(value).isBlank()) throw new IllegalArgumentException(key + " is required");
+        return number(body,key);
+    }
+    private static Object number(Map<String,Object> body, String key, Object fallback) {
+        Object value=body.get(key);
+        if(value==null || String.valueOf(value).isBlank()) return fallback;
+        try { return new java.math.BigDecimal(String.valueOf(value)); } catch (NumberFormatException e) { throw new IllegalArgumentException(key + " 必须是数字"); }
+    }
+    private static String text(Map<String,Object> body, String key, String fallback) { String value=optional(body,key); return value==null?fallback:value; }
     private static Long longValue(Object value) { if (value == null || String.valueOf(value).isBlank()) return null; try { return value instanceof Number n ? n.longValue() : Long.valueOf(String.valueOf(value)); } catch (NumberFormatException e) { throw new IllegalArgumentException("numeric id is invalid"); } }
 }

@@ -1,12 +1,12 @@
 <template>
-  <el-dialog v-model="open" title="轨迹可视化" width="min(1320px,calc(100vw - 32px))" append-to-body destroy-on-close>
+  <ResizableDialog v-model="open" title="轨迹可视化" width="min(1320px,calc(100vw - 32px))" append-to-body destroy-on-close>
     <div class="visual-toolbar"><span>{{ engineeringPath }}</span><el-button icon="Setting" @click="openSettings">可视化设置</el-button></div>
     <el-tabs v-model="visualView" @tab-change="resize">
       <el-tab-pane label="3D" name="3d"><div class="three-canvas" v-loading="loading"><TrajectoryPlot ref="threePlot" :trajectories="plotTrajectories" view="3d" :grid="grid" /></div></el-tab-pane>
       <el-tab-pane label="平面" name="plane"><div class="plane-canvases" v-loading="loading"><section><h4>垂直剖面</h4><TrajectoryPlot ref="verticalPlot" :trajectories="plotTrajectories" view="vertical" :azimuth="azimuth" :grid="true" /></section><section><h4>水平投影</h4><TrajectoryPlot ref="horizontalPlot" :trajectories="plotTrajectories" view="horizontal" :grid="true" /></section></div></el-tab-pane>
     </el-tabs>
     <template #footer><el-button @click="open=false">关闭</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
   <el-drawer v-model="settingsOpen" title="可视化设置" size="410px" append-to-body>
     <el-form label-position="top"><el-form-item label="显示轨迹"><el-tree-select v-model="selectedVersionIds" :data="selectionTree" node-key="value" show-checkbox multiple collapse-tags collapse-tags-tooltip :render-after-expand="false" filterable placeholder="区块 → 井场 → 井 → 井眼 → 轨迹类别 → 版本" style="width:100%" @change="loadSelectedTrajectories" /></el-form-item><el-form-item label="三维网格"><el-switch v-model="grid"/></el-form-item><el-form-item label="垂直剖面方位（°）"><el-input-number v-model="azimuth" :min="0" :max="360" :controls="false"/></el-form-item></el-form>
     <TrajectoryStyleSettings :trajectories="plotTrajectories"/>
@@ -14,6 +14,7 @@
   <SurveyImportDialog ref="importDialog" :field-id="contextFieldId" :bore="bore" :kind="kind" :table-role="tableRole" :versions="sameKind" :default-reference="{}" @saved="saved" />
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {computed,nextTick,ref} from 'vue'
 import {ElMessage} from 'element-plus'
 import {trajectoryVersion,boreNeighbors,boreVersions} from '@/api/drillingRegistry'

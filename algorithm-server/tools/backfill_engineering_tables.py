@@ -58,6 +58,17 @@ def rebuild(db,profile,apply=False):
                     for t in tables['targets']:
                         q.execute("SELECT COUNT(*) n FROM drilling_target WHERE field_id=%s AND well_id=%s AND target_name=%s",(link['field_id'],link['well_id'],t['name']))
                         if not q.fetchone()['n']:q.execute("INSERT INTO drilling_target(field_id,well_id,target_name,target_type,geometry_json,tolerance_json,status,create_by) VALUES(%s,%s,%s,'POINT',%s,'{}','ACTIVE','source-parser')",(link['field_id'],link['well_id'],t['name'],json.dumps(t,ensure_ascii=False)))
+                    # Completion cards carry measured hit results in the A.6
+                    # target block.  Attach those observations to the
+                    # current actual version of the same wellbore; design
+                    # target rows are never used as measured observations.
+                    if tables['target_points']:
+                        q.execute("SELECT b.wellbore_id,h.survey_version_id FROM drilling_wellbore b JOIN drilling_trajectory_head h ON h.wellbore_id=b.wellbore_id AND h.trajectory_kind='ACTUAL' WHERE b.well_id=%s ORDER BY h.survey_version_id DESC LIMIT 1", (link['well_id'],))
+                        head=q.fetchone()
+                        if head:
+                            for point in tables['target_points']:
+                                metrics={k:point[k] for k in ('closure_distance','closure_azimuth','offset','longitudinal_offset','lateral_offset','vertical_offset','target_azimuth') if k in point}
+                                q.execute("INSERT IGNORE INTO drilling_trajectory_target_point(field_id,wellbore_id,survey_version_id,target_no,md,north,east,tvd,inclination,azimuth,remark,metrics_json,status,create_by) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'ACTIVE','source-backfill')",(link['field_id'],head['wellbore_id'],head['survey_version_id'],point.get('target_no'),point.get('md'),point.get('north'),point.get('east'),point.get('tvd'),point.get('inclination'),point.get('azimuth'),point.get('remark',''),json.dumps(metrics,ensure_ascii=False)))
                 db.commit()
             report.append({'source_id':source['source_id'],'tables':{k:len(v) for k,v in tables.items()},'reparsed':bool(inspected)})
     return report

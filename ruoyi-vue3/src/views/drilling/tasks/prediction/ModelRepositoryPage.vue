@@ -21,20 +21,21 @@
     </aside>
   </div>
   <IncrementalLearningDialog v-model="policyOpen" :field-id="fieldId" :policy="learning?.policy" :wells="wells" :templates="incrementalTemplates" @saved="learning=$event"/>
-  <el-dialog v-model="importOpen" title="导入已有模型" width="560px" class="pose-dialog" append-to-body>
+  <ResizableDialog v-model="importOpen" title="导入已有模型" width="560px" class="pose-dialog" append-to-body>
     <el-form label-position="top"><el-form-item label="模型名称"><el-input v-model="importForm.name" placeholder="例如 井眼轨迹预测模型" maxlength="100"/></el-form-item><el-form-item label="权重 / 模型包"><input class="pose-select-file" type="file" accept=".zip,.pt,.pth,.onnx,.json" @change="importForm.file=$event.target.files?.[0]"/></el-form-item></el-form>
     <template #footer><el-button @click="importOpen=false">取消</el-button><el-button type="primary" :loading="uploading" @click="importModel">确 定</el-button></template>
-  </el-dialog>
-  <el-dialog v-model="adapterOpen" title="登记模型适配器" width="560px" class="pose-dialog" append-to-body>
+  </ResizableDialog>
+  <ResizableDialog v-model="adapterOpen" title="登记模型适配器" width="560px" class="pose-dialog" append-to-body>
     <el-form label-position="top"><el-form-item label="名称"><el-input v-model="adapter.name" placeholder="模型推理或增量更新适配器"/></el-form-item><el-form-item label="用途"><el-select v-model="adapter.role"><el-option label="模型推理" value="INFERENCE"/><el-option label="增量更新" value="INCREMENTAL"/></el-select></el-form-item><el-form-item label="Python 适配脚本"><input class="pose-select-file" type="file" accept=".py" @change="adapter.file=$event.target.files?.[0]"/></el-form-item></el-form>
     <template #footer><el-button @click="adapterOpen=false">取消</el-button><el-button type="primary" :loading="uploading" @click="registerAdapter">确 定</el-button></template>
-  </el-dialog>
-  <el-dialog v-model="historyOpen" title="自动增量更新记录" @opened="drawLoss" width="940px" class="pose-dialog" append-to-body>
+  </ResizableDialog>
+  <ResizableDialog v-model="historyOpen" title="自动增量更新记录" @opened="drawLoss" width="940px" class="pose-dialog" append-to-body>
     <el-table :data="learning?.history||[]" @row-click="inspectUpdate"><el-table-column prop="create_time" label="提交时间" min-width="160"/><el-table-column label="状态" min-width="140"><template #default="{row}">{{ learningStatus(row.status) }}</template></el-table-column><el-table-column label="实测范围（MD）" min-width="155"><template #default="{row}">{{ formatNumber(decode(row.hyperparams_json).from_md,1) }}–{{ formatNumber(decode(row.hyperparams_json).to_md,1) }}</template></el-table-column><el-table-column label="来源模型" width="100"><template #default="{row}">{{ decode(row.hyperparams_json).parent_model_version_id }}</template></el-table-column><el-table-column prop="model_version_id" label="生成版本" width="100"/><el-table-column label="操作" width="95"><template #default="{row}"><el-button link type="primary" @click.stop="inspectUpdate(row)">日志</el-button></template></el-table-column></el-table>
     <div v-if="updateDetail"><div class="pose-state-line"><span>{{ learningStatus(updateDetail.status) }}</span><el-button v-if="['QUEUED','RUNNING'].includes(updateDetail.status)" type="danger" link @click="stopUpdate">终止本次更新</el-button></div><p v-if="updateDetail.error" class="pose-muted">{{ updateDetail.error }}</p><div ref="lossEl" class="pose-metrics-chart"></div><pre class="pose-log">{{ (updateDetail.logs||[]).join('\n')||'暂无运行日志' }}</pre></div>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { computed, nextTick, onMounted, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from '@/utils/drillingCharts'

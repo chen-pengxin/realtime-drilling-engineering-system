@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" title="来源资料库" width="1000px" append-to-body class="drilling-dialog">
+  <ResizableDialog v-model="open" title="来源资料库" width="1000px" append-to-body class="drilling-dialog">
     <el-form inline @submit.prevent="load">
       <el-form-item label="文件名称"><el-input v-model="query.keyword" clearable @keyup.enter="search" /></el-form-item>
       <el-form-item label="解析状态"><el-select v-model="query.status" clearable style="width:160px"><el-option v-for="(label,key) in statuses" :key="key" :value="key" :label="label" /></el-select></el-form-item>
@@ -24,7 +24,7 @@
       <el-table-column label="操作" width="470"><template #default="s"><el-button link type="primary" @click="choose(s.row)">选择资料</el-button><el-button link type="primary" @click="preview.show(s.row)">查看表格</el-button><el-button link type="primary" @click="originalPreview.show(s.row)">原件预览</el-button><el-button v-hasPermi="['drilling:well:survey:import']" link type="primary" @click="review.show(s.row)">核对资料</el-button><el-button v-hasPermi="['drilling:well:survey:import']" link type="primary" @click="mapping.show(s.row)">字段映射</el-button><el-button link @click="download(s.row)">下载原件</el-button></template></el-table-column>
     </el-table>
     <pagination v-model:page="query.pageNum" v-model:limit="query.pageSize" :total="total" @pagination="load" />
-  </el-dialog>
+  </ResizableDialog>
   <SourceMapping ref="mapping" :field-id="fieldId" @mapped="mapped" />
   <DocumentContent ref="preview" :field-id="fieldId" @parsed="load" />
   <SourceOriginalPreview ref="originalPreview" :field-id="fieldId" />
@@ -32,6 +32,7 @@
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { reactive, ref } from 'vue'
 import { fileDisplayName } from '@/utils/fileNames'
 import { ElMessage } from 'element-plus'

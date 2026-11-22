@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" :title="form.importMode==='RESURVEY'?'实钻测斜复测修订':'导入轨迹版本'" width="1060px" append-to-body class="drilling-dialog" :close-on-click-modal="false" :before-close="beforeClose">
+  <ResizableDialog v-model="open" :title="form.importMode==='RESURVEY'?'实钻测斜复测修订':'导入轨迹版本'" width="1060px" append-to-body class="drilling-dialog" :close-on-click-modal="false" :before-close="beforeClose">
     <el-form label-width="110px" :disabled="busy" @submit.prevent>
       <el-form-item label="关联层级"><strong>{{ engineeringPath }}</strong></el-form-item>
       <el-row :gutter="20">
@@ -62,10 +62,11 @@
       <div v-if="preview.changes_truncated" class="form-tip">预览显示前 500 个变化点，保存时使用全部有效测点。</div>
     </template>
     <template #footer><el-button :disabled="busy" @click="open=false">取 消</el-button><el-button :loading="busy" :disabled="!extractionId" @click="calculatePreview">预览差异</el-button><el-button type="primary" :loading="saving" :disabled="busy || !preview || preview.has_error" @click="save">确定导入</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
   <SourceReview ref="sourceReviewDialog" :field-id="fieldId" @confirmed="onSourceConfirmed"/>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {
   computed,
   reactive,

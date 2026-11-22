@@ -10,17 +10,18 @@
     <el-table-column prop="operator" label="生成人" min-width="100" />
     <template #actions="{row,fieldId,reload}"><el-button v-if="row.status==='READY'" v-hasPermi="['drilling:reports:download']" link type="primary" :disabled="busy" @click="download(row,fieldId)">下载</el-button><el-button v-if="row.status==='READY'" v-hasPermi="['drilling:reports:archive']" link type="danger" :disabled="busy" @click="archive([row],fieldId,reload)">归档</el-button><el-button link type="primary" @click="show(row,fieldId)">详情</el-button></template>
   </CenterList>
-  <el-dialog v-model="visible" title="生成报告" width="600px" class="drilling-dialog" :close-on-click-modal="false">
+  <ResizableDialog v-model="visible" title="生成报告" width="600px" class="drilling-dialog" :close-on-click-modal="false">
     <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
       <el-form-item label="报告名称" prop="title"><el-input v-model="form.title" maxlength="128" /></el-form-item>
       <el-form-item label="报告类型" prop="type"><el-select v-model="form.type" @change="form.sourceKey='';sourceRows=[];searchSources('')"><el-option v-for="x in options(['ENGINEERING','COLLISION','REPLANNING','SURVEY','PREDICTION','TRAINING'])" :key="x.value" :label="label(x.value)" :value="x.value" /></el-select></el-form-item>
       <el-form-item v-if="form.type!=='ENGINEERING'" label="来源记录" prop="sourceKey"><el-select v-model="form.sourceKey" filterable remote reserve-keyword :remote-method="searchSources" :loading="sourceLoading" placeholder="输入任务名称或井名查询"><el-option v-for="x in sourceRows" :key="x.record_key" :value="x.record_key" :label="`${x.title} / ${x.record_key} / ${label(x.status)}`" /></el-select></el-form-item>
       <el-form-item label="报告格式" prop="format"><el-select v-model="form.format"><el-option v-for="x in ['pdf','docx','xlsx','bundle']" :key="x" :value="x" :label="x==='bundle'?'Word / PDF / Excel 打包':x.toUpperCase()" /></el-select></el-form-item>
     </el-form><template #footer><el-button :disabled="busy" @click="visible=false">取消</el-button><el-button type="primary" :loading="busy" @click="create">生成</el-button></template>
-  </el-dialog>
-  <el-dialog :model-value="!!detail" title="报告详情" width="760px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></el-dialog>
+  </ResizableDialog>
+  <ResizableDialog :model-value="!!detail" title="报告详情" width="760px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {ref} from 'vue'
 import {ElMessage,ElMessageBox} from 'element-plus'
 import {centerAction,centerGet,reportDownload,reportSources,saveBlob} from '@/api/drillingCenters'

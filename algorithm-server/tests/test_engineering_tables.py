@@ -32,3 +32,21 @@ def test_merged_basic_cells_and_west_declination_are_read_with_their_sign():
     assert data['basic']['elevation']==1150.902 and data['basic']['kelly_height']==7.8
     assert abs(data['basic']['magnetic_declination']+3+41/60)<1e-10
     assert data['basic']['depth_datum_elevation_m']==1158.702
+
+def test_completion_card_merged_target_block_creates_actual_hit_rows_only():
+    rows=[
+      ['项目','设 计','实际（单点数据）'],
+      ['靶点A','井深（m）',2965,2938],
+      ['', '垂深（m）',2598.50,2597.29],
+      ['', '坐标','E：19421285，N：4230781','E：19421285.781，N：4230756.367'],
+      ['', '左右偏差（m）','随钻调整','9.81 (左偏)'],
+      ['', '前后偏差（m）','随钻调整','22.61 (提前)'],
+      ['', '闭合方位(º)',334.73,333.88],
+      ['', '靶点水平位移（m）',685.07,662.53],
+    ]
+    data=engineering_tables({'blocks':[{'type':'TABLE','rows':rows}]},'',{})
+    assert len(data['target_points'])==1
+    point=data['target_points'][0]
+    assert point['target_no']=='靶点A' and point['md']==2938
+    assert point['east']==19421285.781 and point['north']==4230756.367
+    assert point['closure_distance']==662.53

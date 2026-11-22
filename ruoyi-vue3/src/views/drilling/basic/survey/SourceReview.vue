@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" title="来源资料确认" width="860px" append-to-body :close-on-click-modal="false">
+  <ResizableDialog v-model="open" title="来源资料确认" width="860px" append-to-body :close-on-click-modal="false">
     <el-alert type="info" :closable="false" class="mb16">新导入资料需要核对工程归属、坐标基准和邻井关系；确认后才能生成轨迹版本或用于防碰评价。</el-alert>
     <el-form v-loading="loading" label-width="120px" @submit.prevent>
       <el-row :gutter="16">
@@ -62,9 +62,10 @@
     </el-form>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template #footer><el-button @click="open=false">取 消</el-button><el-button type="primary" :loading="saving" :disabled="loading" @click="confirm">确认解析结果并允许使用</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import {computed,reactive,ref} from 'vue'
 import {sourceReview,confirmSourceReview} from '@/api/drillingRegistry'

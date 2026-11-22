@@ -16,9 +16,10 @@
       <el-button v-if="row.task_id&&user.allowedModules.includes('replanning')" link type="primary" @click="replan(row,fieldId)">再规划</el-button>
     </template>
   </CenterList>
-  <el-dialog :model-value="!!detail" title="告警详情" width="800px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /><template #footer><el-button @click="detail=null">关闭</el-button></template></el-dialog>
+  <ResizableDialog :model-value="!!detail" title="告警详情" width="800px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /><template #footer><el-button @click="detail=null">关闭</el-button></template></ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {ref} from 'vue'
 import {useRouter} from 'vue-router'
 import {ElMessage,ElMessageBox} from 'element-plus'

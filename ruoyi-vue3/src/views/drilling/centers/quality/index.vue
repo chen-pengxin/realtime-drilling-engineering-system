@@ -12,10 +12,11 @@
     <el-table-column prop="resolution_note" label="说明" min-width="240" show-overflow-tooltip />
     <template #actions="{row,fieldId}"><el-button link type="primary" @click="detail=row">详情</el-button><el-button v-hasPermi="['drilling:quality:resolve']" link type="primary" @click="open([row],fieldId)">处理</el-button></template>
   </CenterList>
-  <el-dialog v-model="visible" title="处理质量问题" width="560px" class="drilling-dialog"><el-form :model="form" label-width="90px"><el-form-item label="处理结果"><el-select v-model="form.status"><el-option label="已处理" value="RESOLVED"/><el-option label="已忽略" value="IGNORED"/></el-select></el-form-item><el-form-item label="处理说明" required><el-input v-model="form.note" type="textarea" :rows="4" maxlength="500" show-word-limit /></el-form-item></el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">确定</el-button></template></el-dialog>
-  <el-dialog :model-value="!!detail" title="质量问题详情" width="800px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></el-dialog>
+  <ResizableDialog v-model="visible" title="处理质量问题" width="560px" class="drilling-dialog"><el-form :model="form" label-width="90px"><el-form-item label="处理结果"><el-select v-model="form.status"><el-option label="已处理" value="RESOLVED"/><el-option label="已忽略" value="IGNORED"/></el-select></el-form-item><el-form-item label="处理说明" required><el-input v-model="form.note" type="textarea" :rows="4" maxlength="500" show-word-limit /></el-form-item></el-form><template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">确定</el-button></template></ResizableDialog>
+  <ResizableDialog :model-value="!!detail" title="质量问题详情" width="800px" class="drilling-dialog" @close="detail=null"><RecordDetails v-if="detail" :value="detail" /></ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {ref} from 'vue'
 import {ElMessage} from 'element-plus'
 import {centerAction} from '@/api/drillingCenters'

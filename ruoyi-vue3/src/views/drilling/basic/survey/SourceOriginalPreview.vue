@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" title="原件预览" width="min(1100px, calc(100vw - 24px))" append-to-body class="drilling-dialog" @closed="clear">
+  <ResizableDialog v-model="visible" title="原件预览" width="min(1100px, calc(100vw - 24px))" append-to-body class="drilling-dialog" @closed="clear">
     <div v-loading="loading" class="preview-body">
       <SourcePdfReader v-if="kind === 'pdf' && url" :url="url" />
       <pre v-else-if="kind === 'text'" class="text-frame">{{ text }}</pre>
@@ -10,10 +10,11 @@
     </div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template #footer><el-button @click="visible = false">关闭</el-button><el-button type="primary" icon="Download" :disabled="!blob" @click="download">下载原件</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { downloadSourceOriginal, downloadBlob } from '@/api/drillingRegistry'

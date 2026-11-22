@@ -53,16 +53,17 @@
     <el-drawer v-model="stylesOpen" title="可视化设置" size="min(340px, 100vw)"><TrajectoryStyleSettings :trajectories="plotTrajectories" /></el-drawer>
     <SurveyImportDialog ref="importDialog" :field-id="fieldId" :bore="selectedBore" :kind="kind" :versions="versions" :default-reference="defaultReference" @saved="versionSaved" />
     <SurveyVersionDiff ref="diffDialog" :field-id="fieldId" :versions="versions" />
-    <el-dialog v-model="statusOpen" title="修改井眼施工状态" width="480px" append-to-body><el-form label-width="90px"><el-form-item label="施工状态"><el-select v-model="engineeringStatus"><el-option v-for="(name,key) in statusLabels" :key="key" :label="name" :value="key" /></el-select></el-form-item></el-form><template #footer><el-button @click="statusOpen=false">取 消</el-button><el-button type="primary" :loading="savingStatus" @click="saveStatus">确 定</el-button></template></el-dialog>
-    <el-dialog v-model="linkOpen" title="引用已有井眼" width="760px" append-to-body><el-input v-model="linkKeyword" placeholder="搜索井号、井眼" clearable class="mb16"/><el-table :data="filteredAvailable" v-loading="loadingAvailable" border max-height="440"><el-table-column prop="well_code" label="井号"/><el-table-column prop="well_name" label="井名"/><el-table-column prop="wellbore_code" label="井眼"/><el-table-column label="操作" width="100"><template #default="s"><el-button link type="primary" :loading="linking===s.row.wellbore_id" @click="linkBore(s.row)">引用</el-button></template></el-table-column></el-table><template #footer><el-button @click="linkOpen=false">关 闭</el-button></template></el-dialog>
-    <el-dialog v-model="wellOpen" title="新增井 / 井眼" width="560px" append-to-body class="drilling-dialog">
+    <ResizableDialog v-model="statusOpen" title="修改井眼施工状态" width="480px" append-to-body><el-form label-width="90px"><el-form-item label="施工状态"><el-select v-model="engineeringStatus"><el-option v-for="(name,key) in statusLabels" :key="key" :label="name" :value="key" /></el-select></el-form-item></el-form><template #footer><el-button @click="statusOpen=false">取 消</el-button><el-button type="primary" :loading="savingStatus" @click="saveStatus">确 定</el-button></template></ResizableDialog>
+    <ResizableDialog v-model="linkOpen" title="引用已有井眼" width="760px" append-to-body><el-input v-model="linkKeyword" placeholder="搜索井号、井眼" clearable class="mb16"/><el-table :data="filteredAvailable" v-loading="loadingAvailable" border max-height="440"><el-table-column prop="well_code" label="井号"/><el-table-column prop="well_name" label="井名"/><el-table-column prop="wellbore_code" label="井眼"/><el-table-column label="操作" width="100"><template #default="s"><el-button link type="primary" :loading="linking===s.row.wellbore_id" @click="linkBore(s.row)">引用</el-button></template></el-table-column></el-table><template #footer><el-button @click="linkOpen=false">关 闭</el-button></template></ResizableDialog>
+    <ResizableDialog v-model="wellOpen" title="新增井 / 井眼" width="560px" append-to-body class="drilling-dialog">
       <el-form label-width="95px"><el-form-item label="井号" required><el-input v-model="well.wellCode" maxlength="64" @input="well.parentWellboreId=null" /></el-form-item><el-form-item label="井名"><el-input v-model="well.wellName" maxlength="128" /></el-form-item><el-form-item label="井眼编码" required><el-input v-model="well.wellboreCode" maxlength="128" /></el-form-item><el-form-item label="井眼名称"><el-input v-model="well.wellboreName" maxlength="200" /></el-form-item><el-form-item label="父井眼"><WellboreSelect v-model="well.parentWellboreId" :rows="bores.filter(b=>b.well_code===well.wellCode.trim())" placeholder="主井眼留空；侧钻选择父井眼" /></el-form-item></el-form>
       <template #footer><el-button @click="wellOpen=false">取 消</el-button><el-button type="primary" :loading="creatingWell" @click="createWell">确 定</el-button></template>
-    </el-dialog>
+    </ResizableDialog>
   </DrillingPageFrame>
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import {defineAsyncComponent} from 'vue'
 import EmbeddedDrilling from '../layout/EmbeddedDrilling.vue'

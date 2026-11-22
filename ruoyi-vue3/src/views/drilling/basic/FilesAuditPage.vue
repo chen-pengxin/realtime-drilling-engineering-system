@@ -37,20 +37,21 @@
       <el-tab-pane v-if="user.allowedModules.includes('history')" label="任务历史" name="history" lazy><EmbeddedDrilling><TaskHistory /></EmbeddedDrilling></el-tab-pane>
       <el-tab-pane v-if="user.allowedModules.includes('reports')" label="报告归档" name="reports" lazy><EmbeddedDrilling><ReportArchive /></EmbeddedDrilling></el-tab-pane>
     </el-tabs>
-    <el-dialog :model-value="Boolean(detail)" title="文件详情" width="620px" class="drilling-dialog" @close="detail=null">
+    <ResizableDialog :model-value="Boolean(detail)" title="文件详情" width="620px" class="drilling-dialog" @close="detail=null">
       <el-descriptions v-if="detail" :column="1" border><el-descriptions-item label="系统名称">{{ fileDisplayName(detail) }}</el-descriptions-item><el-descriptions-item label="原始文件名">{{ detail.original_name }}</el-descriptions-item><el-descriptions-item label="类别">{{ categoryName(detail.file_category) }}</el-descriptions-item><el-descriptions-item label="大小">{{ fileSize(detail.file_size) }}</el-descriptions-item><el-descriptions-item label="版本">{{ detail.version_no }}</el-descriptions-item><el-descriptions-item label="SHA-256"><span style="overflow-wrap:anywhere">{{ detail.sha256 }}</span></el-descriptions-item><el-descriptions-item label="上传时间">{{ detail.create_time }}</el-descriptions-item></el-descriptions>
       <template #footer><el-button @click="detail=null">关 闭</el-button></template>
-    </el-dialog>
-    <el-dialog v-model="referencePreviewVisible" title="参考资料原件" width="min(1100px, calc(100vw - 24px))" class="drilling-dialog" @closed="clearReferencePreview">
+    </ResizableDialog>
+    <ResizableDialog v-model="referencePreviewVisible" title="参考资料原件" width="min(1100px, calc(100vw - 24px))" class="drilling-dialog" @closed="clearReferencePreview">
       <iframe v-if="referencePreviewUrl" :src="referencePreviewUrl" title="参考资料原件" class="reference-preview-frame" />
       <el-empty v-else description="原件读取失败" />
       <template #footer><el-button @click="referencePreviewVisible=false">关闭</el-button></template>
-    </el-dialog>
+    </ResizableDialog>
     <DocumentContent ref="referenceContent" />
   </DrillingPageFrame>
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {defineAsyncComponent} from 'vue'
 import DocumentContent from './survey/DocumentContent.vue'
 const referenceContent=ref()

@@ -10,9 +10,10 @@
     <el-table-column prop="finished_at" label="完成时间" min-width="174" sortable="custom"><template #default="{row}">{{ formatTime(row.finished_at) }}</template></el-table-column>
     <template #actions="{row,fieldId}"><el-button link type="primary" @click="show(row,fieldId)">输入与结果</el-button></template>
   </CenterList>
-  <el-dialog v-model="visible" title="任务详情" width="1000px" class="drilling-dialog"><div v-loading="loading"><RecordDetails v-if="detail" :value="detail" /></div><template #footer><el-button @click="visible=false">关闭</el-button></template></el-dialog>
+  <ResizableDialog v-model="visible" title="任务详情" width="1000px" class="drilling-dialog"><div v-loading="loading"><RecordDetails v-if="detail" :value="detail" /></div><template #footer><el-button @click="visible=false">关闭</el-button></template></ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {ref} from 'vue'
 import {centerGet} from '@/api/drillingCenters'
 import CenterList from '../shared/CenterList.vue'

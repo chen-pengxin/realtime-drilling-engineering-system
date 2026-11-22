@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" :title="versionTarget ? '导入文件版次' : '导入来源文件'" width="min(1120px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" :before-close="beforeClose">
+  <ResizableDialog v-model="open" :title="versionTarget ? '导入文件版次' : '导入来源文件'" width="min(1120px, calc(100vw - 32px))" append-to-body :close-on-click-modal="false" :before-close="beforeClose">
     <el-descriptions v-if="versionTarget" :column="1" border class="version-summary"><el-descriptions-item label="资料名称">{{ fileDisplayName(versionTarget) }}</el-descriptions-item><el-descriptions-item label="最新文件版次">第 {{ versionTarget.latest_edition_no }} 版</el-descriptions-item><el-descriptions-item label="更新范围" :span="2">保存新原件并保留历史文件；轨迹资料解析确认后生成新版本并更新当前指针。</el-descriptions-item></el-descriptions>
     <el-form label-width="100px" :disabled="uploading" @submit.prevent>
       <el-form-item label="关联对象" required>
@@ -30,10 +30,11 @@
     <div v-if="error" class="error-text import-error">{{ error }}</div>
     <el-progress v-if="uploading" :percentage="progress" class="import-progress" />
     <template #footer><el-button :disabled="uploading" @click="close">{{ completed.length ? '完成' : '取消' }}</el-button><el-button type="primary" :loading="uploading" :disabled="!pending.length" @click="submit">{{ versionTarget ? '保存文件版次' : completed.length ? '继续上传' : '上传并关联' }}</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { uploadSurveySource } from '@/api/drillingRegistry'

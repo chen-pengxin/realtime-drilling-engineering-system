@@ -16,10 +16,11 @@
    <template #context><el-collapse :model-value="['source']"><el-collapse-item title="版本与来源" name="source"><el-descriptions :column="1" size="small"><el-descriptions-item label="实钻版本">{{t.versionId.value||'—'}}</el-descriptions-item><el-descriptions-item label="设计版本">{{t.design.value?.survey_version_id||'—'}}</el-descriptions-item><el-descriptions-item label="坐标系">{{coordinateReferenceLabel(t.detail.value?.reference)}}</el-descriptions-item><el-descriptions-item label="有效邻井">{{t.selectedNeighbors.value.length}}</el-descriptions-item></el-descriptions></el-collapse-item></el-collapse></template>
    <template #bottom><div class="rules">SF 红色 ≤ {{threshold.redSf}}；橙色 ≤ {{threshold.orangeSf}}；黄色 ≤ {{threshold.yellowSf}}；中心距红线 {{threshold.redDistance}} m。{{displayNetwork?.failed_pairs?.length?`${displayNetwork.failed_pairs.length} 个井对失败，评价不完整`:'两种评价同时执行'}}</div></template>
   </EngineeringWorkspace>
-  <el-dialog v-model="t.historyOpen.value" title="防碰任务历史" width="85%" append-to-body><el-table :data="t.history.value" max-height="520" @row-dblclick="restore"><el-table-column prop="record_id" label="任务 ID"/><el-table-column prop="status" label="状态"/><el-table-column prop="title" label="任务"/><el-table-column prop="created_at" label="时间"/><el-table-column label="操作"><template #default="s"><el-button link @click="restore(s.row)">查看结果</el-button></template></el-table-column></el-table></el-dialog>
+  <ResizableDialog v-model="t.historyOpen.value" title="防碰任务历史" width="85%" append-to-body><el-table :data="t.history.value" max-height="520" @row-dblclick="restore"><el-table-column prop="record_id" label="任务 ID"/><el-table-column prop="status" label="状态"/><el-table-column prop="title" label="任务"/><el-table-column prop="created_at" label="时间"/><el-table-column label="操作"><template #default="s"><el-button link @click="restore(s.row)">查看结果</el-button></template></el-table-column></el-table></ResizableDialog>
  </DrillingPageFrame>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {computed,ref,watch} from 'vue'
 import {coordinateReferenceLabel} from '@/utils/wellboreHierarchy'
 import {useRouter} from 'vue-router'

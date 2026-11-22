@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" :title="readOnly ? '来源文件内容' : '来源表字段映射'" width="1100px" append-to-body class="drilling-dialog" :close-on-click-modal="false">
+  <ResizableDialog v-model="visible" :title="readOnly ? '来源文件内容' : '来源表字段映射'" width="1100px" append-to-body class="drilling-dialog" :close-on-click-modal="false">
     <el-alert :title="readOnly ? '按工作表或源表查看解析到的原始单元格。原件内容未被改写。' : '请按原件选择测斜表、表头与数据范围。映射保存为新记录，已有轨迹版本及原件保持不变。'" type="info" :closable="false" class="mb16" />
     <el-form v-if="!readOnly" v-loading="loading" label-width="110px" @submit.prevent>
       <el-form-item label="原始文件名">{{source?.original_name}}</el-form-item>
@@ -12,9 +12,10 @@
     <div v-if="!readOnly" class="mapping-note">预览显示原件前 100 行；保存时按所选的完整数据范围读取。来源单位、方位与坐标基准在导入版本时继续核对。</div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" />
     <template #footer><el-button :disabled="saving" @click="visible=false">{{ readOnly ? '关 闭' : '取 消' }}</el-button><el-button v-if="!readOnly" type="primary" :loading="saving" :disabled="loading||!table" @click="save">保存映射并选择</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {computed,reactive,ref} from 'vue'
 import {registry} from '@/api/drillingRegistry'
 const props=defineProps({fieldId:Number,readOnly:Boolean}),emit=defineEmits(['mapped'])

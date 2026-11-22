@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="visible" title="自动增量更新设置" width="720px" class="pose-dialog" append-to-body destroy-on-close>
+  <ResizableDialog v-model="visible" title="自动增量更新设置" width="720px" class="pose-dialog" append-to-body destroy-on-close>
     <el-alert v-if="error" :title="error" type="error" :closable="false" class="pose-error"/>
 
     <el-form label-position="top" :model="form">
@@ -20,9 +20,10 @@
       </div>
     </el-form>
     <template #footer><el-button @click="visible=false">取消</el-button><el-button type="primary" :loading="saving" @click="save">确 定</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import WellboreSelect from '@/views/drilling/layout/WellboreSelect.vue'
 import { reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'

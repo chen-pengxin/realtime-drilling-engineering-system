@@ -1,5 +1,5 @@
 <template>
-  <el-dialog v-model="open" title="测斜版本对比" width="1060px" append-to-body class="drilling-dialog">
+  <ResizableDialog v-model="open" title="测斜版本对比" width="1060px" append-to-body class="drilling-dialog">
     <el-form inline label-width="70px" @submit.prevent="compare">
       <el-form-item label="原版本"><el-select v-model="from" style="width:240px"><el-option v-for="v in versions" :key="v.survey_version_id" :value="v.survey_version_id" :label="versionLabel(v)" /></el-select></el-form-item>
       <el-form-item label="新版本"><el-select v-model="to" style="width:240px"><el-option v-for="v in versions" :key="v.survey_version_id" :value="v.survey_version_id" :label="versionLabel(v)" /></el-select></el-form-item>
@@ -25,9 +25,10 @@
       <pagination v-show="result.changes.length>0" v-model:page="page" v-model:limit="limit" :total="result.changes.length" />
     </template>
     <template #footer><el-button @click="open=false">关 闭</el-button></template>
-  </el-dialog>
+  </ResizableDialog>
 </template>
 <script setup>
+import ResizableDialog from '@/components/ResizableDialog.vue'
 import {
   computed,
   ref,
