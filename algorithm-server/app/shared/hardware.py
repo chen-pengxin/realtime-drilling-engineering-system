@@ -29,7 +29,8 @@ def _safe_run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess:
     before exec.  Keeping file descriptors open lets Python use macOS
     ``posix_spawn``.  The probes do not receive request data or write files.
     """
-    kwargs.setdefault("close_fds", False)
+    if platform.system() == "Darwin":
+        kwargs.setdefault("close_fds", False)
     return subprocess.run(command, **kwargs)
 
 
