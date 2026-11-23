@@ -1472,6 +1472,14 @@ public class SourceRegistryController {
       var tables=obj(obj(structured.get(0).get("metadata_json")).get("engineering_tables"));
       if(tables.get("design_nodes") instanceof List<?> nodes&&!nodes.isEmpty()){ref.put("design_nodes",nodes);ref.put("design_nodes_are_offsets",true);}
     }
+    // Survey Program is stored as a parsed source section. Keep the original
+    // interval records with the immutable trajectory version so the planner
+    // can display the same program that was confirmed during import.
+    var programSections=db.queryForList("SELECT s.payload_json FROM drilling_document_section s JOIN drilling_document_parse p ON p.parse_id=s.parse_id WHERE p.source_id=? AND s.semantic_type='TOOL_PROGRAM' ORDER BY s.section_order LIMIT 1",entry.get("source_id"));
+    if(!programSections.isEmpty()){
+      var programPayload=obj(programSections.get(0).get("payload_json"));
+      if(programPayload.get("records") instanceof List<?> records&&!records.isEmpty())ref.put("survey_tool_program",records);
+    }
 
     var profile=obj(ref.get("uncertainty"));
     if(Objects.toString(obj(ref.get("survey_tool")).get("name"),"").isBlank())throw new IllegalArgumentException("请填写本版本的测斜工具名称");

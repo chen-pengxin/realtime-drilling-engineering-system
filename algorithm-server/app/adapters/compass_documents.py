@@ -18,6 +18,17 @@ SURVEY_COLUMNS = [
     ('dogleg', '狗腿度 / Dogleg Rate', '°/30m'),
     ('build_rate', '增斜率 / Build Rate', '°/30m'), ('turn_rate', '转向率 / Turn Rate', '°/30m')]
 
+# COMPASS "Survey Report - Geographic" rows carry eight numeric columns
+# followed by latitude/longitude text. Keep this schema separate from the
+# compact numeric survey schema used by other reports so the original table
+# shape is preserved during document review and export.
+GEOGRAPHIC_SURVEY_COLUMNS = [
+    ('md', '测深 / Measured Depth', 'm'), ('inclination', '井斜 / Inclination', '°'),
+    ('azimuth', '方位 / Azimuth', '°'), ('tvd', '垂深 / Vertical Depth', 'm'),
+    ('offset_north', '南北位移 / +N/-S', 'm'), ('offset_east', '东西位移 / +E/-W', 'm'),
+    ('northing', '绝对北坐标 / Northing', 'm'), ('easting', '绝对东坐标 / Easting', 'm'),
+    ('latitude', '纬度 / Latitude', ''), ('longitude', '经度 / Longitude', '')]
+
 DEFINITIONS = {
     'survey': ('实钻测斜数据 / Survey', 'SURVEY_STATIONS', SURVEY_COLUMNS),
     'planned_survey': ('设计轨道数据 / Planned Survey', 'DESIGN_STATIONS', SURVEY_COLUMNS),
@@ -118,10 +129,31 @@ def parse_compass(pages):
             raw_values = []
             if key in ('survey', 'planned_survey', 'vertical_section'):
                 tokens = text.split()
-                count = 10 if key in ('survey', 'planned_survey') else 4
-                if len(tokens) == count and all(re.fullmatch(NUMBER, token) for token in tokens):
-                    record = dict(zip((c['key'] for c in active['columns']), map(number, tokens)))
-                    raw_values = tokens
+                if key in ('survey', 'planned_survey'):
+                    # Geographic reports have eight numeric values followed by
+                    # DMS latitude/longitude strings. Their exact text is kept
+                    # as-is; numeric trajectory calculations use the first eight
+                    # values and the absolute Northing/Easting columns.
+                    geographic = len(tokens) >= 8 and all(re.fullmatch(NUMBER, token) for token in tokens[:8]) and any('°' in token for token in tokens[8:])
+                    if geographic:
+                        active['columns'] = _columns(GEOGRAPHIC_SURVEY_COLUMNS)
+                        latitude = longitude = ''
+                        match = re.search(r'(?P<lat>\d+°\s+\d+\'\s+[\d.]+\s+[NS])\s+(?P<lon>\d+°\s+\d+\'\s+[\d.]+\s+[EW])$', text)
+                        if match:
+                            latitude, longitude = match.group('lat'), match.group('lon')
+                        values = [number(token) for token in tokens[:8]] + [latitude, longitude]
+                        record = dict(zip((c['key'] for c in active['columns']), values))
+                        raw_values = tokens
+                    else:
+                        count = 10
+                        if len(tokens) == count and all(re.fullmatch(NUMBER, token) for token in tokens):
+                            record = dict(zip((c['key'] for c in active['columns']), map(number, tokens)))
+                            raw_values = tokens
+                else:
+                    count = 4
+                    if len(tokens) == count and all(re.fullmatch(NUMBER, token) for token in tokens):
+                        record = dict(zip((c['key'] for c in active['columns']), map(number, tokens)))
+                        raw_values = tokens
             elif key == 'magnetics':
                 match = re.match(r'(.+?)\s+(\d{2}\.\d{2}\.\d{4})\s+(' + NUMBER + r')\s+(' + NUMBER + r')\s+([\d,]+(?:\.\d+)?)$', text)
                 if match:
@@ -213,7 +245,9 @@ def parse_compass(pages):
         rows = []
         for source in item['records']:
             row = dict(source, source_row=source['source_line'])
-            if metadata.get('site_north') is not None and metadata.get('site_east') is not None:
+            if source.get('northing') is not None and source.get('easting') is not None:
+                row.update(north=source['northing'], east=source['easting'])
+            elif metadata.get('site_north') is not None and metadata.get('site_east') is not None:
                 row.update(north=metadata['site_north'] + source['offset_north'],
                            east=metadata['site_east'] + source['offset_east'])
             rows.append(row)
@@ -292,6 +326,8 @@ def _base_tables(pages):
 def _metadata(text):
     out = {}
     patterns = {
+        'company': r'^Company:\s*(.*?)\s+Local Co-ordinate Reference:',
+        'project': r'^Project\s*:\s*(.*?)\s+TVD Reference:',
         'well_name': r'^Well:\s*(.*?)\s+(?:North Reference:|Survey Calculation Method:)',
         'wellbore_name': r'^Wellbore:\s*(.*?)\s+Survey Calculation Method:',
         'design_name': r'^Design:\s*(.*?)\s+Database:',
@@ -302,6 +338,7 @@ def _metadata(text):
         'depth_datum': r'TVD Reference:\s*(.*)',
         'report_version': r'Version:\s*(.*?)\s+Phase:',
         'phase': r'Phase:\s*(\w+)',
+        'survey_program_date': r'Survey Program\s+Date\s+(\d{2}\.\d{2}\.\d{4})',
     }
     for key, pattern in patterns.items():
         match = re.search(pattern, text, re.M)

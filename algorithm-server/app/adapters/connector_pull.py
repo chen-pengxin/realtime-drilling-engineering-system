@@ -10,6 +10,7 @@ import csv
 import io
 import json
 import math
+import re
 import socket
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
@@ -89,13 +90,19 @@ def read_connector(payload: dict) -> dict:
             content = response.read(MAX_BYTES + 1)
         if len(content) > MAX_BYTES or b"<!DOCTYPE" in content.upper() or b"<!ENTITY" in content.upper():
             raise ValueError("unsafe or oversized XML")
-        root = ET.fromstring(content)
-        rows = []
-        for node in root.iter():
-            fields = {child.tag.rsplit("}", 1)[-1].lower(): child for child in node}
-            md = fields.get("md", fields.get("measureddepth"))
-            if md is not None and ("incl" in fields or "inclination" in fields or "inc" in fields):
-                rows.append({"md": _xml_measure(md), "inclination": _xml_measure(fields.get("incl", fields.get("inclination", fields.get("inc"))), True), "azimuth": _xml_measure(fields.get("azi", fields.get("azimuth")), True)})
+        from .witsml_pds import stations_from_witsml, inspect_witsml
+        document = inspect_witsml(content)
+        if kind.endswith("2_0") and document["version"] not in {"2.0", "UNKNOWN"}:
+            raise ValueError("连接器声明为 WITSML 2.0，但原文不是 2.0 文档")
+        rows = stations_from_witsml(content)
+        converted_units = bool(re.search(br"uom\s*=\s*['\"](?:ft|ftus|feet|rad|radian|radians)['\"]", content, re.I))
+        if document["version"] == "UNKNOWN" and not converted_units:
+            # Preserve the legacy connector contract for non-standard wrappers:
+            # untyped XML values remain strings and only canonical fields are
+            # exposed.  Standard WITSML documents use normalized numeric values.
+            rows = [{key: format(row[key], 'g') for key in ("md", "inclination", "azimuth")} for row in rows]
+        else:
+            rows = [{key: row[key] for key in ("md", "inclination", "azimuth")} for row in rows]
         if not rows:
             raise ValueError("XML contains no trajectory stations")
         offset = int((payload.get("cursor") or {}).get("offset", 0))
@@ -109,7 +116,6 @@ def read_connector(payload: dict) -> dict:
             raise ValueError("SQL Server requires a server environment credential reference")
         table = str(config.get("table", ""))
         columns = [str(config.get(key, default)) for key, default in [("mdColumn", "md"), ("incColumn", "inclination"), ("aziColumn", "azimuth")]]
-        import re
         if any(not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", x) for x in [table, *columns]):
             raise ValueError("table and columns must be simple SQL identifiers")
         with pyodbc.connect(credential, timeout=int(timeout), autocommit=True) as connection:

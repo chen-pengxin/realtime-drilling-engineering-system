@@ -280,27 +280,10 @@ def parse_sqlite(path: str | Path, table: str = "survey") -> list[SurveyStation]
 
 
 def parse_witsml(content: str) -> list[SurveyStation]:
-    """解析 WITSML trajectoryStation 的常见字段，兼容命名空间。"""
-    root = ET.fromstring(content)
-    rows = []
-    for node in root.iter():
-        children = {_normalise_header(child.tag.rsplit("}", 1)[-1]): child.text for child in node}
-        def get(*names):
-            for name in names:
-                for key, value in children.items():
-                    if _normalise_header(name) == key and value is not None:
-                        return float(value)
-            return None
-        # WITSML 1.4.1 commonly uses ``incl``/``azi`` while some producers
-        # emit the longer ``inclination``/``azimuth`` names.  Accept both
-        # forms at the parser boundary and keep one canonical internal shape.
-        md, inc, azi = get("md", "measuredDepth"), get("incl", "inclination", "inc"), get("azi", "azimuth")
-        if md is not None and inc is not None and azi is not None:
-            rows.append((md, inc, azi))
-    if not rows:
-        raise ValueError("WITSML XML contains no trajectory stations")
-    rows.sort(key=lambda x: x[0])
-    return compute_minimum_curvature(rows)
+    """解析 WITSML 1.4.1/2.0 trajectoryStation，统一单位和字段。"""
+    from .witsml_pds import stations_from_witsml
+    rows = stations_from_witsml(content)
+    return compute_minimum_curvature([(r["md"], r["inclination"], r["azimuth"]) for r in rows])
 
 
 def _mapped_station(station: SurveyStation, mapping: dict[str, str]) -> dict[str, object]:
